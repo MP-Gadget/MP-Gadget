@@ -11,380 +11,635 @@
 #include "utils.h"
 #include "utils/mpsort.h"
 
+/* New Exchange Algorithm:
+ * We send a buffer of particle and slot data in a single point to point MPI request to from each process to each other process.
+ * Alltoallv is avoided and MPI_requests are done as soon as the buffer is packed. Free slots are explicitly kept track of so
+ * that incoming data can slot directly into a garbage slot.
+ * The main loop is non-blocking: it packs up sends and receives and then busy-loops, checking for either sends or receives to be done.
+ * If one of them is done then it packs up more sends and receives until none are available.
+ *
+ * Algorithm:
+    - Work out desired send-receive number counts and corresponding bytes.
+    - Do alltoall for send-receive counts (this is the only sync point!)
+    - Busy-loop while there is data to send or receive or a pending ISend/IRecv.
+        - Pack up sends in half the exchange space and ISend. This makes extra space in the particle table.
+        - Irecv for receives into the other half.
+        - If there is not enough space for all data to a single task (either packing space or free slots in the particle table),
+          just do part of a single task. This decision is usually collective because packing space is collective. However, it is not
+          important because IRecv will happily accept less data than expected. As long as we are expecting something, it doesn't matter if less is sent.
+        - Check the completion of IRecvs and unpack. The send buffer goes directly into a garbage slot for the right particle type, ensuring
+          that the particles are still ordered by type.
+        - Check the completion of sends.
+    This does not block because the sends cannot block the recvs (and vice versa). Also the sends and recvs are ordered:
+    sends are done 'forwards' to the task 1 in front of the current task and receives are done 'backwards' to the task 1 before the current task.
+    Because each send is paired with a receive no deadlock is possible.
+
+    If we are blocked on a recv, we just do more sends (always allowed as we have separate space allocations).
+    If we are blocked on a send, and we have space in the particle table (should always be the case as we made space for the blocked send), we do a recv.
+ */
+
+
 /*Number of structure types for particles*/
 typedef struct {
+    size_t totalbytes;
     int64_t base;
     int64_t slots[6];
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
-/*Small struct to cache the layout function and particle data*/
-typedef struct {
-    unsigned int ptype;
-    unsigned int target ;
-} ExchangePartCache;
-
 typedef struct {
     ExchangePlanEntry * toGo;
-    ExchangePlanEntry * toGoOffset;
     ExchangePlanEntry * toGet;
-    ExchangePlanEntry * toGetOffset;
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
     int NTask;
-    /*List of particles to exchange*/
-    int * ExchangeList;
-    /*Total number of exchanged particles*/
-    size_t nexchange;
-    /*Number of garbage particles*/
-    int64_t ngarbage;
-    /* last particle in current batch of the exchange.
-     * Exchange stops when last == nexchange.*/
-    size_t last;
-    ExchangePartCache * layouts;
+    int ThisTask;
+    /*Number of garbage particles of each type*/
+    int64_t ngarbage[6];
+    /* List of entries in particle table which are garbage particles of each type*/
+    int * garbage_list[6];
+    /* Per-task list of particles to send.*/
+    int ** target_list;
 } ExchangePlan;
+
+/* Structure to store the tasks that need to be exchanged this iteration*/
+struct ExchangeIter
+{
+    /* Start and end of the tasks for this iteration. Sends start from the current task and move forwards.
+     * Recvs start from before the current task and move backwards.*/
+    int StartTask;
+    /* Note that this task should not be sent so the condition is < for send and > for recv.*/
+    int EndTask;
+    /* If we only have one task this iteration, which particles do we send/recv?*/
+    int64_t StartPart;
+    int64_t EndPart;
+    /* Total transfer this time*/
+    size_t transferbytes;
+};
+
 /*
  *
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-static void domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm);
-static size_t domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman);
-static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
-
-/* This function builds the count/displ arrays from
- * the rows stored in the entry struct of the plan.
- * MPI expects these numbers to be tightly packed in memory,
- * but our struct stores them as different columns.
- *
- * Technically speaking, the operation is therefore a transpose.
- * */
-static void
-_transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype, int NTask)
-{
-    int i;
-    for(i = 0; i < NTask; i ++) {
-        if(ptype == -1) {
-            count[i] = entries[i].base;
-        } else {
-            count[i] = entries[i].slots[ptype];
-        }
-    }
-}
+static int domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm);
+static int domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
+static void domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm);
 
 static ExchangePlan
 domain_init_exchangeplan(MPI_Comm Comm)
 {
-    ExchangePlan plan;
+    ExchangePlan plan = {0};
     MPI_Comm_size(Comm, &plan.NTask);
+    MPI_Comm_rank(Comm, &plan.ThisTask);
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
      *  that have to go to task 'partner'
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
     plan.toGo = ta_malloc("toGo", ExchangePlanEntry, plan.NTask);
-    plan.toGoOffset = ta_malloc("toGoOffSet", ExchangePlanEntry, plan.NTask);
     plan.toGet = ta_malloc("toGet", ExchangePlanEntry, plan.NTask);
-    plan.toGetOffset = ta_malloc("toGetOffset", ExchangePlanEntry, plan.NTask);
     return plan;
 }
 
 static void
 domain_free_exchangeplan(ExchangePlan * plan)
 {
-    myfree(plan->toGetOffset);
+    /* Free the lists.*/
+    int n;
+    if(plan->target_list) {
+        for(n = plan->NTask -1; n >=0; n--) {
+            if(plan->target_list[n])
+                myfree(plan->target_list[n]);
+        }
+        myfree(plan->target_list);
+        for(n = 5; n >=0; n--) {
+            if(plan->garbage_list[n])
+                myfree(plan->garbage_list[n]);
+        }
+    }
     myfree(plan->toGet);
-    myfree(plan->toGoOffset);
     myfree(plan->toGo);
 }
 
-/*Plan and execute a domain exchange, also performing a garbage collection if requested*/
-int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, int maxiter, MPI_Comm Comm) {
-    int failure = 0;
+/* We want to avoid doing an alltoall with
+    * more than 2GB of material as this hangs.*/
+static size_t MaxExch = 2040L*1024L*1024L;
+/* For tests*/
+void
+domain_set_max_exchange(const size_t maxexch)
+{
+    MaxExch = maxexch;
+}
 
+/* Init the exchange iteration. Note that for sends offset is +1 for recvs it is -1*/
+void
+domain_init_exchange_iter(struct ExchangeIter * iter, const int offset, const ExchangePlan * const plan)
+{
+    /* + plan->NTask ensures we get a positive number for offset = -1*/
+    iter->StartTask = (plan->ThisTask + offset + plan->NTask) % plan->NTask;
+    iter->EndTask = (plan->ThisTask + offset + plan->NTask) % plan->NTask;
+    iter->StartPart = 0;
+    iter->EndPart = 0;
+}
+
+/* Find the amount of space available for the domain exchange.
+ * Collective so we can make the same decisions on all ranks.*/
+size_t
+domain_get_exchange_space(const int NTask, MPI_Comm Comm)
+{
+    size_t nlimit = mymalloc_freebytes();
+    /* Save some memory for memory headers and wasted space at the end of each allocation.
+     * Need max. 2*4096 for each heap-allocated array, max 1 send, 1 recv.*/
+    nlimit -= 4096 * 4L * NTask;
+    if(nlimit <= 0)
+        endrun(1, "Not enough memory free to store requests!\n");
+
+    if(nlimit > MaxExch)
+        nlimit = MaxExch;
+    MPI_Allreduce(MPI_IN_PLACE, &nlimit, 1, MPI_UINT64, MPI_MIN, Comm);
+    return nlimit;
+}
+
+/*Plan and execute a domain exchange, also performing a garbage collection if requested*/
+int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preexch, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm) {
     /* register the MPI types used in communication if not yet. */
     if (MPI_TYPE_PLAN_ENTRY == 0) {
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
+    PreExchangeList preplan = {0};
+    /* Use the pre-exchange list if we can*/
+    if(!preexch || !preexch->ExchangeList) {
+        preexch = &preplan;
+        domain_build_exchange_list(layoutfunc, layout_userdata, preexch, pman, sman, Comm);
+        walltime_measure("/Domain/exchange/exchangelist");
+    }
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
-
-    int iter = 0;
-
-    do {
-        if(iter >= maxiter) {
-            failure = 1;
-            break;
-        }
-        /* Use the pre-exchange list if we can*/
-        if(preexch && preexch->ExchangeList) {
-            plan.ngarbage= preexch->ngarbage;
-            plan.nexchange = preexch->nexchange;
-            plan.ExchangeList = preexch->ExchangeList;
-            /* We only use this once.*/
-            preexch->ExchangeList = NULL;
-        }
-        else {
-            domain_build_exchange_list(layoutfunc, layout_userdata, &plan, pman, sman, Comm);
-        }
-        walltime_measure("/Domain/exchange/togo");
-
-        /*Exit early if nothing to do*/
-        if(!MPIU_Any(plan.nexchange > 0, Comm))
-        {
-            myfree(plan.ExchangeList);
-            break;
-        }
-
-        /* determine for each rank how many particles have to be shifted to other ranks */
-        plan.last = domain_find_iter_space(&plan, pman, sman);
-        domain_build_plan(iter, layoutfunc, layout_userdata, &plan, pman, Comm);
-
-        /* Do a GC if this isn't the last iteration.
-         * The gc decision is made collective in domain_exchange_once,
-         * and a gc will also be done if we have no space for particles.*/
-        int do_gc = (plan.last < plan.nexchange);
-        failure = domain_exchange_once(&plan, do_gc, pman, sman, Comm);
-
-        myfree(plan.ExchangeList);
-
-        if(failure)
-            break;
-        iter++;
-    }
-    while(MPIU_Any(plan.last < plan.nexchange, Comm));
-#ifdef DEBUG
-    /* This does not apply for the FOF code, where the exchange list is pre-assigned
-     * and we only get one iteration. */
-    if(!failure && maxiter > 1) {
-        ExchangePlan plan9 = domain_init_exchangeplan(Comm);
-        /* Do not drift again*/
-        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
-        if(plan9.nexchange > 0)
-            endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange);
-        myfree(plan9.ExchangeList);
-        domain_free_exchangeplan(&plan9);
-    }
-#endif
+    int failure = domain_build_plan(layoutfunc, layout_userdata, &plan, preexch, pman, sman, Comm);
+    /* Done with the pre-exchange list*/
+    myfree(preexch->ExchangeList);
+    walltime_measure("/Domain/exchange/plan");
+    /* Do this after domain_build_plan so the target lists are already allocated*/
+    size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
+    /* Now to do an exchange if it will succeed*/
+    if(!failure)
+        failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
     domain_free_exchangeplan(&plan);
 
+#ifdef DEBUG
+    domain_test_id_uniqueness(pman, Comm);
+    slots_check_id_consistency(pman, sman);
+
+    if(!failure) {
+        PreExchangeList plan9 = {0};
+        domain_build_exchange_list(layoutfunc, layout_userdata, &plan9, pman, sman, Comm);
+        if(plan9.nexchange - plan9.ngarbage > 0)
+            endrun(5, "Still have %ld particles in exchange list\n", plan9.nexchange - plan9.ngarbage);
+        myfree(plan9.ExchangeList);
+    }
+    walltime_measure("/Domain/exchange/finalize");
+#endif
     return failure;
 }
 
-/*Function decides whether the GC will compact slots.
- * Sets compact[6]. Is collective.*/
-static void
-shall_we_compact_slots(int * compact, ExchangePlan * plan, const struct slots_manager_type * sman, MPI_Comm Comm)
+/* Move some particle and slot data into an exchange buffer for sending.
+   The format is:
+   (base particle data 1 - n)
+   (slot data for particle i: may be variable size as not necessarily ordered by type)
+    Returns: size of buffer packed. Writes first not-packed particle to endpart
+   */
+static size_t
+exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, int64_t * endpart)
 {
-    int ptype;
-    int lcompact[6] = {0};
-    for(ptype = 0; ptype < 6; ptype++) {
-        /* gc if we are low on slot memory. */
-        if (sman->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * sman->info[ptype].maxsize)
-            lcompact[ptype] = 1;
-        /* gc if we had a very large exchange. */
-        if(plan->toGoSum.slots[ptype] > 0.1 * sman->info[ptype].size)
-            lcompact[ptype] = 1;
-    }
-    /*Make the slot compaction collective*/
-    MPI_Allreduce(lcompact, compact, 6, MPI_INT, MPI_LOR, Comm);
-}
-
-static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
-{
-    size_t n;
-    int ptype;
-    struct particle_data *partBuf;
-    char * slotBuf[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
-
-    /* Check whether the domain exchange will succeed.
-     * Garbage particles will be collected after the particles are exported, so do not need to count.*/
-    int64_t needed = pman->NumPart + plan->toGetSum.base - plan->toGoSum.base  - plan->ngarbage;
-    if(needed > pman->MaxPart)
-        message(1,"Too many particles for exchange: NumPart=%ld count_get = %ld count_togo=%ld garbage = %ld MaxPart=%ld\n",
-                pman->NumPart, plan->toGetSum.base, plan->toGoSum.base, plan->ngarbage, pman->MaxPart);
-    if(MPIU_Any(needed > pman->MaxPart, Comm)) {
-        myfree(plan->layouts);
-        return 1;
-    }
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!sman->info[ptype].enabled) continue;
-        slotBuf[ptype] = (char *) mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * sman->info[ptype].elsize);
-    }
-
-    partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
-
-    ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, plan->NTask);
-    memset(toGoPtr, 0, sizeof(toGoPtr[0]) * plan->NTask);
-
-    for(n = 0; n < plan->last; n++)
+    char * exchptr = exch;
+    int64_t n;
+    for(n = StartPart; n < plan->toGo[task].base; n++)
     {
-        const int i = plan->ExchangeList[n];
+        if(!plan->target_list[task])
+            endrun(4, "target list not allocated for task %d with %ld togo", task, plan->toGo[task].base);
+        const int i = plan->target_list[task][n];
         /* preparing for export */
-        const int target = plan->layouts[n].target;
-
-        int type = plan->layouts[n].ptype;
-
-        /* watch out thread unsafe */
-        int bufPI = toGoPtr[target].slots[type];
-        toGoPtr[target].slots[type] ++;
-        size_t elsize = sman->info[type].elsize;
+        const int type = pman->Base[i].Type;
+        size_t elsize = 0;
         if(sman->info[type].enabled)
-            memcpy(slotBuf[type] + (bufPI + plan->toGoOffset[target].slots[type]) * elsize,
-                (char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
-        /* now copy the base P; after PI has been updated */
-        memcpy(&(partBuf[plan->toGoOffset[target].base + toGoPtr[target].base]), pman->Base+i, sizeof(struct particle_data));
-        toGoPtr[target].base ++;
+             elsize = sman->info[type].elsize;
+        if(exchptr - exch + sizeof(struct particle_data) + elsize > maxsendexch) {
+            break;
+        }
+        memcpy(exchptr, pman->Base+i, sizeof(struct particle_data));
+        exchptr += sizeof(struct particle_data);
+        if(sman->info[type].enabled) {
+            memcpy(exchptr,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
+        }
+        exchptr += elsize;
+        /* Add this particle to the garbage list so we can unpack something else into it.*/
+        int64_t gslot = plan->ngarbage[type];
+        plan->garbage_list[type][gslot] = i;
+        plan->ngarbage[type]++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
+    // message(4, "after pack for task %d ngarbage %ld %ld %ld\n", task, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+    *endpart = n;
+    return exchptr - exch;
+}
 
-    myfree(plan->layouts);
-    ta_free(toGoPtr);
-    walltime_measure("/Domain/exchange/makebuf");
-
-    /* Do a gc if we were asked to, or if we need one
-     * to have enough space for the incoming material*/
-    int shall_we_gc = do_gc || (pman->NumPart + plan->toGetSum.base > pman->MaxPart);
-    if(MPIU_Any(shall_we_gc, Comm)) {
-        /*Find which slots to gc*/
-        int compact[6] = {0};
-        shall_we_compact_slots(compact, plan, sman, Comm);
-        slots_gc(compact, pman, sman);
-
-        walltime_measure("/Domain/exchange/garbage");
-    }
-
-    int64_t newNumPart;
-    int64_t newSlots[6] = {0};
-    newNumPart = pman->NumPart + plan->toGetSum.base;
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        if(!sman->info[ptype].enabled) continue;
-        newSlots[ptype] = sman->info[ptype].size + plan->toGetSum.slots[ptype];
-    }
-
-    if(newNumPart > pman->MaxPart) {
-        endrun(787878, "NumPart=%ld MaxPart=%ld\n", newNumPart, pman->MaxPart);
-    }
-
-    int * sendcounts = (int*) ta_malloc("sendcounts", int, plan->NTask);
-    int * senddispls = (int*) ta_malloc("senddispls", int, plan->NTask);
-    int * recvcounts = (int*) ta_malloc("recvcounts", int, plan->NTask);
-    int * recvdispls = (int*) ta_malloc("recvdispls", int, plan->NTask);
-
-    _transpose_plan_entries(plan->toGo, sendcounts, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGoOffset, senddispls, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGet, recvcounts, -1, plan->NTask);
-    _transpose_plan_entries(plan->toGetOffset, recvdispls, -1, plan->NTask);
-
-#ifdef DEBUG
-    message(0, "Starting particle data exchange\n");
-#endif
-    /* recv at the end */
-    MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
-                 pman->Base + pman->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
-                 Comm);
-
-    /* Do not need Particle buffer any more, make space for more slots*/
-    myfree(partBuf);
-
-    slots_reserve(1, newSlots, sman);
-    /* Ensure the reservations are finished on all tasks before we start sending the data*/
-    MPI_Barrier(Comm);
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        /* skip unused slot types */
-        if(!sman->info[ptype].enabled) continue;
-
-        size_t elsize = sman->info[ptype].elsize;
-        int N_slots = sman->info[ptype].size;
-        char * ptr = sman->info[ptype].ptr;
-        _transpose_plan_entries(plan->toGo, sendcounts, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGoOffset, senddispls, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGet, recvcounts, ptype, plan->NTask);
-        _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype, plan->NTask);
-
-#ifdef DEBUG
-        message(0, "Starting exchange for slot %d\n", ptype);
-#endif
-
-        /* recv at the end */
-        MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
-                     ptr + N_slots * elsize,
-                     recvcounts, recvdispls, MPI_TYPE_SLOT[ptype],
-                     Comm);
-    }
-
-#ifdef DEBUG
-        message(0, "Done with AlltoAllv\n");
-#endif
-    int src;
-    for(src = 0; src < plan->NTask; src++) {
-        /* unpack each source rank */
-        int64_t newPI[6];
-        int64_t i;
-        for(ptype = 0; ptype < 6; ptype ++) {
-            newPI[ptype] = sman->info[ptype].size + plan->toGetOffset[src].slots[ptype];
+/* Take a received buffer and move the particle data back into the particle table.
+ * If possible a garbage particle of the same type will be used for the new memory,
+ * This routine is not parallel.
+*/
+static size_t
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
+{
+    char * exchptr = exch;
+    int64_t copybase = 0;
+    int64_t i;
+    for(i = 0; i < plan->toGet[task].base; i++)
+    {
+        /* Extract type*/
+        const unsigned int type = ((struct particle_data *) exchptr)->Type;
+        int PI = sman->info[type].size;
+        int64_t elsize = 0;
+        if(sman->info[type].enabled)
+            elsize = sman->info[type].elsize;
+        /* Stop if we have processed all incoming bytes*/
+        if(exchptr + sizeof(struct particle_data) + elsize - exch > recvd_bytes)
+            break;
+        /* Find a garbage place in the particle table*/
+        int64_t dest;
+        if(plan->ngarbage[type] >= 1) {
+            dest = plan->garbage_list[type][plan->ngarbage[type]-1];
+            /* Copy PI so it is not over-written*/
+            PI = pman->Base[dest].PI;
+            /* No longer garbage!*/
+            plan->ngarbage[type]--;
         }
+        /* If we are copying to the end of the table, increment the counter*/
+        else{
+            dest = pman->NumPart;
+            pman->NumPart++;
+            if(pman->NumPart > pman->MaxPart)
+                endrun(6, "Not enough room for particles after exchange\n");
+        }
+        memcpy(pman->Base+dest, exchptr, sizeof(struct particle_data));
 
-        for(i = pman->NumPart + plan->toGetOffset[src].base;
-            i < pman->NumPart + plan->toGetOffset[src].base + plan->toGet[src].base;
-            i++) {
-
-            int ptype = pman->Base[i].Type;
-
-
-            pman->Base[i].PI = newPI[ptype];
-
-            newPI[ptype]++;
-
-            if(!sman->info[ptype].enabled) continue;
-
+        exchptr += sizeof(struct particle_data);
+        copybase++;
+        /* Copy the slot if needed*/
+        if(sman->info[type].enabled) {
+            /* Enforce that we have enough slots*/
+            if(PI == sman->info[type].size) {
+                sman->info[type].size++;
+                if(sman->info[type].size >= sman->info[type].maxsize)
+                    endrun(6, "Not enough room for slot %d after exchange\n",type);
+            }
+            memcpy((char*) sman->info[type].ptr + PI * elsize, exchptr, elsize);
+            exchptr += elsize;
+            /* Update the PI to be correct*/
+            pman->Base[dest].PI = PI;
 #ifdef DEBUG
-            int PI = pman->Base[i].PI;
-            if(BASESLOT_PI(PI, ptype, sman)->ID != pman->Base[i].ID) {
-                endrun(1, "Exchange: P[%ld].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",i,pman->Base[i].ID, pman->Base[i].Type, BASESLOT_PI(PI, ptype, sman)->ID, pman->Base[i].IsGarbage, BASESLOT_PI(PI, ptype, sman)->ReverseLink);
+            if(BASESLOT_PI(PI, type, sman)->ID != pman->Base[dest].ID) {
+                endrun(1, "Exchange: P[%ld].ID = %ld (type %d) != SLOT ID = %ld. garbage: %d ReverseLink: %d\n",dest,pman->Base[dest].ID, pman->Base[dest].Type, BASESLOT_PI(PI, type, sman)->ID, pman->Base[dest].IsGarbage, BASESLOT_PI(PI, type, sman)->ReverseLink);
             }
 #endif
         }
-        for(ptype = 0; ptype < 6; ptype ++) {
-            if(newPI[ptype] !=
-                sman->info[ptype].size + plan->toGetOffset[src].slots[ptype]
-              + plan->toGet[src].slots[ptype]) {
-                endrun(1, "N_slots mismatched\n");
+    }
+    // message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+    return copybase;
+}
+
+
+/*Find how many tasks we can send in current exchange iteration.
+ If the current task does not fit in the buffer, work out how many particles can be sent. */
+static void
+domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
+{
+    /* Last loop was a subtask*/
+    if(senditer->StartTask == senditer->EndTask && senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
+        senditer->StartPart = senditer->EndPart;
+        // message(5, "SendIter fastreturn: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+        return;
+    }
+    senditer->StartTask = senditer->EndTask;
+    if(senditer->StartTask == plan->ThisTask)
+        return;
+    /* Total bytes needed to send*/
+    senditer->transferbytes = 0;
+    int n;
+    for(n = 0 ; n < 6; n++)
+        expected_freeslots[n] = plan->ngarbage[n];
+    /* First find some data to send. This gives us space in the particle table.*/
+    int task;
+    for(task = 0; task < plan->NTask; task++) {
+        const int sendtask = (senditer->StartTask + task) % plan->NTask;
+        senditer->EndTask = sendtask;
+        if(senditer->transferbytes + plan->toGo[sendtask].totalbytes > maxsendexch || sendtask == plan->ThisTask)
+            break;
+        senditer->transferbytes += plan->toGo[sendtask].totalbytes;
+        // message(1, "togo %ld tot %ld send %d\n", plan->toGo[sendtask].totalbytes, senditer->transferbytes, sendtask);
+        for(n = 0; n < 6; n++)
+            expected_freeslots[n] += plan->toGo[sendtask].slots[n];
+    }
+    // message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
+    if(senditer->StartTask == senditer->EndTask) {
+        senditer->transferbytes = maxsendexch;
+    }
+    return;
+}
+
+/*Find how many tasks we can transfer in current exchange iteration.
+ If the current task does not fit in the buffer, work out how many */
+static void
+domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
+{
+    /* Last loop was a subtask*/
+    if(recviter->StartTask == recviter->EndTask && recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
+        recviter->StartPart = recviter->EndPart;
+        return;
+    }
+    recviter->StartTask = recviter->EndTask;
+    if(recviter->StartTask == plan->ThisTask)
+        return;
+
+    recviter->transferbytes = 0;
+    int task;
+    for(task = 0; task < plan->NTask; task++) {
+        const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
+        recviter->EndTask = recvtask;
+        /*This checks we have enough space in the particle table for each slot*/
+        int n;
+        for(n = 0; n < 6; n++) {
+            expected_freeslots[n] -= plan->toGet[recvtask].slots[n];
+            /* If we overflow the slots available in garbage, we use the global particle table.*/
+            if(expected_freeslots[n] < 0) {
+                freepart += expected_freeslots[n];
+                expected_freeslots[n] = 0;
             }
         }
+        /* We do not have enough slots here to continue!
+         * This logic means that we may not receive all the things sent to us this iteration,
+         * as different ranks may have different particle loads.*/
+        if(freepart < 0)
+            break;
+        if(recviter->transferbytes + plan->toGet[recvtask].totalbytes > maxrecvexch || recvtask == plan->ThisTask)
+            break;
+        recviter->transferbytes += plan->toGet[recvtask].totalbytes;
+        // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
+    }
+    // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
+    if(recviter->StartTask == recviter->EndTask) {
+        recviter->transferbytes = maxrecvexch;
     }
 
-    walltime_measure("/Domain/exchange/alltoall");
+    return;
+}
 
-    myfree(recvdispls);
-    myfree(recvcounts);
-    myfree(senddispls);
-    myfree(sendcounts);
-    for(ptype = 5; ptype >=0; ptype --) {
-        if(!sman->info[ptype].enabled) continue;
-        myfree(slotBuf[ptype]);
+/* Post a single receive for the current iteration task when there is not enough buffer space for one task. */
+static void
+domain_post_single_recv(struct CommBuffer * recvs, struct ExchangeIter *thisiter, int tag, MPI_Comm Comm)
+{
+    /* Note that IRecv will happily accept less bytes than are requested.*/
+    MPI_Irecv(recvs->databuf, thisiter->transferbytes, MPI_BYTE, thisiter->StartTask, tag, Comm, recvs->rdata_all);
+    // message(1, "Partial recv task %d bytes %ld, startpart %lu\n", thisiter->StartTask, thisiter->transferbytes, thisiter->StartPart);
+
+    recvs->rqst_task[0] = thisiter->StartTask;
+    recvs->displs[0] = 0;
+    recvs->nrequest_all=1;
+    recvs->totcomplete = 0;
+    return;
+}
+
+/* Post the receives for the current iteration, and fill up a CommBuffer with Irecvs.
+ * Note that receives are posted in reverse order! First the task before this one, then all tasks before that, backwards.
+ * The sends are posted forwards, so that all send/recv pairs are ordered.*/
+static void
+domain_post_recvs(ExchangePlan * plan, struct CommBuffer * recvs, struct ExchangeIter *recviter, int tag, MPI_Comm Comm)
+{
+    /* First post receives*/
+    size_t displs = 0;
+    recvs->nrequest_all = 0;
+    recvs->totcomplete = 0;
+    int task;
+    for(task=0; task < plan->NTask; task++) {
+        const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
+        if(recvtask == recviter->EndTask)
+            break;
+        /* Skip zero-size receives*/
+        if(plan->toGet[recvtask].totalbytes == 0)
+            continue;
+        MPI_Irecv(recvs->databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs->rdata_all[recvs->nrequest_all]);
+        recvs->rqst_task[recvs->nrequest_all] = recvtask;
+        recvs->displs[recvs->nrequest_all] = displs;
+        displs += plan->toGet[recvtask].totalbytes;
+        // message(1, "Receive task %d toget %ld tot %ld\n", recvtask, plan->toGet[recvtask].totalbytes, recviter->transferbytes);
+        recvs->nrequest_all ++;
     }
+    if(displs != recviter->transferbytes)
+        endrun(3, "Posted receives for %lu bytes expected %lu bytes.\n", displs, recviter->transferbytes);
+    return;
+}
 
-    pman->NumPart = newNumPart;
+/* Pack a single send buffer when we don't have space for all the particles on one task.*/
+static void
+domain_pack_single_send(ExchangePlan * plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+{
+    /* Move the data into the buffer*/
+    size_t packed_bytes = exchange_pack_buffer(sends->databuf, senditer->StartTask, senditer->StartPart, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+    MPI_Isend(sends->databuf, packed_bytes, MPI_BYTE, senditer->StartTask, tag, Comm, sends->rdata_all);
+    // message(1, "Partial send task %d bytes %ld, startpart %lu endpart %lu total %ld\n", senditer->StartTask, senditer->transferbytes, senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+    sends->rqst_task[0] = senditer->StartTask;
+    sends->displs[0] = 0;
+    sends->nrequest_all = 1;
+    sends->totcomplete = 0;
+    return;
+}
 
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!sman->info[ptype].enabled) continue;
-        sman->info[ptype].size = newSlots[ptype];
+/* Pack the send buffers for each task and issue ISend requests for them*/
+static void
+domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+{
+    size_t displs = 0;
+    sends->nrequest_all = 0;
+    sends->totcomplete = 0;
+    int task;
+    for(task=0; task < plan->NTask; task++) {
+        /* Move the data into the buffer*/
+        const int sendtask = (senditer->StartTask + task) % plan->NTask;
+        if(sendtask == senditer->EndTask)
+            break;
+        /* Skip zero-size sends*/
+        if(plan->toGo[sendtask].totalbytes == 0)
+            continue;
+        /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
+        exchange_pack_buffer(sends->databuf + displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+        if(senditer->EndPart < plan->toGo[sendtask].base)
+            endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
+        MPI_Isend(sends->databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends->rdata_all[sends->nrequest_all]);
+        sends->rqst_task[sends->nrequest_all] = sendtask;
+        sends->displs[sends->nrequest_all] = displs;
+        displs += plan->toGo[sendtask].totalbytes;
+        sends->nrequest_all ++;
     }
+    // message(3, "Packed sends for task %d to %d nrequest %d\n", senditer->StartTask, senditer->EndTask, sends->nrequest_all);
+    if(displs != senditer->transferbytes)
+        endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, senditer->transferbytes);
+    return;
+}
 
-#ifdef DEBUG
-    domain_test_id_uniqueness(pman);
-    slots_check_id_consistency(pman, sman);
-    walltime_measure("/Domain/exchange/finalize");
-#endif
+/* Check whether all sends completed and clean up if so.*/
+static int
+domain_check_sends(struct CommBuffer * sends)
+{
+    int flag = 0;
+    /* Check whether send requests completed: note that cleanup is performed only if all requests are complete.*/
+    MPI_Testall(sends->nrequest_all, sends->rdata_all, &flag, MPI_STATUSES_IGNORE);
+    return flag;
+}
 
+/* Wait for and unpack the received data into a buffer. We busy-loop until they are done.*/
+static size_t
+domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs)
+{
+    /* Now wait for and unpack the receives as they arrive.*/
+    int flag = 0;
+    size_t recvd = 0;
+    // message(3, "reqs: %d\n", recvs->nrequest_all);
+    /* Check for a completed request: note that cleanup is performed if the request is complete
+     * and the handle is set to MPI_REQUEST_NULL.
+     * If multiple requests are done, a random request is returned. Loop until no more are complete.*/
+    while (recvs->totcomplete < recvs->nrequest_all) {
+        int task, recvd_bytes;
+        MPI_Status stat;
+        // message(3, "reqs: %d rdata_all %p\n", recvs->nrequest_all, recvs->rdata_all);
+        MPI_Testany(recvs->nrequest_all, recvs->rdata_all, &task, &flag, &stat);
+        if(!flag)
+            break;
+        recvs->totcomplete++;
+        MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
+        if(task >= recvs->nrequest_all)
+            endrun(5, "Bad task %d nreq %d rdata_all %p\n", task, recvs->nrequest_all, recvs->rdata_all);
+        if(recvd_bytes == 0)
+            endrun(4, "Testany received zero bytes, should not happen! flag %d task %d complete %d nrequest %d\n", flag, task, recvs->totcomplete, recvs->nrequest_all);
+        // message(1, "Testany flag %d task %d bytes %d\n", flag, task, recvd_bytes);
+        recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
+    };
+    return recvd;
+}
+
+static int
+domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, const size_t maxexch, MPI_Comm Comm)
+{
+    double tpack = 0, tunpack = 0;
+    /* Flags when any pending sends or recvs are finished, so we can do more*/
+    int no_sends_pending = 1, no_recvs_pending = 1;
+    /* How many slots will we have available for new particles due to sends?*/
+    int64_t expected_freeslots[6];
+    memcpy(expected_freeslots, plan->ngarbage, 6 * sizeof(plan->ngarbage[0]));
+    /* determine for each rank how many particles have to be shifted to other ranks */
+    struct ExchangeIter senditer = {0}, recviter = {0};
+    /* CommBuffers. init zero ensures no requests stored*/
+    struct CommBuffer recvs = {0}, sends = {0};
+    alloc_commbuffer(&recvs, plan->NTask, 0);
+    alloc_commbuffer(&sends, plan->NTask, 0);
+
+    domain_init_exchange_iter(&senditer, 1, plan);
+    domain_init_exchange_iter(&recviter, -1, plan);
+
+    walltime_measure("/Domain/exchange/misc");
+    /* This is after the walltime because that may allocate memory*/
+    recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
+    sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
+
+    double tstartloop = second();
+    int debugprint = 0;
+    /* Loop. There is no blocking inside this loop. We keep track of the completion status
+     * of the send and receives so we can do more the moment a buffer is free*/
+    do {
+        if(no_sends_pending)
+            domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
+        if(no_recvs_pending)
+            domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
+        /* Need check in case receives finished but still sends to do*/
+        if(no_recvs_pending && recviter.StartTask != plan->ThisTask) {
+            /* Receiving less than one task!*/
+            if(recviter.StartTask == recviter.EndTask) {
+                domain_post_single_recv(&recvs, &recviter, tag, Comm);
+            } else
+                domain_post_recvs(plan, &recvs, &recviter, tag, Comm);
+            if(recvs.nrequest_all > 0)
+                no_recvs_pending = 0;
+        }
+        /* Now post sends: note that the sends are done in reverse order to the receives.
+         * This ensures that partial sends and receives can complete early.*/
+        if(no_sends_pending && senditer.StartTask != plan->ThisTask) {
+            double tstart = second();
+            if(senditer.StartTask == senditer.EndTask)
+                domain_pack_single_send(plan, &sends, &senditer, pman, sman, tag, Comm);
+            else
+                domain_pack_sends(plan, &sends, &senditer, pman, sman, tag, Comm);
+            if(sends.nrequest_all > 0)
+                no_sends_pending = 0;
+            double tend = second();
+            tpack += timediff(tstart, tend);
+        }
+        /* Now wait for and unpack the receives as they arrive.*/
+        if(!no_recvs_pending) {
+            double tstart = second();
+            size_t recvd = domain_check_unpack_recv(plan, pman, sman, &recvs);
+            if(recvs.totcomplete == recvs.nrequest_all) {
+                no_recvs_pending = 1;
+                if(recviter.StartTask == recviter.EndTask) {
+                    recviter.EndPart = recviter.StartPart + recvd;
+                    // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
+                    /* Check whether this was the final part of a task, in which case move to next task.*/
+                    if(recviter.EndPart == plan->toGet[recviter.StartTask].base) {
+                        recviter.EndPart = 0;
+                        recviter.StartPart = 0;
+                        recviter.EndTask = (recviter.EndTask - 1 + plan->NTask) % plan->NTask;
+                        // message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
+                    }
+                    if(recviter.EndPart > plan->toGet[recviter.StartTask].base)
+                        endrun(5, "Received %ld particles from task %d more than %ld expected\n", recviter.EndPart, recviter.StartTask, plan->toGet[recviter.StartTask].base);
+                }
+            }
+            double tend = second();
+            tunpack += timediff(tstart, tend);
+        }
+        /* Now wait for the sends before we free the buffers*/
+        if(!no_sends_pending) {
+            no_sends_pending = domain_check_sends(&sends);
+            /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
+            if(no_sends_pending && senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
+                senditer.EndPart = 0;
+                senditer.StartPart = 0;
+                senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
+            }
+            // if(no_sends_pending)
+                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
+        }
+        double tendloop = second();
+        /* This checks for a deadlock so the loop does not run forever!
+         * We let it run for a while because the big simulations can take a while to exchange.
+         * ASTRID is 82 seconds for the initial balance.*/
+        if(tendloop - tstartloop - tpack - tunpack > 160 && debugprint == 0) {
+            message(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
+                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
+            debugprint = 1;
+        }
+        if(tendloop - tstartloop - tpack - tunpack > 500)
+            endrun(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
+                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
+    } while(!no_sends_pending || !no_recvs_pending || recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
+
+    free_commbuffer(&sends);
+    free_commbuffer(&recvs);
+    double timeall = walltime_measure(WALLTIME_IGNORE);
+    walltime_add("/Domain/exchange/pack", tpack);
+    walltime_add("/Domain/exchange/unpack", tunpack);
+    walltime_add("/Domain/exchange/wait", timeall - tpack - tunpack);
     return 0;
 }
 
@@ -392,7 +647,7 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
  * All particles are processed every time, space is not considered.
  * The exchange list needs to be rebuilt every time gc is run. */
 static void
-domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
+domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     /*Garbage particles are counted so we have an accurate memory estimate*/
     int ngarbage = 0;
@@ -411,6 +666,8 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         {
             if(pman->Base[i].IsGarbage) {
                 ngarbage++;
+                threx_local[nexthr_local] = i;
+                nexthr_local++;
                 continue;
             }
             int target = layoutfunc(i, layout_userdata);
@@ -421,133 +678,176 @@ domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_us
         }
         gthread.sizes[tid] = nexthr_local;
     }
-    plan->ngarbage = ngarbage;
+    preplan->ngarbage = ngarbage;
     /*Merge step for the queue.*/
-    plan->nexchange = gadget_compact_thread_arrays(&plan->ExchangeList, &gthread);
+    preplan->nexchange = gadget_compact_thread_arrays(&preplan->ExchangeList, &gthread);
     /*Shrink memory*/
-    plan->ExchangeList = (int *) myrealloc(plan->ExchangeList, sizeof(int) * plan->nexchange);
+    preplan->ExchangeList = (int *) myrealloc(preplan->ExchangeList, sizeof(int) * preplan->nexchange);
 }
 
-/*Find how many particles we can transfer in current exchange iteration*/
-static size_t
-domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pman, const struct slots_manager_type * sman)
-{
-    int ptype;
-    size_t n, nlimit = mymalloc_freebytes();
-
-    if (nlimit <  4096L * 6 + plan->NTask * 2 * sizeof(MPI_Request))
-        endrun(1, "Not enough memory free to store requests!\n");
-
-    nlimit -= 4096 * 2L + plan->NTask * 2 * sizeof(MPI_Request);
-
-    /* Save some memory for memory headers and wasted space at the end of each allocation.
-     * Need max. 2*4096 for each heap-allocated array.*/
-    nlimit -= 4096 * 4L;
-
-    message(0, "Using %td bytes for exchange.\n", nlimit);
-
-    size_t maxsize = 0;
-    for(ptype = 0; ptype < 6; ptype ++ ) {
-        if(!sman->info[ptype].enabled) continue;
-        if (maxsize < sman->info[ptype].elsize)
-            maxsize = sman->info[ptype].elsize;
-        /*Reserve space for slotBuf header*/
-        nlimit -= 4096 * 2L;
-    }
-    size_t package = sizeof(pman->Base[0]) + maxsize;
-    if(package >= nlimit || nlimit > mymalloc_freebytes())
-        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
-
-    /* We want to avoid doing an alltoall with
-     * more than 2GB of material as this hangs.*/
-    const size_t maxexch = 2040L*1024L*1024L;
-
-    /* Fast path: if we have enough space no matter what type the particles
-     * are we don't need to check them.*/
-    if((plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) &&
-        (plan->nexchange * sizeof(pman->Base[0]) < maxexch) && (plan->nexchange * maxsize < maxexch)) {
-        return plan->nexchange;
-    }
-
-    size_t partexch = 0;
-    size_t slotexch[6] = {0};
-    /*Find how many particles we have space for.*/
-    for(n = 0; n < plan->nexchange; n++)
-    {
-        const int i = plan->ExchangeList[n];
-        const int ptype = pman->Base[i].Type;
-        partexch += sizeof(pman->Base[0]);
-        slotexch[ptype] += sman->info[ptype].elsize;
-        package += sizeof(pman->Base[0]) + sman->info[ptype].elsize + sizeof(ExchangePartCache);
-        if(package >= nlimit || slotexch[ptype] >= maxexch || partexch >= maxexch) {
-//             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
-            break;
-        }
-    }
-    return n;
-}
-
-/*This function populates the toGo and toGet arrays*/
-static void
-domain_build_plan(int iter, ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, struct part_manager_type * pman, MPI_Comm Comm)
+/*This function populates the various lists for the domain plan.
+ *These are: toGo and toGet arrays (counts).
+ * target_list arrays (positions of particles to send).
+ * garbage_list array (positions of garbage particles by type).*/
+static int
+domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, ExchangePlan * plan, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     int ptype;
     size_t n;
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * plan->NTask);
 
-    plan->layouts = (ExchangePartCache *) mymalloc("layoutcache",sizeof(ExchangePartCache) * plan->last);
+    int * layouts = (int *) mymalloc2("layoutcache",sizeof(int) * preplan->nexchange);
+    int * tmp_garbage_list = mymalloc2("tmp_garbage",sizeof(int)* 6 * preplan->ngarbage);
+    ExchangePlanEntry * toGoThread = (ExchangePlanEntry *) mymalloc2("toGoThread",sizeof(ExchangePlanEntry) * plan->NTask* omp_get_max_threads());
+    memset(toGoThread, 0, sizeof(toGoThread[0]) * plan->NTask * omp_get_max_threads());
+    memset(plan->ngarbage, 0, 6*sizeof(plan->ngarbage[0]));
 
+    /* Compute exchange particle counts for each process*/
     #pragma omp parallel for
-    for(n = 0; n < plan->last; n++)
+    for(n = 0; n < preplan->nexchange; n++)
     {
-        const int i = plan->ExchangeList[n];
+        const int tid = omp_get_thread_num();
+        const int i = preplan->ExchangeList[n];
+        const int ptype = pman->Base[i].Type;
+        /* Add this to the proto-garbage list*/
+        if(pman->Base[i].IsGarbage) {
+            int gslot = atomic_fetch_and_add_64(&plan->ngarbage[ptype], 1);
+            tmp_garbage_list[ptype * preplan->ngarbage + gslot] = i;
+            layouts[n] = plan->ThisTask;
+            continue;
+        }
         const int target = layoutfunc(i, layout_userdata);
-        plan->layouts[n].ptype = pman->Base[i].Type;
-        plan->layouts[n].target = target;
         if(target >= plan->NTask || target < 0)
             endrun(4, "layoutfunc for %d returned unreasonable %d for %d tasks\n", i, target, plan->NTask);
+        toGoThread[tid * plan->NTask + target ].base++;
+        toGoThread[tid * plan->NTask + target].slots[ptype]++;
+        /* Compute total size being sent on this process*/
+        toGoThread[tid * plan->NTask + target].totalbytes += sizeof(struct particle_data);
+        if(sman->info[ptype].enabled){
+            toGoThread[tid * plan->NTask + target].totalbytes += sman->info[ptype].elsize;
+        }
+        layouts[n] = target;
     }
+
+    // message(4, "ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
 
     /*Do the sum*/
-    for(n = 0; n < plan->last; n++)
+    int tid;
+    for(tid = 0; tid < omp_get_max_threads(); tid++)
     {
-        plan->toGo[plan->layouts[n].target].base++;
-        plan->toGo[plan->layouts[n].target].slots[plan->layouts[n].ptype]++;
+        int target;
+        #pragma omp parallel for
+        for(target = 0; target < plan->NTask; target++) {
+            plan->toGo[target].base += toGoThread[tid * plan->NTask + target].base;
+            int i;
+            for(i = 0; i < 6; i++)
+                plan->toGo[target].slots[i] += toGoThread[tid * plan->NTask + target].slots[i];
+            plan->toGo[target].totalbytes += toGoThread[tid * plan->NTask + target].totalbytes;
+        }
     }
+    myfree(toGoThread);
 
+    /* Get the send counts from every processor*/
     MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, Comm);
-
-    memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
-    memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
     memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
     memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
     int rank;
-    int64_t maxbasetogo=-1, maxbasetoget=-1;
+    int64_t maxbasetoget=-1, maxbasetogo=-1;
     for(rank = 1; rank < plan->NTask; rank ++) {
         /* Direct assignment breaks compilers like icc */
-        memcpy(&plan->toGoOffset[rank], &plan->toGoSum, sizeof(plan->toGoSum));
-        memcpy(&plan->toGetOffset[rank], &plan->toGetSum, sizeof(plan->toGetSum));
-
         plan->toGoSum.base += plan->toGo[rank].base;
         plan->toGetSum.base += plan->toGet[rank].base;
         if(plan->toGo[rank].base > maxbasetogo)
             maxbasetogo = plan->toGo[rank].base;
         if(plan->toGet[rank].base > maxbasetoget)
             maxbasetoget = plan->toGet[rank].base;
-
         for(ptype = 0; ptype < 6; ptype++) {
             plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
             plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
 
+    // message(1, "Particles togo: %ld, toget %ld\n", plan->toGoSum.base, plan->toGetSum.base);
     int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
     MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
     MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
-    message(0, "iter = %d Total particles in flight: %ld Largest togo: %ld, toget %ld\n", iter, sumtogo, maxbasetogomax, maxbasetogetmax);
+    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
+
+    int64_t finalNumPart = pman->NumPart;
+    /* finalNumPart calculation is not completely optimal but reflects the current algorithm.
+     * The achievable balance could be a little better as we can make extra slots without extra particles,
+     * but then the extra particles would not be in type order.*/
+    int64_t slots_needed[6] = {0};
+    int need_slot_reserve = 0;
+    for(n = 0; n < 6; n++) {
+        finalNumPart += plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
+        if(sman->info[n].enabled) {
+            slots_needed[n] = sman->info[n].size + plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
+            if(slots_needed[n] >= sman->info[n].maxsize) {
+                need_slot_reserve = 1;
+            }
+        }
+    }
+    /* Make sure we have reserved enough slots to fit the new particles into.*/
+    if(need_slot_reserve) {
+        slots_reserve(1, slots_needed, sman);
+    }
+
+    /* Garbage lists with enough space for those from this exchange and those already present.*/
+    for(n = 0; n < 6; n++) {
+        if(plan->toGoSum.slots[n] + plan->ngarbage[n] == 0) {
+            plan->garbage_list[n] = NULL;
+            continue;
+        }
+        plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]+1));
+        /* Copy over the existing garbage*/
+        memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(int)* plan->ngarbage[n]);
+    }
+    myfree(tmp_garbage_list);
+
+    /* Transpose to per-target lists*/
+    plan->target_list = (int **) ta_malloc("target_list",int*, plan->NTask);
+    int target;
+    for(target = 0; target < plan->NTask; target++) {
+        if(plan->toGo[target].base == 0) {
+            plan->target_list[target] = NULL;
+            continue;
+        }
+        plan->target_list[target] = mymalloc("exchangelist",(plan->toGo[target].base+1) * sizeof(int));
+    }
+    int64_t * counts = ta_malloc("counts", int64_t, plan->NTask);
+    memset(counts, 0, sizeof(counts[0]) * plan->NTask);
+    for(n = 0; n < preplan->nexchange; n++) {
+        const int target = layouts[n];
+        /* This is garbage*/
+        if(target == plan->ThisTask)
+            continue;
+        plan->target_list[target][counts[target]] = preplan->ExchangeList[n];
+        counts[target]++;
+        if(counts[target] > plan->toGo[target].base)
+            endrun(5, "Corruption in target list n %lu target %d count %ld togo %ld nexchange %ld\n", n, target, counts[target], plan->toGo[target].base, preplan->nexchange);
+    }
+    for(target = 0; target < plan->NTask; target++) {
+        if(counts[target] != plan->toGo[target].base)
+            endrun(1, "Expected %ld in target list for task %d from plan but got %ld layout %d\n", plan->toGo[target].base, target, counts[target], layouts[0]);
+    }
+
+    myfree(counts);
+    myfree(layouts);
+
+    int failure = 0;
+    if(finalNumPart > pman->MaxPart) {
+        message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
+        failure = 1;
+    }
+
+    /* Make failure collective*/
+    failure = MPI_Allreduce(MPI_IN_PLACE, &failure, 1, MPI_INT, MPI_SUM, Comm);
+
+    return failure;
 }
 
 /* used only by test uniqueness */
@@ -557,15 +857,16 @@ mp_order_by_id(const void * data, void * radix, void * arg) {
 }
 
 void
-domain_test_id_uniqueness(struct part_manager_type * pman)
+domain_test_id_uniqueness(struct part_manager_type * pman, MPI_Comm Comm)
 {
-    int64_t i;
+    int64_t i, totnumpart;
     MyIDType *ids;
     int NTask, ThisTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    message(0, "Testing ID uniqueness...\n");
+    MPI_Reduce(&pman->NumPart, &totnumpart, 1,MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "Testing ID uniqueness for %ld particles on %d tasks\n", totnumpart, NTask);
 
     ids = (MyIDType *) mymalloc("ids", pman->NumPart * sizeof(MyIDType));
 
@@ -576,7 +877,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
             ids[i] = (MyIDType) -1;
     }
 
-    mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, Comm);
 
     /*Remove garbage from the end*/
     int64_t nids = pman->NumPart;
@@ -603,16 +904,16 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
             if(nids > 0) {
                 ptr = ids;
             }
-            MPI_Send(ptr, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
+            MPI_Send(ptr, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, Comm);
         }
         else if(ThisTask == NTask - 1) {
             MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE,
-                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
         }
         else if(nids == 0) {
             /* simply pass through whatever we get */
-            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE, ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Send(prev, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, MPI_COMM_WORLD);
+            MPI_Recv(prev, sizeof(MyIDType), MPI_BYTE, ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
+            MPI_Send(prev, sizeof(MyIDType), MPI_BYTE, ThisTask + 1, TAG, Comm);
         }
         else
         {
@@ -620,7 +921,7 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
                     ids+(nids - 1), sizeof(MyIDType), MPI_BYTE,
                     ThisTask + 1, TAG,
                     prev, sizeof(MyIDType), MPI_BYTE,
-                    ThisTask - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    ThisTask - 1, TAG, Comm, MPI_STATUS_IGNORE);
         }
     }
 
