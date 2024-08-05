@@ -1249,7 +1249,6 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
 void
 treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml)
 {
-    int64_t ntot = 0;
     int NumThreads = omp_get_max_threads();
     tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
@@ -1295,10 +1294,8 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             myfree(CurQueue);
 
         size = gadget_compact_thread_arrays(&ReDoQueue, &loop);
-        MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         /* We can stop if we are not updating hsml or if we are done.*/
-
-        if(!update_hsml || ntot == 0){
+        if(!update_hsml || !MPIU_Any(size > 0, MPI_COMM_WORLD)) {
             myfree(ReDoQueue);
             break;
         }
@@ -1312,7 +1309,9 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
         MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
         message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
+#ifdef DEBUG
         treewalk_print_stats(tw);
+#endif
 
         /*Shrink memory*/
         ReDoQueue = (int *) myrealloc(ReDoQueue, sizeof(int) * size);
@@ -1333,14 +1332,14 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         }
         */
 #ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
+        if(size < 10 && tw->Niteration > 20 ) {
             int pp = ReDoQueue[0];
             message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml);
         }
 #endif
 
         if(size > 0 && tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge density for %ld particles\n", ntot);
+            endrun(1155, "failed to converge density for %ld particles\n", size);
         }
     } while(1);
     ta_free(tw->minnumngb);
