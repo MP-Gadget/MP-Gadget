@@ -444,8 +444,6 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
      * Need max. 2*4096 for each heap-allocated array.*/
     nlimit -= 4096 * 4L;
 
-    message(0, "Using %td bytes for exchange.\n", nlimit);
-
     size_t maxsize = 0;
     for(ptype = 0; ptype < 6; ptype ++ ) {
         if(!sman->info[ptype].enabled) continue;
@@ -454,32 +452,31 @@ domain_find_iter_space(ExchangePlan * plan, const struct part_manager_type * pma
         /*Reserve space for slotBuf header*/
         nlimit -= 4096 * 2L;
     }
-    size_t package = sizeof(pman->Base[0]) + maxsize;
-    if(package >= nlimit || nlimit > mymalloc_freebytes())
-        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
 
     /* We want to avoid doing an alltoall with
      * more than 2GB of material as this hangs.*/
     const size_t maxexch = 2040L*1024L*1024L;
+    if(nlimit > maxexch)
+        nlimit = maxexch;
+    message(0, "Using %td bytes for exchange.\n", nlimit);
+
+    size_t package = sizeof(pman->Base[0]) + maxsize;
+    if(package >= nlimit || nlimit > mymalloc_freebytes())
+        endrun(212, "Package is too large, no free memory: package = %lu nlimit = %lu.", package, nlimit);
 
     /* Fast path: if we have enough space no matter what type the particles
      * are we don't need to check them.*/
-    if((plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) &&
-        (plan->nexchange * sizeof(pman->Base[0]) < maxexch) && (plan->nexchange * maxsize < maxexch)) {
+    if(plan->nexchange * (sizeof(pman->Base[0]) + maxsize + sizeof(ExchangePartCache)) < nlimit) {
         return plan->nexchange;
     }
 
-    size_t partexch = 0;
-    size_t slotexch[6] = {0};
     /*Find how many particles we have space for.*/
     for(n = 0; n < plan->nexchange; n++)
     {
         const int i = plan->ExchangeList[n];
         const int ptype = pman->Base[i].Type;
-        partexch += sizeof(pman->Base[0]);
-        slotexch[ptype] += sman->info[ptype].elsize;
         package += sizeof(pman->Base[0]) + sman->info[ptype].elsize + sizeof(ExchangePartCache);
-        if(package >= nlimit || slotexch[ptype] >= maxexch || partexch >= maxexch) {
+        if(package >= nlimit) {
 //             message(1,"Not enough space for particles: nlimit=%d, package=%d\n",nlimit,package);
             break;
         }
