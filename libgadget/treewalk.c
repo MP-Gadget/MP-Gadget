@@ -592,32 +592,29 @@ void wait_commbuffer(struct CommBuffer * buffer)
 
 static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExpCounts* counts, TreeWalk * tw)
 {
-    int i;
-    int * completed = ta_malloc("completes", int, imports->nrequest_all);
-    memset(completed, 0, imports->nrequest_all * sizeof(int) );
     struct CommBuffer res_imports = {0};
-
     alloc_commbuffer(&res_imports, counts->NTask, 1);
     res_imports.databuf = (char *) mymalloc2("ImportResult", counts->Nimport * tw->result_type_elsize);
 
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
+    int * complete_array = ta_malloc("completes", int, imports->nrequest_all);
 
-    /* Build the map between requests and task number (some tasks were skipped because we have zero sends).*/
     int tot_completed = 0;
     /* Test each request in turn until it completes*/
-    do {
-        for(i = 0; i < imports->nrequest_all; i++) {
-            /* If we already completed, no need to test again*/
-            if(completed[i])
-                continue;
-            /* Check for a completed request: note that cleanup is performed if the request is complete.*/
-            MPI_Test(&imports->rdata_all[i], completed+i, MPI_STATUS_IGNORE);
-            /* Try the next one*/
-            if (!completed[i])
-                continue;
-            /* Note the count index is not i! */
+    while(tot_completed < imports->nrequest_all) {
+        int complete_cnt = MPI_UNDEFINED;
+        /* Check for some completed requests: note that cleanup is performed if the requests are complete.
+         * There may be only 1 completed request, and we need to wait again until we have more.*/
+        MPI_Waitsome(imports->nrequest_all, imports->rdata_all, &complete_cnt, complete_array, MPI_STATUSES_IGNORE);
+        /* This happens if all requests are MPI_REQUEST_NULL. It should never be hit*/
+        if (complete_cnt == MPI_UNDEFINED)
+            break;
+        int j;
+        for(j = 0; j < complete_cnt; j++) {
+            const int i = complete_array[j];
+            /* Note the task number index is not the index in the request array (some tasks were skipped because we have zero exports)! */
             const int task = imports->rqst_task[i];
             const int64_t nimports_task = counts->Import_count[task];
             // message(1, "starting at %d with %d for iport %d task %d\n", counts->Import_offset[task], counts->Import_count[task], i, task);
@@ -648,8 +645,8 @@ static struct CommBuffer ev_secondary(struct CommBuffer * imports, struct ImpExp
             MPI_Isend(dataresultstart, nimports_task, type, task, 101923, counts->comm, &res_imports.rdata_all[res_imports.nrequest_all++]);
             tot_completed++;
         }
-    } while(tot_completed < imports->nrequest_all);
-    ta_free(completed);
+    };
+    myfree(complete_array);
     MPI_Type_free(&type);
     return res_imports;
 }
@@ -1260,7 +1257,6 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
 void
 treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_hsml)
 {
-    int64_t ntot = 0;
     int NumThreads = omp_get_max_threads();
     tw->maxnumngb = ta_malloc("numngb", double, NumThreads);
     tw->minnumngb = ta_malloc("numngb2", double, NumThreads);
@@ -1306,10 +1302,8 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
             myfree(CurQueue);
 
         size = gadget_compact_thread_arrays(&ReDoQueue, &loop);
-        MPI_Allreduce(&size, &ntot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         /* We can stop if we are not updating hsml or if we are done.*/
-
-        if(!update_hsml || ntot == 0){
+        if(!update_hsml || !MPIU_Any(size > 0, MPI_COMM_WORLD)) {
             myfree(ReDoQueue);
             break;
         }
@@ -1323,7 +1317,9 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         MPI_Reduce(&tw->maxnumngb[0], &maxngb, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
         MPI_Reduce(&tw->minnumngb[0], &minngb, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
         message(0, "Max ngb=%g, min ngb=%g\n", maxngb, minngb);
+#ifdef DEBUG
         treewalk_print_stats(tw);
+#endif
 
         /*Shrink memory*/
         ReDoQueue = (int *) myrealloc(ReDoQueue, sizeof(int) * size);
@@ -1344,14 +1340,14 @@ treewalk_do_hsml_loop(TreeWalk * tw, int * queue, int64_t queuesize, int update_
         }
         */
 #ifdef DEBUG
-        if(ntot == 1 && size > 0 && tw->Niteration > 20 ) {
+        if(size < 10 && tw->Niteration > 20 ) {
             int pp = ReDoQueue[0];
             message(1, "Remaining i=%d, t %d, pos %g %g %g, hsml: %g\n", pp, P[pp].Type, P[pp].Pos[0], P[pp].Pos[1], P[pp].Pos[2], P[pp].Hsml);
         }
 #endif
 
         if(size > 0 && tw->Niteration > MAXITER) {
-            endrun(1155, "failed to converge density for %ld particles\n", ntot);
+            endrun(1155, "failed to converge density for %ld particles\n", size);
         }
     } while(1);
     ta_free(tw->minnumngb);

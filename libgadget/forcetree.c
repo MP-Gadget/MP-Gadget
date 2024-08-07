@@ -200,8 +200,6 @@ ForceTree
 force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, const int DoMoments, const int alloc_father, const char * EmergencyOutputDir)
 {
     ForceTree tree;
-
-    int TooManyNodes = 0;
     int64_t maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
     /* int64_t maxmaxnodes;
      MPI_Reduce(&maxnodes, &maxmaxnodes, 1, MPI_INT64, MPI_MAX,0, MPI_COMM_WORLD);
@@ -222,8 +220,11 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
             force_tree_free(&tree);
             ForceTreeParams.TreeAllocFactor *= 1.15;
             if(ForceTreeParams.TreeAllocFactor > 3.0) {
-                TooManyNodes = 1;
+#ifndef DEBUG
+                endrun(2, "TreeAllocFactor is %g nodes, which is too large!\n", ForceTreeParams.TreeAllocFactor);
+#else
                 break;
+#endif
             }
             maxnodes = ForceTreeParams.TreeAllocFactor * PartManager->NumPart + ddecomp->NTopNodes;
             message(1, "TreeAllocFactor from %g to %g now %ld tree nodes\n", ForceTreeParams.TreeAllocFactor, ForceTreeParams.TreeAllocFactor*1.15, maxnodes);
@@ -231,7 +232,8 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     }
     while(tree.numnodes >= tree.lastnode - tree.firstnode);
 
-    if(MPIU_Any(TooManyNodes, MPI_COMM_WORLD)) {
+#ifdef DEBUG
+    if(MPIU_Any(ForceTreeParams.TreeAllocFactor > 3.0, MPI_COMM_WORLD)) {
         /* Assume scale factor = 1 for dump as position is not affected.*/
         if(EmergencyOutputDir) {
             Cosmology CP = {0};
@@ -242,6 +244,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         }
         endrun(2, "Required too many nodes, snapshot dumped\n");
     }
+#endif
     report_memory_usage("FORCETREE");
     tree.Nodes_base = (struct NODE *) myrealloc(tree.Nodes_base, (tree.numnodes +1) * sizeof(struct NODE));
 
@@ -256,15 +259,15 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
         walltime_measure("/Tree/Build/Moments");
     }
 
+    int64_t allact = tree.NumParticles;
+    int maxnumnodes = tree.numnodes;
 #ifdef DEBUG
-        force_validate_nextlist(&tree);
-#endif
-    int64_t allact;
-    int maxnumnodes;
+    force_validate_nextlist(&tree);
     MPI_Reduce(&tree.NumParticles, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&tree.numnodes, &maxnumnodes, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "Tree constructed (type mask: %d moments: %d) with %ld particles. First node %d, max nodes/rank %d, first pseudo %d. NTopLeaves %d\n",
-            mask, tree.moments_computed_flag, allact, tree.firstnode, tree.numnodes, tree.lastnode, tree.NTopLeaves);
+#endif
+    message(0, "Tree constructed (type mask: %d moments: %d) with %ld particles. First node %d, num nodes %d, first pseudo %d. NTopLeaves %d\n",
+            mask, tree.moments_computed_flag, allact, tree.firstnode, maxnumnodes, tree.lastnode, tree.NTopLeaves);
     return tree;
 }
 
