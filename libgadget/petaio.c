@@ -822,7 +822,7 @@ SIMPLE_PROPERTY_TYPE_PI(StarFormationTime, 5, FormationTime, float, 1, struct bh
 SIMPLE_PROPERTY_PI(BlackholeMass, Mass, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeDensity, Density, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeAccretionRate, Mdot, float, 1, struct bh_particle_data)
-SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, float, 1, struct bh_particle_data)
+SIMPLE_PROPERTY_PI(BlackholeProgenitors, CountProgs, int, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowID, SwallowID, uint64_t, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeSwallowTime, SwallowTime, float, 1, struct bh_particle_data)
 SIMPLE_PROPERTY_PI(BlackholeJumpToMinPot, JumpToMinPot, int, 1, struct bh_particle_data)
