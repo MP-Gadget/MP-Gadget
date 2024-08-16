@@ -568,9 +568,15 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 
         report_memory_usage("GRAVITY-SHORT");
 
+        /* This dance is just in case the top bin has the same number of particles
+         * as the bin below and so computation is skipped. Don't want to set GravAccel
+         * because we should not free the stored memory.*/
+        MyFloat (* tmpGA) [3] = GravAccel;
+        if(!GravAccel)
+            tmpGA = StoredGravAccel.GravAccel;
         /* We need to do the kick here based on the acceleration at the current level,
          * because we will over-write the acceleration*/
-        apply_hierarchical_grav_kick(&subact, CP, times, GravAccel, ti, largest_active);
+        apply_hierarchical_grav_kick(&subact, CP, times, tmpGA, ti, largest_active);
 
         /* Copy over active list to some new memory so we can free the old one in order*/
         memcpy(lastact, &subact, sizeof(ActiveParticles));
