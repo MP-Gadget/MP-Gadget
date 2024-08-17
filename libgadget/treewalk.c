@@ -109,7 +109,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
         endrun(0, "Result structure has size %ld, not aligned to 64-bit boundary.\n", tw->result_type_elsize);
 
     /*The amount of memory eventually allocated per tree buffer*/
-    size_t bytesperbuffer = sizeof(struct data_index) + tw->query_type_elsize;
+    size_t bytesperbuffer = sizeof(struct data_index) + tw->query_type_elsize + tw->result_type_elsize;
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
