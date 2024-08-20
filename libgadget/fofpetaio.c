@@ -98,6 +98,8 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
         MPI_Allreduce(&NpigLocal, &NpigGlobal, 1, MPI_INT64, MPI_SUM, Comm);
         MPI_Allreduce(&PartManager->NumPart, &NumPartGlobal, 1, MPI_INT64, MPI_SUM, Comm);
 
+        struct part_manager_type npartman = {0};
+        struct slots_manager_type nslotman = {0};
         if(NpigGlobal > 0.25 * NumPartGlobal) {
             halo_pman = PartManager;
             halo_sman = SlotsManager;
@@ -105,9 +107,9 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
             domain_needed = 1;
         }
         else {
-            message(0, "Copying new partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
-            halo_pman = alloca(sizeof(struct part_manager_type));
-            halo_sman = alloca(sizeof(struct slots_manager_type));
+            message(0, "Using new partmanager for FOF: total pig %ld, global %ld\n", NpigGlobal, NumPartGlobal);
+            halo_pman = &npartman;
+            halo_sman = &nslotman;
         }
         if(fof_distribute_particles(halo_pman, halo_sman, NpigLocal, atleast, Comm)) {
             destroy_io_blocks(&IOTable);
