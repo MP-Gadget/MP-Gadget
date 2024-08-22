@@ -78,19 +78,6 @@ struct ExchangeIter
     size_t transferbytes;
 };
 
-/* Structure for asynchronous communication routines in treewalk and exchange.
- *Stores an array of MPI requests, the task each one is from, and a char buffer
- * for the data associated with them.*/
-struct CommBuffer
-{
-    char * databuf; /* Bytes to store the received/sent data.*/
-    int * displs; /* Displacement of each request's data structure in the above buffer*/
-    int * rqst_task; /* Array storing task number for each request in rdata_all*/
-    int nrequest_all; /* Number of requests that had MPI_Irecv/MPI_ISend called on them*/
-    int totcomplete; /* Number of completed requests*/
-    MPI_Request * rdata_all; /* Array of requests: pointer to outer struct*/
-};
-
 struct CombinedBuffer
 {
     struct CommBuffer Sends;
