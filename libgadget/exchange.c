@@ -86,24 +86,23 @@ struct CommBuffer
     char * databuf; /* Bytes to store the received/sent data.*/
     int * displs; /* Displacement of each request's data structure in the above buffer*/
     int * rqst_task; /* Array storing task number for each request in rdata_all*/
-    MPI_Request * rdata_all; /* Array of requests*/
     int nrequest_all; /* Number of requests that had MPI_Irecv/MPI_ISend called on them*/
     int totcomplete; /* Number of completed requests*/
+    MPI_Request * rdata_all; /* Array of requests: pointer to outer struct*/
+};
+
+struct CombinedBuffer
+{
+    struct CommBuffer Sends;
+    struct CommBuffer Recvs;
+    MPI_Request * rdata_all; /* Array of requests*/
 };
 
 /* Allocate/free a commbuffer with space for N tasks.*/
-void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high)
+void alloc_commbuffer(struct CommBuffer * buffer, int NTask)
 {
-    if(alloc_high) {
-        buffer->rdata_all = ta_malloc2("requests", MPI_Request, NTask);
-        buffer->rqst_task = ta_malloc2("rqst", int, NTask);
-        buffer->displs = ta_malloc2("displs", int, NTask);
-    }
-    else {
-        buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
-        buffer->rqst_task = ta_malloc("rqst", int, NTask);
-        buffer->displs = ta_malloc("displs", int, NTask);
-    }
+    buffer->rqst_task = ta_malloc("rqst", int, NTask);
+    buffer->displs = ta_malloc("displs", int, NTask);
     buffer->nrequest_all = 0;
     buffer->databuf = NULL;
 }
@@ -117,8 +116,23 @@ void free_commbuffer(struct CommBuffer * buffer)
     if(buffer->displs) {
         ta_free(buffer->displs);
         ta_free(buffer->rqst_task);
-        ta_free(buffer->rdata_all);
     }
+}
+
+void alloc_combinedbuffer(struct CombinedBuffer *all, int NTask)
+{
+    alloc_commbuffer(&all->Sends, NTask);
+    alloc_commbuffer(&all->Recvs, NTask);
+    all->rdata_all = ta_malloc("requests", MPI_Request, 2*NTask);
+    all->Sends.rdata_all = all->rdata_all;
+    all->Recvs.rdata_all = all->rdata_all + NTask;
+}
+
+void free_combinedbuffer(struct CombinedBuffer *all)
+{
+    ta_free(&all->rdata_all);
+    free_commbuffer(&all->Recvs);
+    free_commbuffer(&all->Sends);
 }
 
 /*
@@ -583,17 +597,16 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIter senditer = {0}, recviter = {0};
     /* CommBuffers. init zero ensures no requests stored*/
-    struct CommBuffer recvs = {0}, sends = {0};
-    alloc_commbuffer(&recvs, plan->NTask, 0);
-    alloc_commbuffer(&sends, plan->NTask, 0);
+    struct CombinedBuffer all = {0};
+    alloc_combinedbuffer(&all, plan->NTask);
 
     domain_init_exchange_iter(&senditer, 1, plan);
     domain_init_exchange_iter(&recviter, -1, plan);
 
     walltime_measure("/Domain/exchange/misc");
     /* This is after the walltime because that may allocate memory*/
-    recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
-    sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
+    all.Recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
+    all.Sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
 
     double tstartloop = second();
     int debugprint = 0;
@@ -608,10 +621,10 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         if(no_recvs_pending && recviter.StartTask != plan->ThisTask) {
             /* Receiving less than one task!*/
             if(recviter.StartTask == recviter.EndTask) {
-                domain_post_single_recv(&recvs, &recviter, tag, Comm);
+                domain_post_single_recv(&all.Recvs, &recviter, tag, Comm);
             } else
-                domain_post_recvs(plan, &recvs, &recviter, tag, Comm);
-            if(recvs.nrequest_all > 0)
+                domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
+            if(all.Recvs.nrequest_all > 0)
                 no_recvs_pending = 0;
         }
         /* Now post sends: note that the sends are done in reverse order to the receives.
@@ -619,10 +632,10 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         if(no_sends_pending && senditer.StartTask != plan->ThisTask) {
             double tstart = second();
             if(senditer.StartTask == senditer.EndTask)
-                domain_pack_single_send(plan, &sends, &senditer, pman, sman, tag, Comm);
+                domain_pack_single_send(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
             else
-                domain_pack_sends(plan, &sends, &senditer, pman, sman, tag, Comm);
-            if(sends.nrequest_all > 0)
+                domain_pack_sends(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
+            if(all.Sends.nrequest_all > 0)
                 no_sends_pending = 0;
             double tend = second();
             tpack += timediff(tstart, tend);
@@ -630,8 +643,8 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now wait for and unpack the receives as they arrive.*/
         if(!no_recvs_pending) {
             double tstart = second();
-            size_t recvd = domain_check_unpack_recv(plan, pman, sman, &recvs);
-            if(recvs.totcomplete == recvs.nrequest_all) {
+            size_t recvd = domain_check_unpack_recv(plan, pman, sman, &all.Recvs);
+            if(all.Recvs.totcomplete == all.Recvs.nrequest_all) {
                 no_recvs_pending = 1;
                 if(recviter.StartTask == recviter.EndTask) {
                     recviter.EndPart = recviter.StartPart + recvd;
@@ -652,7 +665,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         }
         /* Now wait for the sends before we free the buffers*/
         if(!no_sends_pending) {
-            no_sends_pending = domain_check_sends(&sends);
+            no_sends_pending = domain_check_sends(&all.Sends);
             /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
             if(no_sends_pending && senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
                 senditer.EndPart = 0;
@@ -668,16 +681,15 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
          * ASTRID is 82 seconds for the initial balance.*/
         if(tendloop - tstartloop - tpack - tunpack > 160 && debugprint == 0) {
             message(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
-                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
+                    (!no_sends_pending)*all.Sends.nrequest_all, (!no_recvs_pending)*all.Recvs.nrequest_all, (!no_recvs_pending)*all.Recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
             debugprint = 1;
         }
         if(tendloop - tstartloop - tpack - tunpack > 500)
             endrun(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
-                    (!no_sends_pending)*sends.nrequest_all, (!no_recvs_pending)*recvs.nrequest_all, (!no_recvs_pending)*recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
+                    (!no_sends_pending)*all.Sends.nrequest_all, (!no_recvs_pending)*all.Recvs.nrequest_all, (!no_recvs_pending)*all.Recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
     } while(!no_sends_pending || !no_recvs_pending || recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
 
-    free_commbuffer(&sends);
-    free_commbuffer(&recvs);
+    free_combinedbuffer(&all);
     double timeall = walltime_measure(WALLTIME_IGNORE);
     walltime_add("/Domain/exchange/pack", tpack);
     walltime_add("/Domain/exchange/unpack", tunpack);
