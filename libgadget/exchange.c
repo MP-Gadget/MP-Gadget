@@ -78,8 +78,50 @@ struct ExchangeIter
     size_t transferbytes;
 };
 
+/* Structure for asynchronous communication routines in treewalk and exchange.
+ *Stores an array of MPI requests, the task each one is from, and a char buffer
+ * for the data associated with them.*/
+struct CommBuffer
+{
+    char * databuf; /* Bytes to store the received/sent data.*/
+    int * displs; /* Displacement of each request's data structure in the above buffer*/
+    int * rqst_task; /* Array storing task number for each request in rdata_all*/
+    MPI_Request * rdata_all; /* Array of requests*/
+    int nrequest_all; /* Number of requests that had MPI_Irecv/MPI_ISend called on them*/
+    int totcomplete; /* Number of completed requests*/
+};
+
+/* Allocate/free a commbuffer with space for N tasks.*/
+void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high)
+{
+    if(alloc_high) {
+        buffer->rdata_all = ta_malloc2("requests", MPI_Request, NTask);
+        buffer->rqst_task = ta_malloc2("rqst", int, NTask);
+        buffer->displs = ta_malloc2("displs", int, NTask);
+    }
+    else {
+        buffer->rdata_all = ta_malloc("requests", MPI_Request, NTask);
+        buffer->rqst_task = ta_malloc("rqst", int, NTask);
+        buffer->displs = ta_malloc("displs", int, NTask);
+    }
+    buffer->nrequest_all = 0;
+    buffer->databuf = NULL;
+}
+
+void free_commbuffer(struct CommBuffer * buffer)
+{
+    if(buffer->databuf) {
+        myfree(buffer->databuf);
+        buffer->databuf = NULL;
+    }
+    if(buffer->displs) {
+        ta_free(buffer->displs);
+        ta_free(buffer->rqst_task);
+        ta_free(buffer->rdata_all);
+    }
+}
+
 /*
- *
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */

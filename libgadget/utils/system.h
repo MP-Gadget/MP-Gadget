@@ -111,21 +111,4 @@ int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 /* Fancy barrier which warns if there is a lot of imbalance. */
 #define MPIU_Barrier(comm) _MPIU_Barrier(__FILE__, __LINE__, comm)
 
-/* Structure for asynchronous communication routines in treewalk and exchange.
- *Stores an array of MPI requests, the task each one is from, and a char buffer
- * for the data associated with them.*/
-struct CommBuffer
-{
-    char * databuf; /* Bytes to store the received/sent data.*/
-    int * displs; /* Displacement of each request's data structure in the above buffer*/
-    int * rqst_task; /* Array storing task number for each request in rdata_all*/
-    MPI_Request * rdata_all; /* Array of requests*/
-    int nrequest_all; /* Number of requests that had MPI_Irecv/MPI_ISend called on them*/
-    int totcomplete; /* Number of completed requests*/
-};
-
-/* Allocate/free a commbuffer with space for N tasks.*/
-void alloc_commbuffer(struct CommBuffer * buffer, int NTask, int alloc_high);
-void free_commbuffer(struct CommBuffer * buffer);
-
 #endif //_UTILS_SYSTEM_H
