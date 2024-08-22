@@ -86,15 +86,16 @@ struct CombinedBuffer
 };
 
 /* Allocate/free a commbuffer with space for N tasks.*/
-void alloc_commbuffer(struct CommBuffer * buffer, int NTask)
+void alloc_comms(struct CommBuffer * buffer, int NTask)
 {
     buffer->rqst_task = ta_malloc("rqst", int, NTask);
     buffer->displs = ta_malloc("displs", int, NTask);
     buffer->nrequest_all = 0;
+    buffer->totcomplete = 0;
     buffer->databuf = NULL;
 }
 
-void free_commbuffer(struct CommBuffer * buffer)
+void free_comms(struct CommBuffer * buffer)
 {
     if(buffer->databuf) {
         myfree(buffer->databuf);
@@ -108,18 +109,22 @@ void free_commbuffer(struct CommBuffer * buffer)
 
 void alloc_combinedbuffer(struct CombinedBuffer *all, int NTask)
 {
-    alloc_commbuffer(&all->Sends, NTask);
-    alloc_commbuffer(&all->Recvs, NTask);
+    alloc_comms(&all->Sends, NTask);
+    alloc_comms(&all->Recvs, NTask);
     all->rdata_all = ta_malloc("requests", MPI_Request, 2*NTask);
-    all->Sends.rdata_all = all->rdata_all;
-    all->Recvs.rdata_all = all->rdata_all + NTask;
+    /* Initialise requests as NULL so we can safely wait on them without posting anything*/
+    int i;
+    for(i = 0; i < 2 * NTask; i++)
+        all->rdata_all[i] = MPI_REQUEST_NULL;
+    all->Recvs.rdata_all = all->rdata_all;
+    all->Sends.rdata_all = all->rdata_all + NTask;
 }
 
 void free_combinedbuffer(struct CombinedBuffer *all)
 {
-    ta_free(&all->rdata_all);
-    free_commbuffer(&all->Recvs);
-    free_commbuffer(&all->Sends);
+    ta_free(all->rdata_all);
+    free_comms(&all->Recvs);
+    free_comms(&all->Sends);
 }
 
 /*
@@ -532,43 +537,51 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
     return;
 }
 
-/* Check whether all sends completed and clean up if so.*/
-static int
-domain_check_sends(struct CommBuffer * sends)
-{
-    int flag = 0;
-    /* Check whether send requests completed: note that cleanup is performed only if all requests are complete.*/
-    MPI_Testall(sends->nrequest_all, sends->rdata_all, &flag, MPI_STATUSES_IGNORE);
-    return flag;
-}
-
-/* Wait for and unpack the received data into a buffer. We busy-loop until they are done.*/
+/* Wait for some sends and receives. Unpack received data into a buffer.
+ * We busy-loop until either sends or receives are done and then we try to get more.*/
 static size_t
-domain_check_unpack_recv(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CommBuffer * recvs)
+domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CombinedBuffer * all)
 {
     /* Now wait for and unpack the receives as they arrive.*/
     int flag = 0;
     size_t recvd = 0;
-    // message(3, "reqs: %d\n", recvs->nrequest_all);
-    /* Check for a completed request: note that cleanup is performed if the request is complete
-     * and the handle is set to MPI_REQUEST_NULL.
-     * If multiple requests are done, a random request is returned. Loop until no more are complete.*/
-    while (recvs->totcomplete < recvs->nrequest_all) {
-        int task, recvd_bytes;
-        MPI_Status stat;
-        // message(3, "reqs: %d rdata_all %p\n", recvs->nrequest_all, recvs->rdata_all);
-        MPI_Testany(recvs->nrequest_all, recvs->rdata_all, &task, &flag, &stat);
-        if(!flag)
+    int * complete_array = ta_malloc("completes", int, 2 * plan->NTask);
+    MPI_Status * stats = ta_malloc("stats", MPI_Status, 2 * plan->NTask);;
+    // message(3, "reqs: %d\n", all->Recvs.nrequest_all + all->Sends.nrequest_all);
+    /* We wait in a loop until we have either all the sends or all the recvs. Once we have those we can post more.*/
+    while(all->Recvs.totcomplete < all->Recvs.nrequest_all || all->Sends.totcomplete < all->Sends.nrequest_all) {
+        int recvd_bytes = 0;
+        int complete_cnt = MPI_UNDEFINED;
+        /* Check for some completed requests: note that cleanup is performed if the requests are complete.
+         * There may be only 1 completed request, and we need to wait again until we have more.*/
+        MPI_Waitsome(plan->NTask + all->Sends.nrequest_all, all->rdata_all, &complete_cnt, complete_array, stats);
+        /* This happens if all requests are MPI_REQUEST_NULL. It should never be hit*/
+        if (complete_cnt == MPI_UNDEFINED)
             break;
-        recvs->totcomplete++;
-        MPI_Get_count(&stat, MPI_BYTE, &recvd_bytes);
-        if(task >= recvs->nrequest_all)
-            endrun(5, "Bad task %d nreq %d rdata_all %p\n", task, recvs->nrequest_all, recvs->rdata_all);
-        if(recvd_bytes == 0)
-            endrun(4, "Testany received zero bytes, should not happen! flag %d task %d complete %d nrequest %d\n", flag, task, recvs->totcomplete, recvs->nrequest_all);
-        // message(1, "Testany flag %d task %d bytes %d\n", flag, task, recvd_bytes);
-        recvd += exchange_unpack_buffer(recvs->databuf+recvs->displs[task], recvs->rqst_task[task], plan, pman, sman, recvd_bytes);
+        int j;
+        for(j = 0; j < complete_cnt; j++) {
+            const int i = complete_array[j];
+            /* This is a Send and we don't need to do anything. Cleanup is done by MPI in Waitsome.*/
+            if(i >= plan->NTask) {
+                all->Sends.totcomplete++;
+                continue;
+            }
+            /* Note the index here is j because it is in the array of completed requests not the array of requests!*/
+            MPI_Get_count(&stats[j], MPI_BYTE, &recvd_bytes);
+            if(i >= all->Recvs.nrequest_all)
+                endrun(5, "Bad task %d nreq %d rdata_all %p\n", i, all->Recvs.nrequest_all, all->Recvs.rdata_all);
+            if(recvd_bytes == 0)
+                endrun(4, "Received zero bytes, should not happen! flag %d rqst %d complete %d nrequest %d\n", flag, i, all->Recvs.totcomplete, all->Recvs.nrequest_all);
+            /* task number index is not the index in the request array. The Recvs come first, then the Sends. This lets us avoid an offset to the index*/
+            recvd += exchange_unpack_buffer(all->Recvs.databuf+all->Recvs.displs[i], all->Recvs.rqst_task[i], plan, pman, sman, recvd_bytes);
+            all->Recvs.totcomplete++;
+        }
+        /* We have completed either all the Sends or all the Recvs, see if we can post more*/
+        if(all->Recvs.totcomplete == all->Recvs.nrequest_all || all->Sends.totcomplete == all->Sends.nrequest_all)
+            break;
     };
+    ta_free(stats);
+    ta_free(complete_array);
     return recvd;
 }
 
@@ -595,8 +608,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     all.Recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
     all.Sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
 
-    double tstartloop = second();
-    int debugprint = 0;
     /* Loop. There is no blocking inside this loop. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
@@ -628,52 +639,38 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             tpack += timediff(tstart, tend);
         }
         /* Now wait for and unpack the receives as they arrive.*/
-        if(!no_recvs_pending) {
+        if(!no_recvs_pending || !no_sends_pending) {
             double tstart = second();
-            size_t recvd = domain_check_unpack_recv(plan, pman, sman, &all.Recvs);
-            if(all.Recvs.totcomplete == all.Recvs.nrequest_all) {
+            size_t recvd = domain_check_unpack(plan, pman, sman, &all);
+            if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
                 if(recviter.StartTask == recviter.EndTask) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     /* Check whether this was the final part of a task, in which case move to next task.*/
                     if(recviter.EndPart == plan->toGet[recviter.StartTask].base) {
+                        // message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                         recviter.EndPart = 0;
                         recviter.StartPart = 0;
                         recviter.EndTask = (recviter.EndTask - 1 + plan->NTask) % plan->NTask;
-                        // message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     }
                     if(recviter.EndPart > plan->toGet[recviter.StartTask].base)
                         endrun(5, "Received %ld particles from task %d more than %ld expected\n", recviter.EndPart, recviter.StartTask, plan->toGet[recviter.StartTask].base);
                 }
             }
+            /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
+            if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
+                no_sends_pending = 1;
+                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
+                if(senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
+                    senditer.EndPart = 0;
+                    senditer.StartPart = 0;
+                    senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
+                }
+            }
             double tend = second();
             tunpack += timediff(tstart, tend);
         }
-        /* Now wait for the sends before we free the buffers*/
-        if(!no_sends_pending) {
-            no_sends_pending = domain_check_sends(&all.Sends);
-            /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
-            if(no_sends_pending && senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
-                senditer.EndPart = 0;
-                senditer.StartPart = 0;
-                senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
-            }
-            // if(no_sends_pending)
-                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
-        }
-        double tendloop = second();
-        /* This checks for a deadlock so the loop does not run forever!
-         * We let it run for a while because the big simulations can take a while to exchange.
-         * ASTRID is 82 seconds for the initial balance.*/
-        if(tendloop - tstartloop - tpack - tunpack > 160 && debugprint == 0) {
-            message(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
-                    (!no_sends_pending)*all.Sends.nrequest_all, (!no_recvs_pending)*all.Recvs.nrequest_all, (!no_recvs_pending)*all.Recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
-            debugprint = 1;
-        }
-        if(tendloop - tstartloop - tpack - tunpack > 500)
-            endrun(1, "Exchange loop stuck for > 160 seconds: sends pending %d recvs pending %d (complete %d) send start task %d send end task %d recv start task %d recv end task %d\n",
-                    (!no_sends_pending)*all.Sends.nrequest_all, (!no_recvs_pending)*all.Recvs.nrequest_all, (!no_recvs_pending)*all.Recvs.totcomplete, senditer.StartTask, senditer.EndTask, recviter.StartTask, recviter.EndTask);
     } while(!no_sends_pending || !no_recvs_pending || recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
 
     free_combinedbuffer(&all);
