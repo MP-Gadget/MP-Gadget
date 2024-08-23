@@ -63,6 +63,15 @@ typedef struct {
     int ** target_list;
 } ExchangePlan;
 
+/* Status of this exchange iteration.*/
+enum ExchangeIterStatus
+{
+    TASK = 0,/* Normal status where we are working on tasks*/
+    SUBTASK = 1, /* We didn't have enough space for a whole task, so we are just sending small amounts of particles.*/
+    LASTSUBTASK = 2,/* This is the last set of particles in this task!*/
+    DONE = 3, /*We have finished all transfers*/
+};
+
 /* Structure to store the tasks that need to be exchanged this iteration*/
 struct ExchangeIter
 {
@@ -71,6 +80,7 @@ struct ExchangeIter
     int StartTask;
     /* Note that this task should not be sent so the condition is < for send and > for recv.*/
     int EndTask;
+    enum ExchangeIterStatus estat;
     /* If we only have one task this iteration, which particles do we send/recv?*/
     int64_t StartPart;
     int64_t EndPart;
@@ -366,16 +376,20 @@ static void
 domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
-    if(senditer->StartTask == senditer->EndTask && senditer->EndPart > 0 && senditer->EndPart < plan->toGo[senditer->StartTask].base) {
+    if(senditer->estat == SUBTASK) {
         senditer->StartPart = senditer->EndPart;
         // message(5, "SendIter fastreturn: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
         return;
     }
     senditer->StartTask = senditer->EndTask;
-    if(senditer->StartTask == plan->ThisTask)
+    if(senditer->StartTask == plan->ThisTask) {
+        senditer->estat = DONE;
         return;
+    }
     /* Total bytes needed to send*/
     senditer->transferbytes = 0;
+    /* Note LASTSUBTASK will not hit the conditions above and will just hit here*/
+    senditer->estat = TASK;
     int n;
     for(n = 0 ; n < 6; n++)
         expected_freeslots[n] = plan->ngarbage[n];
@@ -393,7 +407,12 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int6
     }
     // message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
     if(senditer->StartTask == senditer->EndTask) {
+        senditer->estat = SUBTASK;
         senditer->transferbytes = maxsendexch;
+        /* End task is the next one*/
+        senditer->EndTask = (senditer->StartTask + 1) % plan->NTask;
+        /* Start at 0 particle: endpart is set at send time.*/
+        senditer->StartPart = 0;
     }
     return;
 }
@@ -627,11 +646,13 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         }
         /* Now post sends: note that the sends are done in reverse order to the receives.
          * This ensures that partial sends and receives can complete early.*/
-        if(no_sends_pending && senditer.StartTask != plan->ThisTask) {
+        if(no_sends_pending && senditer.estat != DONE) {
             double tstart = second();
-            if(senditer.StartTask == senditer.EndTask)
+            if(senditer.estat == SUBTASK) {
                 domain_pack_single_send(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
-            else
+                if(senditer.EndPart == plan->toGo[senditer.StartTask].base)
+                    senditer.estat = LASTSUBTASK;
+            } else if(senditer.estat == TASK)
                 domain_pack_sends(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
             if(all.Sends.nrequest_all > 0)
                 no_sends_pending = 0;
@@ -662,11 +683,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
                 no_sends_pending = 1;
                 // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
-                if(senditer.StartTask == senditer.EndTask && senditer.EndPart == plan->toGo[senditer.StartTask].base) {
-                    senditer.EndPart = 0;
-                    senditer.StartPart = 0;
-                    senditer.EndTask = (senditer.EndTask+1) % plan->NTask;
-                }
             }
             double tend = second();
             tunpack += timediff(tstart, tend);
