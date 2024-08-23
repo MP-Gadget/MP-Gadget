@@ -423,15 +423,18 @@ static void
 domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
 {
     /* Last loop was a subtask*/
-    if(recviter->StartTask == recviter->EndTask && recviter->EndPart > 0 && recviter->EndPart < plan->toGet[recviter->StartTask].base) {
+    if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
         return;
     }
     recviter->StartTask = recviter->EndTask;
-    if(recviter->StartTask == plan->ThisTask)
+    if(recviter->StartTask == plan->ThisTask) {
+        recviter->estat = DONE;
         return;
+    }
 
     recviter->transferbytes = 0;
+    recviter->estat = TASK;
     int task;
     for(task = 0; task < plan->NTask; task++) {
         const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
@@ -458,9 +461,12 @@ domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64
     }
     // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
     if(recviter->StartTask == recviter->EndTask) {
+        recviter->estat = SUBTASK;
         recviter->transferbytes = maxrecvexch;
+        recviter->EndTask = (recviter->StartTask - 1) % plan->NTask;
+        /* Start at 0 particle: endpart is set at send time.*/
+        recviter->StartPart = 0;
     }
-
     return;
 }
 
@@ -632,17 +638,19 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     do {
         if(no_sends_pending)
             domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
-        if(no_recvs_pending)
+        if(no_recvs_pending && recviter.estat != DONE) {
+            /* No recvs are pending, try to get more*/
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
-        /* Need check in case receives finished but still sends to do*/
-        if(no_recvs_pending && recviter.StartTask != plan->ThisTask) {
-            /* Receiving less than one task!*/
-            if(recviter.StartTask == recviter.EndTask) {
-                domain_post_single_recv(&all.Recvs, &recviter, tag, Comm);
-            } else
-                domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
-            if(all.Recvs.nrequest_all > 0)
-                no_recvs_pending = 0;
+            /* Need check in case receives finished but still sends to do*/
+            if(recviter.estat != DONE) {
+                /* Receiving less than one task!*/
+                if(recviter.estat == SUBTASK) {
+                    domain_post_single_recv(&all.Recvs, &recviter, tag, Comm);
+                } else if(recviter.estat == TASK)
+                    domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
+                if(all.Recvs.nrequest_all > 0)
+                    no_recvs_pending = 0;
+            }
         }
         /* Now post sends: note that the sends are done in reverse order to the receives.
          * This ensures that partial sends and receives can complete early.*/
@@ -665,21 +673,19 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             size_t recvd = domain_check_unpack(plan, pman, sman, &all);
             if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
-                if(recviter.StartTask == recviter.EndTask) {
+                if(recviter.estat == SUBTASK) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     /* Check whether this was the final part of a task, in which case move to next task.*/
                     if(recviter.EndPart == plan->toGet[recviter.StartTask].base) {
+                        recviter.estat = LASTSUBTASK;
                         // message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
-                        recviter.EndPart = 0;
-                        recviter.StartPart = 0;
-                        recviter.EndTask = (recviter.EndTask - 1 + plan->NTask) % plan->NTask;
                     }
                     if(recviter.EndPart > plan->toGet[recviter.StartTask].base)
                         endrun(5, "Received %ld particles from task %d more than %ld expected\n", recviter.EndPart, recviter.StartTask, plan->toGet[recviter.StartTask].base);
                 }
             }
-            /* Last loop was the final part of a task, need to reset and do this again. At the end of the loop */
+            /* Done with sends, let's get more! */
             if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
                 no_sends_pending = 1;
                 // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
@@ -687,7 +693,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             double tend = second();
             tunpack += timediff(tstart, tend);
         }
-    } while(!no_sends_pending || !no_recvs_pending || recviter.EndTask != plan->ThisTask || senditer.EndTask != plan->ThisTask );
+    } while(!no_sends_pending || !no_recvs_pending || recviter.estat != DONE || senditer.estat != DONE);
 
     free_combinedbuffer(&all);
     double timeall = walltime_measure(WALLTIME_IGNORE);
