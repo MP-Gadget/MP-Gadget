@@ -636,7 +636,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     /* Loop. There is no blocking inside this loop. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
-        if(no_sends_pending)
+        if(no_sends_pending && senditer.estat != DONE)
             domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
