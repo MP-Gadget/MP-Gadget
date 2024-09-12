@@ -6,7 +6,6 @@
 #include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <gsl/gsl_math.h>
 #include <inttypes.h>
 #include <omp.h>
 

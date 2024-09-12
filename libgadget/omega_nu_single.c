@@ -2,7 +2,6 @@
 
 #include <math.h>
 #include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
 #include <string.h>
 #include "physconst.h"
 #include "utils/mymalloc.h"

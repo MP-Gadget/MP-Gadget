@@ -1,6 +1,4 @@
 #include <gsl/gsl_integration.h>
-#include <gsl/gsl_interp.h>
-#include <gsl/gsl_rng.h>
 #include <assert.h>
 #include "thermal.h"
 /*For speed of light*/

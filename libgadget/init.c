@@ -2,7 +2,6 @@
 #include <string.h>
 #include <math.h>
 #include <mpi.h>
-#include <gsl/gsl_sf_gamma.h>
 
 #include "init.h"
 #include "utils.h"

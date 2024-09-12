@@ -6,7 +6,6 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <math.h>
-#include <gsl/gsl_math.h>
 #include <gsl/gsl_errno.h>
 #include <omp.h>
 
