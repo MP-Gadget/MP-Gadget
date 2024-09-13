@@ -4,7 +4,7 @@
  * with the original Gadget-3 cooling code.
  *
  * Copyright (c) Simeon Bird 2019 and Yu Feng 2015-2019.
- * Released under the terms of the GPLv2 or later.
+ * Released under the terms of the 3-clause BSD license 
  */
 
 /* A rate network for neutral hydrogen following
