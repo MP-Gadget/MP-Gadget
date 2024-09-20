@@ -63,7 +63,7 @@ double get_random_number(const uint64_t id, const RandTable * const rnd)
 RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize)
 {
     RandTable rnd;
-    rnd.Table = mymalloc2("Random", rndtablesize * sizeof(double));
+    rnd.Table = (double *) mymalloc2("Random", rndtablesize * sizeof(double));
     rnd.tablesize = rndtablesize;
     /* start-up seed */
     gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
@@ -566,9 +566,9 @@ gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc
     threadarray.sizes[0] = 0;
     for(i=1; i < narrays; i++) {
         if(alloc_high)
-            threadarray.srcs[i] = mymalloc2("threx", sizeof(int) * total_size);
+            threadarray.srcs[i] = (int*) mymalloc2("threx", sizeof(int) * total_size);
         else
-            threadarray.srcs[i] = mymalloc("threx", sizeof(int) * total_size);
+            threadarray.srcs[i] = (int*) mymalloc("threx", sizeof(int) * total_size);
         threadarray.sizes[i] = 0;
     }
     return threadarray;
