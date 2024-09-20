@@ -325,7 +325,7 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
      * secondary treewalk, so fill up garbage for the primary treewalk.
      * The copy is a technical race otherwise. */
     if(I->base.NodeList[0] == tw->tree->firstnode) {
-        I->MinID = -1;
+        I->MinID = IDTYPE_MAX;
         I->MinIDTask = -1;
         return;
     }

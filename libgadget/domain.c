@@ -1091,7 +1091,7 @@ domain_check_for_local_refine_subsample(
      * the node has been finished. We either refine the last leaf node
      * or create a new leaf because of the peano/morton sorting.
      * */
-    peano_t last_key = -1;
+    peano_t last_key = PEANOT_MAX;
     int last_leaf = -1;
     i = 0;
     while(i < Nsample) {
