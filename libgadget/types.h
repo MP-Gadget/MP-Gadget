@@ -8,6 +8,7 @@
 typedef int64_t inttime_t;
 
 typedef uint64_t MyIDType;
+#define IDTYPE_MAX UINT64_MAX
 
 #ifndef LOW_PRECISION
 #define LOW_PRECISION double
