@@ -740,21 +740,21 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     return;
 }
 
-static void ev_recv_export_result(struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
+static void ev_recv_export_result(struct CommBuffer * exportbuf, struct ImpExpCounts * counts, TreeWalk * tw)
 {
-    alloc_commbuffer(export, counts->NTask, 1);
+    alloc_commbuffer(exportbuf, counts->NTask, 1);
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    export->databuf = (char*) mymalloc2("ExportResult", counts->Nexport * tw->result_type_elsize);
+    exportbuf->databuf = (char*) mymalloc2("ExportResult", counts->Nexport * tw->result_type_elsize);
     /* Post the receives first so we can hit a zero-copy fastpath.*/
-    MPI_fill_commbuffer(export, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
+    MPI_fill_commbuffer(exportbuf, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
     // alloc_commbuffer(&res_imports, counts.NTask, 0);
     // MPI_fill_commbuffer(import, counts->Import_count, counts->Import_offset, type, COMM_SEND, 101923, counts->comm);
     MPI_Type_free(&type);
 }
 
-static void ev_reduce_export_result(struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
+static void ev_reduce_export_result(struct CommBuffer * exportbuf, struct ImpExpCounts * counts, TreeWalk * tw)
 {
     int64_t i;
     /* Notice that we build the dataindex table individually
@@ -770,7 +770,7 @@ static void ev_reduce_export_result(struct CommBuffer * export, struct ImpExpCou
                 const int task = tw->ExportTable_thread[i][k].Task;
                 const int64_t bufpos = real_recv_count[task] + counts->Export_offset[task];
                 real_recv_count[task]++;
-                TreeWalkResultBase * output = (TreeWalkResultBase*) (export->databuf + tw->result_type_elsize * bufpos);
+                TreeWalkResultBase * output = (TreeWalkResultBase*) (exportbuf->databuf + tw->result_type_elsize * bufpos);
                 treewalk_reduce_result(tw, output, place, TREEWALK_GHOSTS);
 #ifdef DEBUG
                 if(output->ID != P[place].ID)
