@@ -12,7 +12,7 @@ OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #OPT += -DDEBUG      # print a lot of debugging messages
 #Disable openmp locking. This means no threading.
 #OPT += -DNO_OPENMP_SPINLOCK
-
+#OPT += -DUSE_CUDA  #Enable GPU-specific CUDA code
 #-----------
 #OPT += -DEXCUR_REION  # reionization with excursion set
 
