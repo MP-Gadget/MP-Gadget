@@ -205,7 +205,7 @@ blackholes_active(const ActiveParticles * act, int ** ActiveBlackHoles, int64_t 
     /* Move the working set high so we can keep the tree we build after making the list and still free this active set.*/
     *NumActiveBlackHoles = tw_bh->WorkSetSize;
     if(totbh > 0) {
-        *ActiveBlackHoles = mymalloc2("activeBH", tw_bh->WorkSetSize * sizeof(int));
+        *ActiveBlackHoles = (int*)mymalloc2("activeBH", tw_bh->WorkSetSize * sizeof(int));
         memcpy(*ActiveBlackHoles, tw_bh->WorkSet, tw_bh->WorkSetSize * sizeof(int));
     }
     myfree(tw_bh->WorkSet);
@@ -282,10 +282,10 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->BH_SurroundingGasVel = (MyFloat (*) [3]) mymalloc("BH_SurroundVel", 3* SlotsManager->info[5].size * sizeof(priv->BH_SurroundingGasVel[0]));
 
     /* For AGN kinetic feedback */
-    priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->MgasEnc = mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->NumDM = (MyFloat *) mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->MgasEnc = (MyFloat *) mymalloc("MgasEnc", SlotsManager->info[5].size * sizeof(MyFloat));
     /* mark the state of AGN kinetic feedback */
-    priv->KEflag = mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
+    priv->KEflag = (int *) mymalloc("KEflag", SlotsManager->info[5].size * sizeof(int));
 
     /* Need hmax for the symmetric BH merger treewalk*/
     if(!tree->hmax_computed_flag)

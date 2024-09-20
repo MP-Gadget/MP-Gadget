@@ -148,8 +148,8 @@ blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree,
         endrun(0, "DM Tree not allocated for veldisp\n");
 
     /* For AGN kinetic feedback */
-    priv->NumDM = mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
-    priv->V2sumDM = mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->NumDM = (MyFloat *) mymalloc("NumDM", SlotsManager->info[5].size * sizeof(MyFloat));
+    priv->V2sumDM = (MyFloat *) mymalloc("V2sumDM", SlotsManager->info[5].size * sizeof(MyFloat));
     priv->V1sumDM = (MyFloat (*) [3]) mymalloc("V1sumDM", 3* SlotsManager->info[5].size * sizeof(priv->V1sumDM[0]));
     priv->kf = kf;
 

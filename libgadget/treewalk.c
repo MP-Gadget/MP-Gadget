@@ -115,7 +115,7 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
     bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
-    size_t freebytes = mymalloc_freebytes();
+    size_t freebytes = (size_t) mymalloc_freebytes();
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
@@ -367,7 +367,7 @@ alloc_export_memory(TreeWalk * tw)
     tw->ExportTable_thread = ta_malloc2("localexports", data_index *, tw->NThread);
     int i;
     for(i = 0; i < tw->NThread; i++)
-        tw->ExportTable_thread[i] = mymalloc("DataIndexTable", sizeof(data_index) * tw->BunchSize);
+        tw->ExportTable_thread[i] = (data_index*) mymalloc("DataIndexTable", sizeof(data_index) * tw->BunchSize);
     tw->QueueChunkEnd = ta_malloc2("queueend", int64_t, tw->NThread);
     for(i = 0; i < tw->NThread; i++)
         tw->QueueChunkEnd[i] = -1;
@@ -703,7 +703,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     exports->databuf = (char *) mymalloc("ExportQuery", counts->Nexport * tw->query_type_elsize);
 
     alloc_commbuffer(imports, counts->NTask, 0);
-    imports->databuf = mymalloc("ImportQuery", counts->Nimport * tw->query_type_elsize);
+    imports->databuf = (char *) mymalloc("ImportQuery", counts->Nimport * tw->query_type_elsize);
 
     MPI_Datatype type;
     MPI_Type_contiguous(tw->query_type_elsize, MPI_BYTE, &type);

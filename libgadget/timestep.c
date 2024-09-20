@@ -420,7 +420,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     memcpy(lastact, subact, sizeof(ActiveParticles));
     if(subact->ActiveParticle){
         /* Allocate high so we can free in order.*/
-        lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+        lastact->ActiveParticle = (int*) mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
         memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
         /* Free previous copy*/
         if(subact->ActiveParticle && subact->ActiveParticle != act->ActiveParticle)
@@ -480,7 +480,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         if(subact->ActiveParticle){
             /* Allocate high so we can free in order.*/
             if(ti > 1) {
-                lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+                lastact->ActiveParticle = (int*) mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
                 memcpy(lastact->ActiveParticle, subact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
             }
             /* Free previous copy*/
@@ -535,7 +535,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
 
     if(lastact->ActiveParticle && lastact->ActiveParticle != act->ActiveParticle){
         /* Allocate high so we can free in order.*/
-        int * newActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+        int * newActiveParticle = (int *) mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
         memcpy(newActiveParticle, lastact->ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
         /* Free previous copy*/
         myfree(lastact->ActiveParticle);
@@ -582,7 +582,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
         memcpy(lastact, &subact, sizeof(ActiveParticles));
         if(subact.ActiveParticle){
             /* Allocate high so we can free in order.*/
-            lastact->ActiveParticle = mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
+            lastact->ActiveParticle = (int*) mymalloc2("Last_active", sizeof(int)*lastact->NumActiveParticle);
             memcpy(lastact->ActiveParticle, subact.ActiveParticle, sizeof(int)*lastact->NumActiveParticle);
             /* Free previous copy*/
             myfree(subact.ActiveParticle);

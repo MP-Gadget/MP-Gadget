@@ -438,7 +438,7 @@ slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sma
     /* Resort the particles such that those of the same type and key are close by.
      * The locality is broken by the exchange. */
     int64_t garbage=0;
-    struct PeanoOrder * peanokeys = mymalloc("Keydata", pman->NumPart * sizeof(struct PeanoOrder));
+    struct PeanoOrder * peanokeys = (struct PeanoOrder *)mymalloc("Keydata", pman->NumPart * sizeof(struct PeanoOrder));
     #pragma omp parallel for reduction(+: garbage)
     for(i = 0; i < pman->NumPart; i++) {
         peanokeys[i].Key = PEANO(pman->Base[i].Pos, pman->BoxSize);
