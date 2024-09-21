@@ -340,7 +340,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             dest = pman->NumPart;
             pman->NumPart++;
             if(pman->NumPart > pman->MaxPart)
-                endrun(6, "Not enough room for particles after exchange\n");
+                endrun(6, "Not enough room for particle %ld of type %d from task %d (need %ld). Garbage is 0=%ld 1=%ld 4=%ld 5=%ld\n", i, type, task, plan->toGet[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4], plan->ngarbage[5]);
         }
         memcpy(pman->Base+dest, exchptr, sizeof(struct particle_data));
 
