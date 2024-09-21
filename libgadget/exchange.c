@@ -327,7 +327,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
         if(exchptr + sizeof(struct particle_data) + elsize - exch > recvd_bytes)
             break;
         /* Find a garbage place in the particle table*/
-        int64_t dest;
+        int64_t dest = pman->MaxPart + 2;
+        /* Garbage particle of the same type is best*/
         if(plan->ngarbage[type] >= 1) {
             dest = plan->garbage_list[type][plan->ngarbage[type]-1];
             /* Copy PI so it is not over-written*/
@@ -335,13 +336,29 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             /* No longer garbage!*/
             plan->ngarbage[type]--;
         }
-        /* If we are copying to the end of the table, increment the counter*/
-        else{
-            dest = pman->NumPart;
-            pman->NumPart++;
-            if(pman->NumPart > pman->MaxPart)
-                endrun(6, "Not enough room for particle %ld of type %d from task %d (need %ld). Garbage is 0=%ld 1=%ld 4=%ld 5=%ld\n", i, type, task, plan->toGet[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4], plan->ngarbage[5]);
+        else {
+            /* Just copy to the end of the table, incrementing the counter*/
+            if(pman->NumPart+1 < pman->MaxPart) {
+                dest = pman->NumPart;
+                pman->NumPart++;
+            }
+            /* Try to find a garbage particle of a different type.
+             * This is the last resort because it means the slot will not be aligned with the particle.*/
+            else {
+                int tt;
+                for(tt = 0; tt < 6; tt++)
+                {
+                    if(plan->ngarbage[tt] >= 1) {
+                        dest = plan->garbage_list[tt][plan->ngarbage[tt]-1];
+                        /* No longer garbage!*/
+                        plan->ngarbage[tt]--;
+                        break;
+                    }
+                }
+            }
         }
+        if(dest >= pman->MaxPart)
+            endrun(6, "Not enough room for particle %ld of type %d from task %d (need %ld). Garbage is 0=%ld 1=%ld 4=%ld 5=%ld\n", i, type, task, plan->toGet[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4], plan->ngarbage[5]);
         memcpy(pman->Base+dest, exchptr, sizeof(struct particle_data));
 
         exchptr += sizeof(struct particle_data);
