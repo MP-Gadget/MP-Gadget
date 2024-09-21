@@ -922,7 +922,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     }
 
     /* Make failure collective*/
-    failure = MPI_Allreduce(MPI_IN_PLACE, &failure, 1, MPI_INT, MPI_SUM, Comm);
+    MPI_Allreduce(MPI_IN_PLACE, &failure, 1, MPI_INT, MPI_SUM, Comm);
 
     return failure;
 }
