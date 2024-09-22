@@ -645,19 +645,22 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     domain_init_exchange_iter(&senditer, 1, plan);
     domain_init_exchange_iter(&recviter, -1, plan);
 
-    walltime_measure("/Domain/exchange/misc");
     /* This is after the walltime because that may allocate memory*/
     all.Recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
+    all.Recvs.databufsize = maxexch/2;
     all.Sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
+    all.Sends.databufsize = maxexch/2;
+
+    walltime_measure("/Domain/exchange/misc");
 
     /* Loop. There is no blocking inside this loop. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
         if(no_sends_pending && senditer.estat != DONE)
-            domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
+            domain_find_send_iter(plan, &senditer,  expected_freeslots, all.Sends.databufsize);
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
-            domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
+            domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, all.Recvs.databufsize);
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
                 /* Receiving less than one task!*/

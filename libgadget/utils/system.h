@@ -117,6 +117,7 @@ int _MPIU_Barrier(const char * fn, const int ln, MPI_Comm comm);
 struct CommBuffer
 {
     char * databuf; /* Bytes to store the received/sent data.*/
+    size_t databufsize; /* Number of bytes allocated in databuf*/
     int * displs; /* Displacement of each request's data structure in the above buffer*/
     int * rqst_task; /* Array storing task number for each request in rdata_all*/
     MPI_Request * rdata_all; /* Array of requests*/
