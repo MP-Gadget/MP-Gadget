@@ -661,6 +661,9 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
                 all.Recvs.databufsize = recviter.transferbytes+sizeof(struct particle_data);
+                /* Free any earlier buffer. If not called will be freed in free_combinedbuffer after loop end.*/
+                if(all.Recvs.databuf)
+                    myfree(all.Recvs.databuf);
                 all.Recvs.databuf = mymalloc("recvbuffer",all.Recvs.databufsize * sizeof(char));
                 /* Receiving less than one task!*/
                 if(recviter.estat == SUBTASK) {
@@ -675,6 +678,8 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
          * This ensures that partial sends and receives can complete early.*/
         if(no_sends_pending && senditer.estat != DONE) {
             all.Sends.databufsize = senditer.transferbytes+sizeof(struct particle_data);
+            if(all.Sends.databuf)
+                myfree(all.Sends.databuf);
             all.Sends.databuf = mymalloc2("sendbuffer",all.Sends.databufsize * sizeof(char));
             double tstart = second();
             if(senditer.estat == SUBTASK) {
@@ -694,8 +699,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             size_t recvd = domain_check_unpack(plan, pman, sman, &all);
             if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
-                myfree(all.Recvs.databuf);
-                all.Recvs.databuf = NULL;
                 if(recviter.estat == SUBTASK) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
@@ -711,8 +714,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             /* Done with sends, let's get more! */
             if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
                 no_sends_pending = 1;
-                myfree(all.Sends.databuf);
-                all.Sends.databuf = NULL;
                 // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
             }
             double tend = second();
