@@ -644,25 +644,20 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
 
     domain_init_exchange_iter(&senditer, 1, plan);
     domain_init_exchange_iter(&recviter, -1, plan);
-
-    /* This is after the walltime because that may allocate memory*/
-    all.Recvs.databuf = mymalloc("recvbuffer", maxexch/2 * sizeof(char));
-    all.Recvs.databufsize = maxexch/2;
-    all.Sends.databuf = mymalloc2("sendbuffer",maxexch/2 * sizeof(char));
-    all.Sends.databufsize = maxexch/2;
-
     walltime_measure("/Domain/exchange/misc");
 
     /* Loop. There is no blocking inside this loop. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
         if(no_sends_pending && senditer.estat != DONE)
-            domain_find_send_iter(plan, &senditer,  expected_freeslots, all.Sends.databufsize);
+            domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
-            domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, all.Recvs.databufsize);
+            domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
+                all.Recvs.databufsize = recviter.transferbytes+sizeof(struct particle_data);
+                all.Recvs.databuf = mymalloc("recvbuffer",all.Recvs.databufsize * sizeof(char));
                 /* Receiving less than one task!*/
                 if(recviter.estat == SUBTASK) {
                     domain_post_single_recv(&all.Recvs, &recviter, tag, Comm);
@@ -675,6 +670,8 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now post sends: note that the sends are done in reverse order to the receives.
          * This ensures that partial sends and receives can complete early.*/
         if(no_sends_pending && senditer.estat != DONE) {
+            all.Sends.databufsize = senditer.transferbytes+sizeof(struct particle_data);
+            all.Sends.databuf = mymalloc2("sendbuffer",all.Sends.databufsize * sizeof(char));
             double tstart = second();
             if(senditer.estat == SUBTASK) {
                 domain_pack_single_send(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
@@ -693,6 +690,8 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             size_t recvd = domain_check_unpack(plan, pman, sman, &all);
             if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
+                myfree(all.Recvs.databuf);
+                all.Recvs.databuf = NULL;
                 if(recviter.estat == SUBTASK) {
                     recviter.EndPart = recviter.StartPart + recvd;
                     // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
@@ -708,6 +707,8 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             /* Done with sends, let's get more! */
             if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
                 no_sends_pending = 1;
+                myfree(all.Sends.databuf);
+                all.Sends.databuf = NULL;
                 // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
             }
             double tend = second();
