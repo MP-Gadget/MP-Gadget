@@ -931,7 +931,7 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     }
 
     /* Make failure collective*/
-    MPIU_Any(failure, Comm);
+    failure = MPIU_Any(failure, Comm);
 
     return failure;
 }
