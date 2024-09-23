@@ -855,13 +855,6 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         }
     }
 
-    // message(1, "Particles togo: %ld, toget %ld\n", plan->toGoSum.base, plan->toGetSum.base);
-    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
-    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
-    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
-    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
-    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
-
     int64_t finalNumPart = pman->NumPart;
     /* finalNumPart calculation is not completely optimal but reflects the current algorithm.
      * The achievable balance could be a little better as we can make extra slots without extra particles,
@@ -877,6 +870,21 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
             }
         }
     }
+    int failure = 0;
+    if(finalNumPart > pman->MaxPart) {
+        message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
+        failure = 1;
+    }
+    /* Make failure collective*/
+    failure = MPIU_Any(failure, Comm);
+
+    // message(1, "Particles togo: %ld, toget %ld\n", plan->toGoSum.base, plan->toGetSum.base);
+    int64_t maxbasetogomax, maxbasetogetmax, sumtogo;
+    MPI_Reduce(&maxbasetogo, &maxbasetogomax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&maxbasetoget, &maxbasetogetmax, 1, MPI_INT64, MPI_MAX, 0, Comm);
+    MPI_Reduce(&plan->toGoSum.base, &sumtogo, 1, MPI_INT64, MPI_SUM, 0, Comm);
+    message(0, "Total particles in flight: %ld Largest togo: %ld, toget %ld\n", sumtogo, maxbasetogomax, maxbasetogetmax);
+
     /* Make sure we have reserved enough slots to fit the new particles into.*/
     if(need_slot_reserve) {
         slots_reserve(1, slots_needed, sman);
@@ -923,15 +931,6 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
 
     myfree(counts);
     myfree(layouts);
-
-    int failure = 0;
-    if(finalNumPart > pman->MaxPart) {
-        message(1, "Exchange will not succeed, need %ld particle slots but only have %ld. Current NumPart %ld\n", finalNumPart, pman->MaxPart, pman->NumPart);
-        failure = 1;
-    }
-
-    /* Make failure collective*/
-    failure = MPIU_Any(failure, Comm);
 
     return failure;
 }
