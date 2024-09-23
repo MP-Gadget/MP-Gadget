@@ -524,6 +524,8 @@ domain_post_recvs(ExchangePlan * plan, struct CommBuffer * recvs, struct Exchang
         recvs->rqst_task[recvs->nrequest_all] = recvtask;
         recvs->displs[recvs->nrequest_all] = displs;
         displs += plan->toGet[recvtask].totalbytes;
+        if(displs >= recvs->databufsize)
+            endrun(4, "Recv buffer overflow with %ld bytes > %ld allocated for task %d end %d", displs, recvs->databufsize, task, recviter->EndTask);
         // message(1, "Receive task %d toget %ld tot %ld\n", recvtask, plan->toGet[recvtask].totalbytes, recviter->transferbytes);
         recvs->nrequest_all ++;
     }
@@ -571,6 +573,8 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
         sends->rqst_task[sends->nrequest_all] = sendtask;
         sends->displs[sends->nrequest_all] = displs;
         displs += plan->toGo[sendtask].totalbytes;
+        if(displs >= sends->databufsize)
+            endrun(4, "Send buffer overflow with %ld bytes > %ld allocated for task %d end %d", displs, sends->databufsize, task, senditer->EndTask);
         sends->nrequest_all ++;
     }
     // message(3, "Packed sends for task %d to %d nrequest %d\n", senditer->StartTask, senditer->EndTask, sends->nrequest_all);
