@@ -400,6 +400,7 @@ static void petaio_write_header(BigFile * bf, const double atime, const int64_t 
     (0 != big_block_set_attr(&bh, "Omega0", &CP->Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaUR", &CP->Omega_ur, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaK", &CP->OmegaK, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "class_radiation_convention", &CP->use_class_radiation_convention, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &CP->CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &CP->OmegaBaryon, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UnitLength_in_cm", &data->UnitLength_in_cm, "f8", 1)) ||
