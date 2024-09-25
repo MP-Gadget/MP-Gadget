@@ -13,10 +13,17 @@ ifneq ($(findstring -DUSE_CFITSIO, $(OPT)),)
     FITSIO_LIBS ?= $(shell pkg-config --libs cfitsio)
 endif
 
+ifneq ($(findstring -DUSE_CUDA, $(OPT)),)
+    CUDA_INCL ?= 
+    CUDA_LIBS ?= -lcudart
+    NVCC ?= nvcc
+    NVOPTIMIZE ?= -O3
+endif
+
 OPTIONS = $(OPTIMIZE) $(OPT)
 GADGET_TESTDATA_ROOT = $(CURDIR)/../
 
-CFLAGS = $(OPTIONS) $(GSL_INCL) $(FITSIO_INCL)
+CFLAGS = $(OPTIONS) $(GSL_INCL) $(FITSIO_INCL) $(CUDA_INCL)
 CFLAGS += -I../depends/include
 CFLAGS += -I../
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
@@ -24,7 +31,7 @@ CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 TCFLAGS = $(CFLAGS) -DGADGET_TESTDATA_ROOT=\"$(GADGET_TESTDATA_ROOT)\"
 
 BUNDLEDLIBS = -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS  = -lm $(GSL_LIBS) $(FITSIO_LIBS)
+LIBS  = -lm $(GSL_LIBS) $(FITSIO_LIBS) $(CUDA_LIBS)
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 
@@ -33,3 +40,7 @@ V ?= 0
 	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
 	mkdir -p `dirname $@`; \
 	echo Compiling $<; $$cmd
+
+# Rule to compile .cu files (using nvcc)
+.objs/%.o: %.cu
+	$(NVCC) $(NVOPTIMIZE) -c $< -o $@

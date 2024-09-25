@@ -5,6 +5,10 @@
 #include "memory.h"
 #include "endrun.h"
 
+#ifdef USE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 #define MAGIC "DEADBEEF"
 #define ALIGNMENT 4096
 
@@ -151,7 +155,11 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
     char * cptr;
     if(alloc->use_malloc) {
         /* prepend a copy of the header to the malloc block; allocator_free will use it*/
+    #ifdef USE_CUDA
+        if (cudaMallocManaged((void **) &cptr, request_size + ALIGNMENT, cudaMemAttachGlobal) != cudaSuccess)
+    #else
         if(posix_memalign((void **) &cptr, ALIGNMENT, request_size + ALIGNMENT))
+    #endif
             endrun(1, "Failed malloc: %lu bytes for %s\n", request_size, header->name);
         header->ptr = cptr + ALIGNMENT;
         memcpy(cptr, header, ALIGNMENT);
