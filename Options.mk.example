@@ -1,5 +1,6 @@
 #These variables are set to useful defaults, but may be overriden if needed
-#MPICC=mpicc
+#MPICC=mpic++
+#MPICCDEP=mpicc
 
 #NVCC=nvcc
 #NVOPTIMIZE = -O3 -arch=sm_61 # specify architecture according to you GPU model, sm_90 shall be used for Vista's H100
