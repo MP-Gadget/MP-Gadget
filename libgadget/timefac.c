@@ -10,6 +10,12 @@
 #include "timebinmgr.h"
 #include "utils.h"
 
+#include <stdio.h>
+#include <math.h>
+#include <boost/math/quadrature/gauss.hpp>
+#include <boost/math/special_functions/fpclassify.hpp>  // For isnan and isinf
+#include <functional>
+
 #define WORKSIZE 10000
 
 /* Integrand for the drift table*/
@@ -85,19 +91,101 @@ static double comoving_distance_integ(double a, void *param)
 }
 
 /* Function to compute the comoving distance between two scale factors */
-double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
-{
-    double result, abserr;
-    gsl_function F;
-    gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(WORKSIZE);
+// double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
+// {
+//     double result, abserr;
+//     gsl_function F;
+//     gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(WORKSIZE);
     
-    F.function = comoving_distance_integ;
-    F.params = CP;
+//     F.function = comoving_distance_integ;
+//     F.params = CP;
 
-    // Using GSL to perform the integration
-    gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+//     // Using GSL to perform the integration
+//     gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
+//     gsl_integration_workspace_free(workspace);
 
-    return (LIGHTCGS/UnitVelocity_in_cm_per_s) * result;
+//     return (LIGHTCGS/UnitVelocity_in_cm_per_s) * result;
+// }
+
+/* Adaptive integration function with error control */
+double adaptive_integrate(std::function<double(double)> integrand, double a0, double a1, double *abserr, double epsrel = 1e-8, size_t max_points = 1024)
+{
+    double result_prev = 0.0;
+    double result_current = 0.0;
+    size_t points = 15;  // Start with 15-point Gauss-Legendre quadrature
+
+    while (true) {
+        result_prev = result_current;
+
+        // Use switch-case to handle different compile-time fixed point values
+        switch (points) {
+            case 15:
+                result_current = boost::math::quadrature::gauss<double, 15>::integrate(integrand, a0, a1);
+                break;
+            case 31:
+                result_current = boost::math::quadrature::gauss<double, 31>::integrate(integrand, a0, a1);
+                break;
+            case 63:
+                result_current = boost::math::quadrature::gauss<double, 63>::integrate(integrand, a0, a1);
+                break;
+            case 127:
+                result_current = boost::math::quadrature::gauss<double, 127>::integrate(integrand, a0, a1);
+                break;
+            case 255:
+                result_current = boost::math::quadrature::gauss<double, 255>::integrate(integrand, a0, a1);
+                break;
+            case 511:
+                result_current = boost::math::quadrature::gauss<double, 511>::integrate(integrand, a0, a1);
+                break;
+            case 1024:
+                result_current = boost::math::quadrature::gauss<double, 1024>::integrate(integrand, a0, a1);
+                break;
+            default:
+                printf("Unsupported number of points: %zu\n", points);
+                return result_current;
+        }
+
+        // Estimate the absolute error as the difference between successive results
+        *abserr = fabs(result_current - result_prev);
+
+        // Check if the relative error is within the tolerance
+        if (fabs(result_current) > 0 && (*abserr / fabs(result_current)) < epsrel) {
+            break;
+        }
+
+        // If we've reached the max allowed points without satisfying error tolerance, stop
+        if (points == max_points) {
+            printf("Warning: Maximum points reached. Desired relative error not achieved.\n");
+            break;
+        }
+
+        // Double the number of quadrature points for the next iteration
+        size_t next_points = points * 2;
+        if (next_points > max_points) {
+            points = max_points;
+        } else {
+            points = next_points;
+        }
+    }
+
+    return result_current;
+}
+
+/* Function to compute comoving distance using the adaptive integrator */
+double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
+{   
+    // relative error tolerance
+    // double epsrel = 1e-8;
+    double result, abserr;
+    // Define the integrand as a lambda function, wrapping comoving_distance_integ
+    auto integrand = [CP](double a) {
+        return comoving_distance_integ(a, (void*)CP);
+    };
+
+    // Call the generic adaptive integration function
+    result = adaptive_integrate(integrand, a0, a1, &abserr);
+
+    // Convert the result using the provided units
+    return (LIGHTCGS / UnitVelocity_in_cm_per_s) * result;
 }
 

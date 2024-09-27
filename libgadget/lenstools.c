@@ -298,6 +298,7 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
     double Lbox_Mpc = Lbox * UnitLength_in_cm / CM_PER_MPC;  // Box size in Mpc/h
     double comoving_distance_Mpc = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
     double Ode0 = CP->OmegaLambda > 0 ? CP->OmegaLambda : CP->Omega_fld;
+    char unit[] = "rad2    ";  // Mutable string for the UNIT keyword
     // Insert a blank line as a separator
     fits_write_record(fptr, "        ", &status);
     // Add headers to the FITS file
@@ -313,7 +314,7 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
     fits_update_key(fptr, TDOUBLE, "CHI", (&comoving_distance_Mpc), "Comoving distance in Mpc/h", &status);
     fits_update_key(fptr, TDOUBLE, "SIDE", &(Lbox_Mpc), "Side length in Mpc/h", &status);
     fits_update_key(fptr, TLONGLONG, "NPART", &num_particles, "Number of particles on the plane", &status);
-    fits_update_key(fptr, TSTRING, "UNIT", "rad2    ", "Pixel value unit", &status);
+    fits_update_key(fptr, TSTRING, "UNIT", unit, "Pixel value unit", &status);
 
     // Write the 2D array of doubles to the image
     long fpixel[2] = {1, 1};  // first pixel to write (1-based indexing)
