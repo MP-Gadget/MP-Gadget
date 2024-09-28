@@ -15,6 +15,7 @@
 #include <boost/math/quadrature/gauss.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>  // For isnan and isinf
 #include <functional>
+#include <boost/math/quadrature/tanh_sinh.hpp>
 
 #define WORKSIZE 10000
 
@@ -171,6 +172,41 @@ double adaptive_integrate(std::function<double(double)> integrand, double a0, do
     return result_current;
 }
 
+
+// Function to perform tanh-sinh integration with adaptive max_refinements
+double tanh_sinh_integrate_adaptive(auto func, double a, double b, double* estimated_error, double rel_tol = 1e-8, int max_refinements_limit = 30, int init_refine = 5, int step = 5) {
+    double result_prev = 0.0;
+    double result_current = 0.0;
+    *estimated_error = 1.0;  // Start with a large relative error
+    int max_refine = init_refine;
+
+    // Loop until reaching the max refinements limit or satisfying the tolerance
+    for (; max_refine <= max_refinements_limit; max_refine += step) {
+        // Create a Tanh-Sinh integrator with the current max_refinements
+        boost::math::quadrature::tanh_sinh<double> integrator(max_refine);
+
+        // Perform the integration
+        result_current = integrator.integrate(func, a, b);
+
+        // If this is not the first iteration, compute the relative error
+        if (max_refine > init_refine) {
+            *estimated_error = fabs(result_current - result_prev) / fabs(result_current);
+
+            // Check if the relative error is within the target tolerance
+            if (*estimated_error < rel_tol) {
+                break;  // Stop refining if the result is within the tolerance
+            }
+        }
+
+        // Update the previous result for the next iteration
+        result_prev = result_current;
+    }
+
+    // Return the final result
+    return result_current;
+}
+
+
 /* Function to compute comoving distance using the adaptive integrator */
 double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
 {   
@@ -183,9 +219,9 @@ double compute_comoving_distance(Cosmology *CP, double a0, double a1, const doub
     };
 
     // Call the generic adaptive integration function
-    result = adaptive_integrate(integrand, a0, a1, &abserr);
+    // result = adaptive_integrate(integrand, a0, a1, &abserr);
+    result = tanh_sinh_integrate_adaptive(integrand, a0, a1, &abserr);
 
     // Convert the result using the provided units
     return (LIGHTCGS / UnitVelocity_in_cm_per_s) * result;
 }
-
