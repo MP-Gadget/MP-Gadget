@@ -183,8 +183,8 @@ static void glass_force(PetaPM * pm, double t_f, struct ic_part_data * ICP, cons
     PetaPMParticleStruct pstruct = {
         ICP,
         sizeof(ICP[0]),
-        (char*) &ICP[0].Pos[0]  - (char*) ICP,
-        (char*) &ICP[0].Mass  - (char*) ICP,
+        (size_t)((char*) &ICP[0].Pos[0]  - (char*) ICP),
+        (size_t)((char*) &ICP[0].Mass  - (char*) ICP),
         NULL,
         NULL,
         NumPart,

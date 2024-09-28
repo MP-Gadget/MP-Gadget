@@ -155,8 +155,9 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
     PetaPMParticleStruct pstruct = {
         curICP,
         sizeof(curICP[0]),
-        ((char*) &curICP[0].Pos[0]) - (char*) curICP,
-        ((char*) &curICP[0].Mass) - (char*) curICP,
+        (size_t)(((char*) &curICP[0].Pos[0]) - (char*) curICP),
+        (size_t)(((char*) &curICP[0].Mass) - (char*) curICP),
+
         NULL,
         NULL,
         NumPart,
