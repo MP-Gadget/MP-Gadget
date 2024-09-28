@@ -174,7 +174,7 @@ double adaptive_integrate(std::function<double(double)> integrand, double a0, do
 
 
 // Function to perform tanh-sinh integration with adaptive max_refinements
-double tanh_sinh_integrate_adaptive(auto func, double a, double b, double* estimated_error, double rel_tol = 1e-8, int max_refinements_limit = 30, int init_refine = 5, int step = 5) {
+double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a, double b, double* estimated_error, double rel_tol = 1e-8, int max_refinements_limit = 30, int init_refine = 5, int step = 5) {
     double result_prev = 0.0;
     double result_current = 0.0;
     *estimated_error = 1.0;  // Start with a large relative error

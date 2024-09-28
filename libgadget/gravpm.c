@@ -62,8 +62,8 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
-        (char*) &P[0].Pos[0]  - (char*) P,
-        (char*) &P[0].Mass  - (char*) P,
+        static_cast<size_t>((char*) &P[0].Pos[0]  - (char*) P),
+        static_cast<size_t>((char*) &P[0].Mass  - (char*) P),
         /* Regions allocated inside _prepare*/
         NULL,
         /* By default all particles are active. For hybrid neutrinos set below.*/
