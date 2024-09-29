@@ -4,9 +4,6 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL=../libgadget/config.h \
-    power.h allvars.h thermal.h proto.h pmesh.h
-
 TESTED = power thermal
 TESTBIN := $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
 SUITE?= $(TESTED:%=test_%)
@@ -38,6 +35,9 @@ test : build-tests
 
 libgenic.a: $(OBJS)
 	$(AR) r $@ $(OBJS)
+
+DEPS := $(OBJS:.o=.d)
+-include $(DEPS)
 
 clean:
 	rm -rf .objs libgenic.a
