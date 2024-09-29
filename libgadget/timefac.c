@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <gsl/gsl_integration.h>
 
 #include "physconst.h"
 #include "timefac.h"
@@ -16,8 +15,6 @@
 #include <boost/math/special_functions/fpclassify.hpp>  // For isnan and isinf
 #include <functional>
 #include <boost/math/quadrature/tanh_sinh.hpp>
-
-#define WORKSIZE 10000
 
 // Function to perform tanh-sinh integration with adaptive max_refinements
 double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a, double b, double* estimated_error, double rel_tol = 1e-8, int max_refinements_limit = 30, int init_refine = 5, int step = 5) {
@@ -81,24 +78,6 @@ static double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-/*Do the integral required to get a factor.*/
-// static double get_exact_factor(Cosmology * CP, inttime_t t0, inttime_t t1, double (*factor) (double, void *))
-// {
-//     double result, abserr;
-//     if(t0 == t1)
-//         return 0;
-//     double a0 = exp(loga_from_ti(t0));
-//     double a1 = exp(loga_from_ti(t1));
-//     gsl_function F;
-//     gsl_integration_workspace *workspace;
-//     workspace = gsl_integration_workspace_alloc(WORKSIZE);
-//     F.function = factor;
-//     F.params = CP;
-//     gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
-//     gsl_integration_workspace_free(workspace);
-//     return result;
-// }
-
 // Function to compute a factor using Tanh-Sinh adaptive integration
 static double get_exact_factor(Cosmology *CP, inttime_t t0, inttime_t t1, double (*factor)(double, void *))
 {
@@ -147,25 +126,6 @@ static double comoving_distance_integ(double a, void *param)
     // return 1. / (h * a * a); 
     return gravkick_integ(a, param);
 }
-
-/* Function to compute the comoving distance between two scale factors */
-// double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
-// {
-//     double result, abserr;
-//     gsl_function F;
-//     gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(WORKSIZE);
-    
-//     F.function = comoving_distance_integ;
-//     F.params = CP;
-
-//     // Using GSL to perform the integration
-//     gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
-//     gsl_integration_workspace_free(workspace);
-
-//     return (LIGHTCGS/UnitVelocity_in_cm_per_s) * result;
-// }
-
-
 
 /* Function to compute comoving distance using the adaptive integrator */
 double compute_comoving_distance(Cosmology *CP, double a0, double a1, const double UnitVelocity_in_cm_per_s)
