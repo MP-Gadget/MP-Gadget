@@ -1,6 +1,6 @@
 #ifndef __PETAPM_H__
 #define __PETAPM_H__
-#include <cufftmp.h>   // NC:library change
+#include <cufftMp.h>   // NC:library change
 
 #include "powerspectrum.h"
 
