@@ -6,55 +6,6 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL = densitykernel.h \
-	forcetree.h \
-	hci.h \
-	petapm.h \
-	run.h \
-	timebinmgr.h \
-	treewalk.h \
-	partmanager.h \
-	cooling.h   \
-	cooling_rates.h cooling_qso_lightup.h \
-	domain.h   \
-	exchange.h \
-	slotsmanager.h     \
-	checkpoint.h \
-	physconst.h   \
-	sfr_eff.h \
-	stats.h \
-	metal_return.h \
-	winds.h \
-	timefac.h \
-	blackhole.h bhdynfric.h bhinfo.h \
-	gravity.h \
-	cosmology.h \
-	drift.h     \
-	fof.h  \
-	gravshort.h  \
-	petaio.h  \
-	powerspectrum.h  \
-	timestep.h  \
-	walltime.h \
-	neutrinos_lra.h \
-	omega_nu_single.h \
-	uvbg.h \
-	plane.h \
-	lenstools.h \
-utils/unitsystem.h \
-utils/peano.h \
-utils/interp.h \
-utils/paramset.h \
-utils/endrun.h \
-utils/memory.h \
-utils/mpsort.h \
-utils/mymalloc.h \
-utils/system.h \
-utils/event.h \
-utils/openmpsort.h \
-utils/spinlocks.h \
-utils/string.h
-
 UTILS_TESTED = memory openmpsort interp peano
 UTILS_MPI_TESTED = mpsort
 
@@ -131,7 +82,6 @@ utils/unitsystem.o \
 utils/string.o \
 utils/spinlocks.o
 
-
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 
@@ -198,6 +148,12 @@ clean:
 config.c: $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
+
+GADGET_DEPS := $(GADGET_OBJS:.o=.d)
+GADGET_UTILS_DEPS := $(GADGET_UTILS_OBJS:.o=.d)
+-include $(GADGET_DEPS)
+-include $(GADGET_UTILS_DEPS)
+
 
 #This snippet works out the current git revision and the git revision in config.h.
 #It checks whether they are the same.
