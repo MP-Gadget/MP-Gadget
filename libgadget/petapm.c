@@ -46,10 +46,10 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 static MPI_Datatype MPI_PENCIL;
 
 /*Used only in MP-GenIC*/
-pfft_complex *
+cufftComplex *
 petapm_alloc_rhok(PetaPM * pm)
 {
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
+    cufftComplex * rho_k = (cufftComplex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
     memset(rho_k, 0, pm->priv->fftsize * sizeof(double));
     return rho_k;
 }
@@ -174,8 +174,8 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     /* planning the fft; need temporary arrays */
 
     double * real = (double * ) mymalloc("PMreal", pm->priv->fftsize * sizeof(double));
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
+    cufftComplex * rho_k = (cufftComplex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
+    cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
 
     pm->priv->plan_forw = pfft_plan_dft_r2c_3d(
         n, real, rho_k, pm->priv->comm_cart_2d, PFFT_FORWARD,
@@ -237,8 +237,8 @@ typedef void (* pm_iterator)(PetaPM * pm, int i, double * mesh, double weight);
 static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions, const int Nregions);
 /* apply transfer function to value, kpos array is in x, y, z order */
 static void pm_apply_transfer_function(PetaPM * pm,
-        pfft_complex * src,
-        pfft_complex * dst, petapm_transfer_func H);
+        cufftComplex * src,
+        cufftComplex * dst, petapm_transfer_func H);
 
 static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
 static void put_star_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
@@ -279,7 +279,7 @@ petapm_force_init(
     return regions;
 }
 
-pfft_complex * petapm_force_r2c(PetaPM * pm,
+cufftComplex * petapm_force_r2c(PetaPM * pm,
         PetaPMGlobalFunctions * global_functions
         ) {
     /* call pfft rho_k is CFT of rho */
@@ -299,11 +299,11 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
     walltime_measure("/PMgrav/Verify");
 #endif
 
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
+    cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
     pfft_execute_dft_r2c(pm->priv->plan_forw, real, complx);
     myfree(real);
 
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
+    cufftComplex * rho_k = (cufftComplex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
 
     /*Do any analysis that may be required before the transfer function is applied*/
     petapm_transfer_func global_readout = global_functions->global_readout;
@@ -322,7 +322,7 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
 
 void
 petapm_force_c2r(PetaPM * pm,
-        pfft_complex * rho_k,
+        cufftComplex * rho_k,
         PetaPMRegion * regions,
         const int Nregions,
         PetaPMFunctions * functions)
@@ -333,7 +333,7 @@ petapm_force_c2r(PetaPM * pm,
         petapm_transfer_func transfer = f->transfer;
         petapm_readout_func readout = f->readout;
 
-        pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
+        cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
         /* apply the greens function turn rho_k into potential in fourier space */
         pm_apply_transfer_function(pm, rho_k, complx, transfer);
         walltime_measure("/PMgrav/calc");
@@ -366,7 +366,7 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
         void * userdata) {
     int Nregions;
     PetaPMRegion * regions = petapm_force_init(pm, prepare, pstruct, &Nregions, userdata);
-    pfft_complex * rho_k = petapm_force_r2c(pm, global_functions);
+    cufftComplex * rho_k = petapm_force_r2c(pm, global_functions);
     if(functions)
         petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
     myfree(rho_k);
@@ -413,7 +413,7 @@ petapm_reion_init(
  * ,after c2r but iteration over the grid, instead of particles */
 void
 petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
-        pfft_complex * mass_unfiltered, pfft_complex * star_unfiltered, pfft_complex * sfr_unfiltered,
+        cufftComplex * mass_unfiltered, cufftComplex * star_unfiltered, cufftComplex * sfr_unfiltered,
         PetaPMRegion * regions,
         const int Nregions,
         PetaPMFunctions * functions,
@@ -446,11 +446,11 @@ petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
         if(use_sfr)pm_sfr->G = R;
 
         //TODO: maybe allocate and free these outside the loop
-        pfft_complex * mass_filtered = (pfft_complex *) mymalloc("mass_filtered", pm_mass->priv->fftsize * sizeof(double));
-        pfft_complex * star_filtered = (pfft_complex *) mymalloc("star_filtered", pm_star->priv->fftsize * sizeof(double));
-        pfft_complex * sfr_filtered;
+        cufftComplex * mass_filtered = (cufftComplex *) mymalloc("mass_filtered", pm_mass->priv->fftsize * sizeof(double));
+        cufftComplex * star_filtered = (cufftComplex *) mymalloc("star_filtered", pm_star->priv->fftsize * sizeof(double));
+        cufftComplex * sfr_filtered;
         if(use_sfr){
-            sfr_filtered = (pfft_complex *) mymalloc("sfr_filtered", pm_sfr->priv->fftsize * sizeof(double));
+            sfr_filtered = (cufftComplex *) mymalloc("sfr_filtered", pm_sfr->priv->fftsize * sizeof(double));
         }
 
         /* apply the filtering at this radius */
@@ -536,9 +536,9 @@ void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
     walltime_measure("/PMreion/comm2");
 
     //using force r2c since this part can be done independently
-    pfft_complex * mass_unfiltered = petapm_force_r2c(pm_mass, global_functions);
-    pfft_complex * star_unfiltered = petapm_force_r2c(pm_star, global_functions);
-    pfft_complex * sfr_unfiltered = NULL;
+    cufftComplex * mass_unfiltered = petapm_force_r2c(pm_mass, global_functions);
+    cufftComplex * star_unfiltered = petapm_force_r2c(pm_star, global_functions);
+    cufftComplex * sfr_unfiltered = NULL;
     if(use_sfr){
         sfr_unfiltered = petapm_force_r2c(pm_sfr, global_functions);
     }
@@ -1088,8 +1088,8 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 #endif
 
 static void pm_apply_transfer_function(PetaPM * pm,
-        pfft_complex * src,
-        pfft_complex * dst, petapm_transfer_func H
+        cufftComplex * src,
+        cufftComplex * dst, petapm_transfer_func H
         ){
     size_t ip = 0;
 
