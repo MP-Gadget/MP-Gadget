@@ -1,11 +1,11 @@
 #include <math.h>
-#include <gsl/gsl_integration.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_odeiv2.h>
 
 #include "cosmology.h"
 #include "physconst.h"
 #include "utils.h"
+#include "timefac.h"
 
 /*Stefan-Boltzmann constant in cgs units*/
 #define  STEFAN_BOLTZMANN 5.670373e-5
@@ -236,19 +236,22 @@ double function_of_k_eval(FunctionOfK * fk, double k)
     }
 }
 
-double function_of_k_tophat_sigma(FunctionOfK * fk, double R)
+// Adapted function to use Tanh-Sinh adaptive integration
+double function_of_k_tophat_sigma(FunctionOfK *fk, double R)
 {
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+    // Create the parameter structure
     struct sigma2_params params = {fk, R};
-    double result,abserr;
-    gsl_function F;
-    F.function = &sigma2_int;
-    F.params = &params;
+    double abserr;  // To hold the estimated error
 
-    /* note: 500/R is here chosen as integration boundary (infinity) */
-    gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
-    //   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
-    gsl_integration_workspace_free (w);
+    // Define the integrand as a lambda function wrapping the original `sigma2_int`
+    auto integrand = [&params](double k) -> double {
+        return sigma2_int(k, (void*)&params);
+    };
+
+    // Perform the Tanh-Sinh adaptive integration
+    double result = tanh_sinh_integrate_adaptive(integrand, 0, 500.0 / R, &abserr, 1e-4);
+
+    // Return the square root of the result
     return sqrt(result);
 }
 

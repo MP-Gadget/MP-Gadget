@@ -17,7 +17,7 @@
 #include <boost/math/quadrature/tanh_sinh.hpp>
 
 // Function to perform tanh-sinh integration with adaptive max_refinements
-double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a, double b, double* estimated_error, double rel_tol = 1e-8, int max_refinements_limit = 30, int init_refine = 5, int step = 5) {
+double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a, double b, double* estimated_error, double rel_tol, int max_refinements_limit, int init_refine, int step) {
     double result_prev = 0.0;
     double result_current = 0.0;
     *estimated_error = 1.0;  // Start with a large relative error
@@ -43,6 +43,11 @@ double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a
 
         // Update the previous result for the next iteration
         result_prev = result_current;
+    }
+
+    // If we exited the loop without achieving the desired tolerance, print a warning
+    if (*estimated_error > rel_tol) {
+        message(1, "Warning: Tanh-Sinh integration did not reach the desired tolerance of %g. Final relative error: %g\n", rel_tol, *estimated_error);
     }
 
     // Return the final result
