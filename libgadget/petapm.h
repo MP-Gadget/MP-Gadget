@@ -49,8 +49,8 @@ typedef struct PetaPMPriv {
     /* These varibles are initialized by petapm_init*/
 
     int fftsize;
-    cufftmpHandle_t plan_forw; // NC:change plan function call
-    cufftmpHandle_t plan_back;
+    cufftHandle plan_forw; // NC:change plan function call
+    cufftHandle plan_back;
     MPI_Comm comm_cart_2d;
 
     /* these variables are allocated every force calculation */

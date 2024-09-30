@@ -90,11 +90,18 @@ int *petapm_get_ntask2d(PetaPM * pm) {
 void
 petapm_module_init(int Nthreads)
 {
-    pfft_init();
+    // CUDA Device Initialization if necessary (optional if only one GPU is used)
+    int device_id = 0;
+    cudaSetDevice(device_id);  // Set the active GPU device
 
-    pfft_plan_with_nthreads(Nthreads);
+    // Handle CPU threads manually, if needed (optional if not using multithreading on the CPU)
+    #ifdef _OPENMP
+    omp_set_num_threads(Nthreads); // Set number of threads for OpenMP parallelism
+    #endif
 
-    /* initialize the MPI Datatype of pencil */
+    // cuFFT itself is inherently multithreaded; no cuFFT-specific thread setting needed
+
+    // Initialize the MPI Datatype for the Pencil structure
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
 }
@@ -131,21 +138,35 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     np[0] = i;
     np[1] = NTask / i;
 
-    message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
-    if( pfft_create_procmesh_2d(comm, np[0], np[1], &pm->priv->comm_cart_2d) ){
-        endrun(0, "Error: This test file only works with %td processes.\n", np[0]*np[1]);
-    }
+message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
 
-    int periods_unused[2];
-    MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
+// Step 1: Create 2D Cartesian grid for the processes
+int dims[2] = {np[0], np[1]};
+int periods[2] = {0, 0};  // No periodic boundaries in the Cartesian grid
 
-    if(pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1])
-        endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
+// Create 2D Cartesian communicator
+if (MPI_Cart_create(comm, 2, dims, periods, 1, &pm->priv->comm_cart_2d) != MPI_SUCCESS) {
+    endrun(0, "Error: This test file only works with %td processes.\n", np[0] * np[1]);
+}
 
-    pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
-           PFFT_TRANSPOSED_OUT,
-           pm->real_space_region.size, pm->real_space_region.offset,
-           pm->fourier_space_region.size, pm->fourier_space_region.offset);
+// Step 2: Get the Cartesian coordinates of the process in the grid
+int periods_unused[2];
+MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
+
+// Ensure that the task grid matches the expected number of processes
+if (pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1]) {
+    endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
+}
+
+// Step 3: Determine local FFT size (adapt this for cuFFTMp if necessary)
+// cuFFTMp might require manual management of the local data size
+// Example: You may need to calculate how much data each process holds based on grid decomposition
+
+pm->priv->fftsize = 2 * local_fft_size_cufftmp(n, pm->priv->comm_cart_2d, 
+                                                pm->real_space_region.size, 
+                                                pm->real_space_region.offset, 
+                                                pm->fourier_space_region.size, 
+                                                pm->fourier_space_region.offset);
 
     /*
      * In fourier space, the transposed array is ordered in
