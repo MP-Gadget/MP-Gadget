@@ -51,6 +51,7 @@ typedef struct PetaPMPriv {
     int fftsize;
     cufftHandle plan_forw; // NC:change plan function call
     cufftHandle plan_back;
+    cudaStream_t stream;
     MPI_Comm comm_cart_2d;
 
     /* these variables are allocated every force calculation */
