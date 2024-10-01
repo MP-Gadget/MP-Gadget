@@ -9,7 +9,6 @@
 #include <math.h>
 #include <string.h>
 #include <bigfile-mpi.h>
-#include <gsl/gsl_integration.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_sf_bessel.h>
@@ -23,6 +22,7 @@
 #include "cosmology.h"
 #include "powerspectrum.h"
 #include "physconst.h"
+#include "timefac.h"
 
 /** Floating point accuracy*/
 #define FLOAT_ACC   1e-6
@@ -552,17 +552,19 @@ Result is in Unit_Length/Unit_Time.
 ******************************************************************************************************/
 double fslength(Cosmology * CP, const double logai, const double logaf, const double light)
 {
-  double abserr;
-  double fslength_val;
-  gsl_function F;
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
-  F.function = &fslength_int;
-  F.params = CP;
-  if(logai >= logaf)
-      return 0;
-  gsl_integration_qag (&F, logai, logaf, 0, 1e-6,GSL_VAL,6,w,&(fslength_val), &abserr);
-  gsl_integration_workspace_free (w);
-  return light*fslength_val;
+    double abserr;
+    if (logai >= logaf)
+        return 0;
+
+    // Define the integrand as a lambda function wrapping fslength_int
+    auto integrand = [CP](double loga) {
+        return fslength_int(loga, (void *)CP);
+    };
+
+    // Use Tanh-Sinh adaptive integration
+    double fslength_val = tanh_sinh_integrate_adaptive(integrand, logai, logaf, &abserr, 1e-6);
+
+    return light * fslength_val;
 }
 
 /**************************************************************************************************
@@ -710,10 +712,6 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
   if(Na > 1 && mnubykT > 0){
         delta_nu_int_params params;
         params.acc = gsl_interp_accel_alloc();
-        gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
-        gsl_function F;
-        F.function = &get_delta_nu_int;
-        F.params=&params;
         /*Use cubic interpolation*/
         if(Na > 2) {
                 params.spline=gsl_interp_alloc(gsl_interp_cspline,Na);
@@ -744,8 +742,9 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
         params.fslengths = fslengths;
         params.fsscales = fsscales;
 
-        if(!params.spline || !params.acc || !w || !params.fs_spline || !params.fs_acc || !fslengths || !fsscales)
-              endrun(2016,"Error initialising and allocating memory for gsl interpolator and integrator.\n");
+        if (!params.spline || !params.acc || !params.fs_spline || !params.fs_acc || !fslengths || !fsscales) {
+            endrun(2016, "Error initializing and allocating memory for interpolators.\n");
+        }
 
         gsl_interp_init(params.fs_spline,params.fsscales,params.fslengths,Nfs);
         for (ik = 0; ik < d_tot->nk; ik++) {
@@ -753,10 +752,14 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
             params.k=d_tot->wavenum[ik];
             params.delta_tot=d_tot->delta_tot[ik];
             gsl_interp_init(params.spline,params.scale,params.delta_tot,Na);
-            gsl_integration_qag (&F, log(d_tot->TimeTransfer), log(a), 0, relerr,GSL_VAL,6,w,&d_nu_tmp, &abserr);
+
+            // Define the integrand as a lambda function wrapping get_delta_nu_int
+            auto integrand = [&params](double logai) {
+                return get_delta_nu_int(logai, (void *)&params);
+            };
+            d_nu_tmp = tanh_sinh_integrate_adaptive(integrand, log(d_tot->TimeTransfer), log(a), &abserr, relerr);
             delta_nu_curr[ik] += d_tot->delta_nu_prefac * d_nu_tmp;
          }
-         gsl_integration_workspace_free (w);
          gsl_interp_free(params.spline);
          gsl_interp_accel_free(params.acc);
          myfree(fsscales);
