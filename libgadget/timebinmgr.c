@@ -1,7 +1,6 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
-#include <gsl/gsl_integration.h>
 
 #include "timebinmgr.h"
 #include "utils.h"

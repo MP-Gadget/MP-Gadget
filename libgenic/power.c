@@ -3,7 +3,6 @@
 #include <math.h>
 #include <stddef.h>
 #include <mpi.h>
-#include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
 #include <bigfile-mpi.h>
 
@@ -13,6 +12,8 @@
 #include <libgadget/physconst.h>
 #include "power.h"
 #include "proto.h"
+#include "timefac.h"
+
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
 static double sigma2_int(double k, void * params);
@@ -477,19 +478,19 @@ double tk_eh(double k)		/* from Martin White */
 
 double TopHatSigma2(double R)
 {
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  double result,abserr;
-  gsl_function F;
-  F.function = &sigma2_int;
-  F.params = &R;
+    double result,abserr;
+  
+  // Define the integrand as a lambda function, wrapping sigma2_int
+    auto integrand = [R](double k) {
+        return sigma2_int(k, (void*)&R);
+    };
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
   gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
+  result = tanh_sinh_integrate_adaptive(integrand, 0, 500. / R, &abserr, 1e-4, 0.);
 /*   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
-  gsl_integration_workspace_free (w);
   return result;
 }
-
 
 double sigma2_int(double k, void * params)
 {
