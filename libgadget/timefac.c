@@ -17,10 +17,13 @@
 #include <boost/math/quadrature/tanh_sinh.hpp>
 
 // Function to perform tanh-sinh integration with adaptive max_refinements
-double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a, double b, double* estimated_error, double rel_tol, int max_refinements_limit, int init_refine, int step) {
+double tanh_sinh_integrate_adaptive(
+    std::function<double(double)> func, double a, double b, 
+    double* estimated_error, double rel_tol, double abs_tol, 
+    int max_refinements_limit, int init_refine, int step) 
+{
     double result_prev = 0.0;
     double result_current = 0.0;
-    *estimated_error = 1.0;  // Start with a large relative error
     int max_refine = init_refine;
 
     // Loop until reaching the max refinements limit or satisfying the tolerance
@@ -31,13 +34,16 @@ double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a
         // Perform the integration
         result_current = integrator.integrate(func, a, b);
 
-        // If this is not the first iteration, compute the relative error
+        // If this is not the first iteration, compute the absolute and relative errors
         if (max_refine > init_refine) {
-            *estimated_error = fabs(result_current - result_prev) / fabs(result_current);
+            double abs_error = fabs(result_current - result_prev);  // Absolute error
+            double rel_error = abs_error / fabs(result_current);    // Relative error
 
-            // Check if the relative error is within the target tolerance
-            if (*estimated_error < rel_tol) {
-                break;  // Stop refining if the result is within the tolerance
+            *estimated_error = abs_error;  // Store the absolute error
+
+            // Check if either the relative or absolute error is within the target tolerance
+            if (rel_error < rel_tol || abs_error < abs_tol) {
+                break;  // Stop refining if either error is within the tolerance
             }
         }
 
@@ -46,8 +52,11 @@ double tanh_sinh_integrate_adaptive(std::function<double(double)> func, double a
     }
 
     // If we exited the loop without achieving the desired tolerance, print a warning
-    if (*estimated_error > rel_tol) {
-        message(1, "Warning: Tanh-Sinh integration did not reach the desired tolerance of %g. Final relative error: %g\n", rel_tol, *estimated_error);
+    if (*estimated_error > abs_tol && (*estimated_error / fabs(result_current)) > rel_tol) {
+        message(1, 
+            "Warning: Tanh-Sinh integration reached neither the desired relative tolerance of %g nor absolute tolerance of %g. "
+            "Final absolute error: %g, relative error: %g\n", 
+            rel_tol, abs_tol, *estimated_error, (*estimated_error / fabs(result_current)));
     }
 
     // Return the final result

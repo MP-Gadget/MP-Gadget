@@ -5,6 +5,7 @@
 #include "physconst.h"
 #include "utils/mymalloc.h"
 #include "utils/endrun.h"
+#include "timefac.h"
 
 #define HBAR    6.582119e-16  /*hbar in units of eV s*/
 #define STEFAN_BOLTZMANN 5.670373e-5
@@ -226,8 +227,6 @@ double nufrac_low(const double qc)
     auto integrand = [](double x) {
         return fermi_dirac_kernel(x, NULL);
     };
-
-    double total_fd;
 
     // Use Tanh-Sinh adaptive integration for the Fermi-Dirac kernel
     double total_fd = tanh_sinh_integrate_adaptive(integrand, 0, qc, &abserr, 1e-6);

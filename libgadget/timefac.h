@@ -17,6 +17,7 @@ double tanh_sinh_integrate_adaptive(
     double b, 
     double* estimated_error, 
     double rel_tol = 1e-8, 
+    double abs_tol = 0,
     int max_refinements_limit = 30, 
     int init_refine = 5, 
     int step = 5

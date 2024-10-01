@@ -8,6 +8,7 @@
 #include "cosmology.h"
 #include "physconst.h"
 #include "plane.h"
+#include "timefac.h"
 
 #define MAXTIMES 1024
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
@@ -116,10 +117,7 @@ static double integrand_time_to_present(double a, void *param)
 //time_to_present in Myr for excursion set syncpoints
 static double time_to_present(double a, Cosmology * CP)
 {
-#define WORKSIZE 1000
 #define SEC_PER_MEGAYEAR 3.155e13
-    gsl_function F;
-    gsl_integration_workspace* workspace;
     double time;
     double result;
     double abserr;
@@ -127,17 +125,16 @@ static double time_to_present(double a, Cosmology * CP)
     double hubble;
     hubble = CP->Hubble / CP->UnitTime_in_s * SEC_PER_MEGAYEAR * CP->HubbleParam;
 
-    workspace = gsl_integration_workspace_alloc(WORKSIZE);
-    F.function = &integrand_time_to_present;
-    F.params = CP;
+    // Define the integrand as a lambda function
+    auto integrand = [CP](double a) {
+        return integrand_time_to_present(a, (void *)CP);
+    };
 
-    gsl_integration_qag(&F, a, 1.0, 1.0 / hubble,
-        1.0e-8, WORKSIZE, GSL_INTEG_GAUSS21, workspace, &result, &abserr);
+    // Perform the Tanh-Sinh adaptive integration
+    result = tanh_sinh_integrate_adaptive(integrand, a, 1.0, &abserr, 1.0e-8, 1.0 / hubble);
 
     //convert to Myr and multiply by h
     time = result / (hubble/CP->Hubble);
-
-    gsl_integration_workspace_free(workspace);
 
     // return time to present as a function of redshift
     return time;
