@@ -1,7 +1,6 @@
 #include "omega_nu_single.h"
 
 #include <math.h>
-#include <gsl/gsl_integration.h>
 #include <string.h>
 #include "physconst.h"
 #include "utils/mymalloc.h"
@@ -129,8 +128,7 @@ void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu,
      /*Make the table over a slightly wider range than requested, in case there is roundoff error*/
      const double logA0=log(a0)-log(1.2);
      const double logaf=log(NU_SW*kBtnu/mnu)+log(1.2);
-     gsl_function F;
-     F.function = &rho_nu_int;
+
      /*Initialise constants*/
      rho_nu_tab->mnu = mnu;
      /*Shortcircuit if we don't need to do the integration*/
@@ -145,17 +143,23 @@ void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu,
      if(!rho_nu_tab->interp || !rho_nu_tab->acc || !rho_nu_tab->loga)
          endrun(2035,"Could not initialise tables for neutrino matter density\n");
 
-     gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
      for(i=0; i< NRHOTAB; i++){
         double param[2];
         rho_nu_tab->loga[i]=logA0+i*(logaf-logA0)/(NRHOTAB-1);
         param[0]=mnu*exp(rho_nu_tab->loga[i]);
         param[1] = kBtnu;
-        F.params = &param;
-        gsl_integration_qag (&F, 0, 500*kBtnu,0 , 1e-9,GSL_VAL,6,w,&(rho_nu_tab->rhonu[i]), &abserr);
-        rho_nu_tab->rhonu[i]=rho_nu_tab->rhonu[i]/pow(exp(rho_nu_tab->loga[i]),4)*get_rho_nu_conversion();
+
+        // Define the integrand for rho_nu_int
+        auto integrand = [param](double q) {
+            return rho_nu_int(q, (void *)param);
+        };
+
+        // Perform the Tanh-Sinh adaptive integration
+        double result = tanh_sinh_integrate_adaptive(integrand, 0, 500 * kBtnu, &abserr, 1e-9);
+
+        rho_nu_tab->rhonu[i] = result / pow(exp(rho_nu_tab->loga[i]), 4) * get_rho_nu_conversion();
      }
-     gsl_integration_workspace_free (w);
+
      gsl_interp_init(rho_nu_tab->interp,rho_nu_tab->loga,rho_nu_tab->rhonu,NRHOTAB);
      return;
 }
@@ -217,17 +221,19 @@ double fermi_dirac_kernel(double x, void * params)
  * This is integral f_0(q) q^2 dq between 0 and qc to compute the fraction of OmegaNu which is in particles.*/
 double nufrac_low(const double qc)
 {
-    /*These functions are so smooth that we don't need much space*/
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (100);
     double abserr;
-    gsl_function F;
-    F.function = &fermi_dirac_kernel;
-    F.params = NULL;
+    // Define the integrand for Fermi-Dirac kernel
+    auto integrand = [](double x) {
+        return fermi_dirac_kernel(x, NULL);
+    };
+
     double total_fd;
-    gsl_integration_qag (&F, 0, qc, 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(total_fd), &abserr);
+
+    // Use Tanh-Sinh adaptive integration for the Fermi-Dirac kernel
+    double total_fd = tanh_sinh_integrate_adaptive(integrand, 0, qc, &abserr, 1e-6);
     /*divided by the total F-D probability (which is 3 Zeta(3)/2 ~ 1.8 if MAX_FERMI_DIRAC is large enough*/
     total_fd /= 1.5*1.202056903159594;
-    gsl_integration_workspace_free (w);
+
     return total_fd;
 }
 
