@@ -321,8 +321,8 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     walltime_measure("/Domain/drift");
 
     /* Try a domain exchange. Note ExchangeList is freed inside.*/
-    int errno = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
-    return errno;
+    int exchange_status = domain_exchange(domain_layoutfunc, ddecomp, ExchangeData, PartManager, SlotsManager, 10000, ddecomp->DomainComm);
+    return exchange_status;
 }
 
 /* this function generates several domain decomposition policies for attempting
