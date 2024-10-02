@@ -25,7 +25,6 @@
 #include "blackhole.h"
 #include "hydra.h"
 #include "sfr_eff.h"
-#include "metal_return.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
@@ -598,12 +597,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         {
             if(!gasTree.tree_allocated_flag)
                 force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK | BHMASK, All.OutputDir);
-
-            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
-            if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
-                metal_return(&Act, &gasTree, &All.CP, atime, AvgGasMass);
-            }
 
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
