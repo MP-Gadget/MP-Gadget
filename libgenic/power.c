@@ -12,7 +12,7 @@
 #include <libgadget/physconst.h>
 #include "power.h"
 #include "proto.h"
-#include "timefac.h"
+#include <libgadget/timefac.h>
 
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
@@ -486,7 +486,6 @@ double TopHatSigma2(double R)
     };
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
-  gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
   result = tanh_sinh_integrate_adaptive(integrand, 0, 500. / R, &abserr, 1e-4, 0.);
 /*   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
   return result;

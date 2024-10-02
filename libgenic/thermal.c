@@ -4,6 +4,7 @@
 /*For speed of light*/
 #include <libgadget/physconst.h>
 #include <libgadget/utils.h>
+#include <libgadget/timefac.h>
 
 /*The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5
