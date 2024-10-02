@@ -65,7 +65,7 @@ jobs:
                numpy=${{ matrix.numpy-version }} \
                nose cython mpi4py \
                compilers
-        conda install -q -y cmake gsl
+        conda install -q -y cmake
         conda install -q -y runtests
 
     - name: Build C
