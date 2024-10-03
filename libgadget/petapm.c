@@ -141,10 +141,8 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     // std::vector<float> ref = data;
 
 
-
-/********************************not sure if these are useful or not**************************************** */
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
-    ptrdiff_t np[2];
+    ptrdiff_t np[2]; // 2D arrangement of ranks
 
     int ThisTask;
     int NTask;
@@ -184,11 +182,8 @@ if (pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1]) {
     endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
 }
 
-// Step 3: Determine local FFT size (adapt this for cuFFTMp if necessary)
-// cuFFTMp might require manual management of the local data size
-// Example: You may need to calculate how much data each process holds based on grid decomposition
-
-pm->priv->fftsize = 2 * local_fft_size_cufftmp(n, pm->priv->comm_cart_2d, 
+//local_fft_size_cufftmp
+pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d, 
                                                 pm->real_space_region.size, 
                                                 pm->real_space_region.offset, 
                                                 pm->fourier_space_region.size, 
