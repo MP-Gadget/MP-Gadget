@@ -115,32 +115,6 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     MPI_Comm_rank(comm, &ThisTask);
     MPI_Comm_size(comm, &NTask);
 
-
-    int ndevices;
-    cudaGetDeviceCount(&ndevices);
-    cudaSetDevice(ThisTask % ndevices);
-    printf("Hello from rank %d/%d using GPU %d\n", ThisTask, NTask, ThisTask % ndevices);
-
-    // Logical transform size
-    size_t nx = NTask;      // any value >= NTask is OK
-    size_t ny = NTask;      // any value >= NTask is OK
-    size_t nz = 2 * NTask;  // need to be even and >= NTask
-
-    // We start with Slabs distributed along X (X-Slabs)
-    // Ranks 0 ... (nx % size - 1) own 1 more element in the X dimension
-    // All ranks own all element in the Y and Z dimension
-    // The Z dimension has to be padded to accomodate the (nz / 2 + 1) 
-    // complex numbers assuming an in-place data layout.
-    int ranks_with_onemore = nx % size;
-    size_t my_nx = (nx / size) + (rank < ranks_with_onemore ? 1 : 0);
-    size_t padded_nz = 2 * (nz / 2 + 1);
-
-    // // Local, distributed, data
-    // std::vector<float> data(my_nx * ny * padded_nz, 1.0);
-    // generate_random(data, rank);
-    // std::vector<float> ref = data;
-
-
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
     //CUDA NOTE: keep np[2] to be two numbers for now, but np[0] = np[1]
     ptrdiff_t np[2]; // 2D arrangement of ranks
@@ -157,24 +131,22 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     /* try to find a square 2d decomposition */
     /* CUDA NOTE: CufftMp only supports square decomposition, 
     so Ntask has to be a perfect square*/
-    int i;
-    int k;
     np[0] = sqrt(NTask);
     np[1] = Ntask / np[0];
     if (np[0] * np[1] != NTask) {
         endrun(0, "Error: The number of MPI ranks has to be a perfect square for CufftMp\n");
     }
 
-message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
+    message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
 
-// Step 1: Create 2D Cartesian grid for the processes
-int dims[2] = {np[0], np[1]};
-int periods[2] = {0, 0};  // No periodic boundaries in the Cartesian grid
+    // Step 1: Create 2D Cartesian grid for the processes
+    int dims[2] = {np[0], np[1]};
+    int periods[2] = {0, 0};  // No periodic boundaries in the Cartesian grid
 
-// Create 2D Cartesian communicator
-if (MPI_Cart_create(comm, 2, dims, periods, 1, &pm->priv->comm_cart_2d) != MPI_SUCCESS) {
-    endrun(0, "Error: This test file only works with %td processes.\n", np[0] * np[1]);
-}
+    // Create 2D Cartesian communicator
+    if (MPI_Cart_create(comm, 2, dims, periods, 1, &pm->priv->comm_cart_2d) != MPI_SUCCESS) {
+        endrun(0, "Error: This test file only works with %td processes.\n", np[0] * np[1]);
+    }
 
 // Step 2: Get the Cartesian coordinates of the process in the grid
 int periods_unused[2];
