@@ -7,7 +7,6 @@
 
 #include "types.h"
 #include "petapm.h"
-#include "box_iterator.hpp"
 
 #include "utils.h"
 #include "walltime.h"
@@ -155,6 +154,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
 
     // Input data are real pencils in X & Y, along Z
     // Strides are packed and in-place (i.e., real is padded)
+    
     int64 lower[3]   = {displacement(nx, i,   nranks1d), displacement(ny, j,   nranks1d), 0};
     int64 upper[3]   = {displacement(nx, i+1, nranks1d), displacement(ny, j+1, nranks1d), nz_real};
     int64 strides[3] = {(upper[1]-lower[1])*nz_real_padded, nz_real_padded, 1};
@@ -196,10 +196,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     size_t workspace;
     cufftMakePlan3d(pm->priv->plan_forw, Nmesh, Nmesh, Nmesh, CUFFT_R2C, &workspace);
     cufftMakePlan3d(pm->priv->plan_back, Nmesh, Nmesh, Nmesh, CUFFT_C2R, &workspace);
-
     //===============================================================================================
-
-
 }
 
 void
