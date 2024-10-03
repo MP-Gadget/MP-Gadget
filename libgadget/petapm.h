@@ -97,7 +97,6 @@ typedef struct {
     int (*active) (int i);
     int64_t NumPart;
 } PetaPMParticleStruct;
-zq
 
 typedef void (*petapm_transfer_func)(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value); //NC:change to complex type
 typedef void (*petapm_readout_func)(PetaPM * pm, int i, double * mesh, double weight);
