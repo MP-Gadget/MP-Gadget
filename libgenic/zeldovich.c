@@ -283,8 +283,8 @@ static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex 
         double kmag = sqrt(k2) * 2 * M_PI / pm->BoxSize;
         fac *= DeltaSpec(kmag, ptype) / sqrt(pm->BoxSize * pm->BoxSize * pm->BoxSize);
 
-        value[0][0] *= fac;
-        value[0][1] *= fac;
+        value[0].x *= fac;
+        value[0].y *= fac;
     }
 }
 
@@ -306,9 +306,9 @@ static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, cufftComplex * val
             fac *= dlogGrowth(kmag, ptype);
         else
             fac *= DeltaSpec(kmag, ptype);
-        double tmp = value[0][0];
-        value[0][0] = - value[0][1] * fac;
-        value[0][1] = tmp * fac;
+        double tmp = value[0].x;
+        value[0].x = - value[0].y * fac;
+        value[0].y = tmp * fac;
     }
 }
 
