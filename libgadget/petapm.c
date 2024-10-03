@@ -327,7 +327,6 @@ cufftComplex * petapm_force_r2c(PetaPM * pm,
 
 
     //=============================== End of R2C =============================================
-
     //========================== Begin Transfer Function =====================================
     cufftComplex * rho_k = (cufftComplex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
 
@@ -363,9 +362,10 @@ petapm_force_c2r(PetaPM * pm,
         /* apply the greens function turn rho_k into potential in fourier space */
         pm_apply_transfer_function(pm, rho_k, complx, transfer);
         walltime_measure("/PMgrav/calc");
-
-        double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
-        pfft_execute_dft_c2r(pm->priv->plan_back, complx, real);
+        // double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
+        /* CUDA TODO: BUT WHERE DO I INPUT THE ACTUAL ARRAY? */
+        cufftXtExecDescriptor(pm->priv->plan_back, pm->priv->desc, pm->priv->desc, CUFFT_INVERSE);
+        double * real = (double * ) pm->priv->desc->descriptor->data[0];
 
         walltime_measure("/PMgrav/c2r");
         if(f == functions) // Once
