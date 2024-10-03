@@ -4,11 +4,14 @@
 
 #include "powerspectrum.h"
 
+
 typedef struct Region {
     /* represents a region in the FFT Mesh */
     ptrdiff_t offset[3];
     ptrdiff_t size[3];
     ptrdiff_t strides[3];
+
+
     size_t totalsize;
     double * buffer;
     /* below are used mostly for investigation */
@@ -58,6 +61,7 @@ typedef struct PetaPMPriv {
     double * meshbuf;
     size_t meshbufsize;
     struct Layout layout;
+    cudaLibXtDesc *desc;
 } PetaPMPriv;
 
 typedef struct PetaPM {
