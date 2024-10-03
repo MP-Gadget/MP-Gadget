@@ -197,18 +197,8 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     cufftMakePlan3d(pm->priv->plan_forw, Nmesh, Nmesh, Nmesh, CUFFT_R2C, &workspace);
     cufftMakePlan3d(pm->priv->plan_back, Nmesh, Nmesh, Nmesh, CUFFT_C2R, &workspace);
 
-
-
-
     //===============================================================================================
 
-
-    // Allocate GPU memory, copy CPU data to GPU
-    // Data is initially distributed according to CUFFT_XT_FORMAT_INPLACE
-    cudaLibXtDesc *desc;
-    cufftXtMalloc(pm->priv->plan_forw, &desc, CUFFT_XT_FORMAT_INPLACE);
-    // TODO: what to make of the cpu_data here?
-    cufftXtMemcpy(pm->priv->plan_back, (void*)desc, (void*)cpu_data, CUFFT_COPY_HOST_TO_DEVICE);
 
 }
 
@@ -313,27 +303,32 @@ static void pm_apply_transfer_function(PetaPM * pm,
 cufftComplex * petapm_force_r2c(PetaPM * pm,
         PetaPMGlobalFunctions * global_functions
         ) {
-    /* call pfft rho_k is CFT of rho */
-
-    /* this is because
-     *
-     * CFT = DFT * dx **3
-     * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
-     * */
+     // CUDA TODO: figureout how to properly get fftsize
     double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
     memset(real, 0, sizeof(double) * pm->priv->fftsize);
     layout_build_and_exchange_cells_to_fft(pm, &pm->priv->layout, pm->priv->meshbuf, real);
     walltime_measure("/PMgrav/comm2");
-
 #ifdef DEBUG
     verify_density_field(pm, real, pm->priv->meshbuf, pm->priv->meshbufsize);
     walltime_measure("/PMgrav/Verify");
 #endif
 
     cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
-    pfft_execute_dft_r2c(pm->priv->plan_forw, real, complx);
+
+    // CUDA TODO: figure out if this is needed
+    // Allocate GPU memory, copy CPU data to GPU
+    // Data is initially distributed according to CUFFT_XT_FORMAT_INPLACE
+    cufftXtMalloc(pm->priv->plan_forw, &pm->priv->desc, CUFFT_XT_FORMAT_INPLACE);
+    // copy real array to gpu
+    cufftXtMemcpy(pm->priv->plan_back, (void*)pm->priv->desc, (void*)real, CUFFT_COPY_HOST_TO_DEVICE);
+    // execute the plan
+    cufftXtExecDescriptor(pm->priv->plan_forw, pm->priv->desc, pm->priv->desc, CUFFT_FORWARD);
     myfree(real);
 
+
+    //=============================== End of R2C =============================================
+
+    //========================== Begin Transfer Function =====================================
     cufftComplex * rho_k = (cufftComplex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
 
     /*Do any analysis that may be required before the transfer function is applied*/
