@@ -57,7 +57,6 @@ petapm_alloc_rhok(PetaPM * pm)
 static void pm_init_regions(PetaPM * pm, PetaPMRegion * regions, const int Nregions);
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
-static PetaPMReionPartStruct * CPS_R; /* stored by calculate_uvbg, how to access other properties in P, SphP, and Fof */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))
@@ -88,12 +87,11 @@ petapm_module_init(int Nthreads)
     cudaSetDevice(device_id);  // Set the active GPU device
 
     // Handle CPU threads manually, if needed (optional if not using multithreading on the CPU)
-    #ifdef _OPENMP
-    omp_set_num_threads(Nthreads); // Set number of threads for OpenMP parallelism
-    #endif
+    // #ifdef _OPENMP
+    // omp_set_num_threads(Nthreads); // Set number of threads for OpenMP parallelism
+    // #endif
     // cuFFT itself is inherently multithreaded; no cuFFT-specific thread setting needed
 
-    get rid of pencil type
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
 }
@@ -116,18 +114,18 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     MPI_Comm_size(comm, &NTask);
     int ndevices;
     cudaGetDeviceCount(&ndevices);
-    cudaSetDevice(rank % ndevices);
+    cudaSetDevice(ThisTask % ndevices);
 
     /* try to find a square 2d decomposition */
     /* CUDA NOTE: CufftMp only supports square decomposition, 
     so Ntask has to be a perfect square*/
-    np[0] = sqrt(NTask);
-    np[1] = Ntask / np[0];
-    if (np[0] * np[1] != NTask) {
+    int nranks1d;
+    nranks1d = sqrt(NTask);
+    if (nranks1d != NTask/nranks1d) {
         endrun(0, "Error: The number of MPI ranks has to be a perfect square for CufftMp\n");
     }
 
-    message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
+    message(0, "Using 2D Task mesh %td x %td \n", nranks1d, nranks1d);
     // Define custom data distribution
     int64 nx               = Nmesh;
     int64 ny               = Nmesh;
@@ -154,22 +152,26 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
 
     // Input data are real pencils in X & Y, along Z
     // Strides are packed and in-place (i.e., real is padded)
-    
+    Box3D box_real;
+    Box3D box_complex;
+    int i,j;
+    i = ThisTask / nranks1d;
+    j = ThisTask % nranks1d;
+
     int64 lower[3]   = {displacement(nx, i,   nranks1d), displacement(ny, j,   nranks1d), 0};
     int64 upper[3]   = {displacement(nx, i+1, nranks1d), displacement(ny, j+1, nranks1d), nz_real};
     int64 strides[3] = {(upper[1]-lower[1])*nz_real_padded, nz_real_padded, 1};
     box_real = make_box(lower, upper, strides);
-    boxes_real.push_back(make_box(lower, upper, strides));
 
     // Output data are complex pencils in X & Z, along Y (picked arbitrarily)
     // Strides are packed
     // For best performances, the local dimension in the input (Z, here) and output (Y, here) should be different
     // to ensure cuFFTMp will only perform two communication phases.
     // If Z was also local in the output, cuFFTMp would perform three communication phases, decreasing performances.
-    int64 lower[3]   = {displacement(nx, i,   nranks1d), 0,  displacement(nz_complex, j,   nranks1d)};
-    int64 upper[3]   = {displacement(nx, i+1, nranks1d), ny, displacement(nz_complex, j+1, nranks1d)};
-    int64 strides[3] = {(upper[1]-lower[1])*(upper[2]-lower[2]), (upper[2]-lower[2]), 1};
-    box_complex = make_box(lower, upper, strides);
+    int64 lower_c[3]   = {displacement(nx, i,   nranks1d), 0,  displacement(nz_complex, j,   nranks1d)};
+    int64 upper_c[3]   = {displacement(nx, i+1, nranks1d), ny, displacement(nz_complex, j+1, nranks1d)};
+    int64 strides_c[3] = {(upper[1]-lower[1])*(upper[2]-lower[2]), (upper[2]-lower[2]), 1};
+    box_complex = make_box(lower_c, upper_c, strides_c);
 
 
     //===============================================================================================
@@ -288,8 +290,8 @@ static void pm_apply_transfer_function(PetaPM * pm,
         pos[0] = kpos[2];
         pos[1] = kpos[0];
         pos[2] = kpos[1];
-        dst[ip][0] = src[ip][0];
-        dst[ip][1] = src[ip][1];
+        dst[ip].x = src[ip].x;
+        dst[ip].y = src[ip].y;
         if(H) {
             H(pm, k2, pos, &dst[ip]);
         }
