@@ -86,19 +86,7 @@ typedef struct {
     int (*active) (int i);
     int64_t NumPart;
 } PetaPMParticleStruct;
-
-/* extra particle info used in reionisation*/
-typedef struct {
-    size_t offset_type; //offset in particle data to type
-    size_t offset_pi; //offset in particle data to property index
-    void * Sphslot; //pointer to SPH slot
-    size_t sph_elsize; //element size of SPH slot
-    size_t offset_sfr; //offset in SPH slot to star formation rate
-    size_t offset_fesc_sph; //offset in SPH slot to escape fraction
-    void* Starslot; //pointer to fof groups
-    size_t star_elsize; //element size of fof group
-    size_t offset_fesc; //offset in fof groups to fof mass
-} PetaPMReionPartStruct;
+zq
 
 typedef void (*petapm_transfer_func)(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value); //NC:change to complex type
 typedef void (*petapm_readout_func)(PetaPM * pm, int i, double * mesh, double weight);
@@ -109,9 +97,6 @@ typedef struct {
     petapm_transfer_func transfer;
     petapm_readout_func readout;
 } PetaPMFunctions;
-
-/* Reion Loop function, applied after c2r, doesn't iterate over all particles*/
-typedef void (*petapm_reion_func)(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, double * mass_real, double * star_real, double * sfr_real, int last_step);
 
 /* this mixes up fourier space analysis; with transfer. Shall split them. */
 typedef struct {
@@ -158,15 +143,4 @@ int petapm_mesh_to_k(PetaPM * pm, int i);
 int *petapm_get_thistask2d(PetaPM * pm);
 int *petapm_get_ntask2d(PetaPM * pm);
 cufftComplex * petapm_alloc_rhok(PetaPM * pm); // NC: changed returned complex type
-
-void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
-        petapm_prepare_func prepare,
-        PetaPMGlobalFunctions * global_functions, //petapm_transfer_func global_transfer,
-        PetaPMFunctions * functions,
-        PetaPMParticleStruct * pstruct,
-        PetaPMReionPartStruct * rstruct,
-        petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta, int use_sfr,
-        void * userdata);
-
 #endif
