@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "petapm.h"
+#include "box_iterator.hpp"
 
 #include "utils.h"
 #include "walltime.h"
@@ -93,9 +94,9 @@ petapm_module_init(int Nthreads)
     #endif
     // cuFFT itself is inherently multithreaded; no cuFFT-specific thread setting needed
 
-    // get rid of pencil type
-    //MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
-    //MPI_Type_commit(&MPI_PENCIL);
+    get rid of pencil type
+    MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
+    MPI_Type_commit(&MPI_PENCIL);
 }
 
 void
@@ -114,19 +115,9 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     int NTask;
     MPI_Comm_rank(comm, &ThisTask);
     MPI_Comm_size(comm, &NTask);
-
-    ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
-    //CUDA NOTE: keep np[2] to be two numbers for now, but np[0] = np[1]
-    ptrdiff_t np[2]; // 2D arrangement of ranks
-
-    int ThisTask;
-    int NTask;
-
-    pm->Mesh2Task[0] = (int *) mymalloc2("Mesh2Task", 2*sizeof(int) * Nmesh);
-    pm->Mesh2Task[1] = pm->Mesh2Task[0] + Nmesh;
-
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
+    int ndevices;
+    cudaGetDeviceCount(&ndevices);
+    cudaSetDevice(rank % ndevices);
 
     /* try to find a square 2d decomposition */
     /* CUDA NOTE: CufftMp only supports square decomposition, 
@@ -138,63 +129,53 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     }
 
     message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
+    // Define custom data distribution
+    int64 nx               = Nmesh;
+    int64 ny               = Nmesh;
+    int64 nz               = Nmesh;
+    int64 nz_real          = nz;
+    int64 nz_complex       = (nz/2+1);
+    int64 nz_real_padded   = 2*nz_complex;
 
-    // Step 1: Create 2D Cartesian grid for the processes
-    int dims[2] = {np[0], np[1]};
-    int periods[2] = {0, 0};  // No periodic boundaries in the Cartesian grid
+    // Describe the data distribution using boxes
+    auto make_box = [](int64 lower[3], int64 upper[3], int64 strides[3]) {
+        Box3D box;
+        for(int i = 0; i < 3; i++) {
+            box.lower[i] = lower[i];
+            box.upper[i] = upper[i];
+            box.strides[i] = strides[i];
+        }
+        return box;
+    };
 
-    // Create 2D Cartesian communicator
-    if (MPI_Cart_create(comm, 2, dims, periods, 1, &pm->priv->comm_cart_2d) != MPI_SUCCESS) {
-        endrun(0, "Error: This test file only works with %td processes.\n", np[0] * np[1]);
-    }
+    auto displacement = [](int64 length, int rank, int size) {
+        int ranks_cutoff = length % size;
+        return (rank < ranks_cutoff ? rank * (length / size + 1) : ranks_cutoff * (length / size + 1) + (rank - ranks_cutoff) * (length / size));
+    };
 
-// Step 2: Get the Cartesian coordinates of the process in the grid
-int periods_unused[2];
-MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
+    // Input data are real pencils in X & Y, along Z
+    // Strides are packed and in-place (i.e., real is padded)
+    int64 lower[3]   = {displacement(nx, i,   nranks1d), displacement(ny, j,   nranks1d), 0};
+    int64 upper[3]   = {displacement(nx, i+1, nranks1d), displacement(ny, j+1, nranks1d), nz_real};
+    int64 strides[3] = {(upper[1]-lower[1])*nz_real_padded, nz_real_padded, 1};
+    box_real = make_box(lower, upper, strides);
+    boxes_real.push_back(make_box(lower, upper, strides));
 
-// Ensure that the task grid matches the expected number of processes
-if (pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1]) {
-    endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
-}
-
-//local_fft_size_cufftmp
-pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d, 
-                                                pm->real_space_region.size, 
-                                                pm->real_space_region.offset, 
-                                                pm->fourier_space_region.size, 
-                                                pm->fourier_space_region.offset);
-
-    /*
-     * In fourier space, the transposed array is ordered in
-     * are in (y, z, x). The strides and sizes returned
-     * from local size is in (Nx, Ny, Nz), hence we roll them once
-     * so that the strides will give correct linear indexing for
-     * integer coordinates given in order of (y, z, x).
-     * */
-
-#define ROLL(a, N, j) { \
-    typeof(a[0]) tmp[N]; \
-    ptrdiff_t k; \
-    for(k = 0; k < N; k ++) tmp[k] = a[k]; \
-    for(k = 0; k < N; k ++) a[k] = tmp[(k + j)% N]; \
-    }
-
-    ROLL(pm->fourier_space_region.offset, 3, 1);
-    ROLL(pm->fourier_space_region.size, 3, 1);
-
-#undef ROLL
-
-    /* calculate the strides */
-    petapm_region_init_strides(&pm->real_space_region);
-    petapm_region_init_strides(&pm->fourier_space_region);
+    // Output data are complex pencils in X & Z, along Y (picked arbitrarily)
+    // Strides are packed
+    // For best performances, the local dimension in the input (Z, here) and output (Y, here) should be different
+    // to ensure cuFFTMp will only perform two communication phases.
+    // If Z was also local in the output, cuFFTMp would perform three communication phases, decreasing performances.
+    int64 lower[3]   = {displacement(nx, i,   nranks1d), 0,  displacement(nz_complex, j,   nranks1d)};
+    int64 upper[3]   = {displacement(nx, i+1, nranks1d), ny, displacement(nz_complex, j+1, nranks1d)};
+    int64 strides[3] = {(upper[1]-lower[1])*(upper[2]-lower[2]), (upper[2]-lower[2]), 1};
+    box_complex = make_box(lower, upper, strides);
 
 
-/******************************** end unsure block **************************************** */
-
+    //===============================================================================================
     cudaStreamCreate(&pm->priv->stream);
     cufftCreate(&pm->priv->plan_forw);
     cufftCreate(&pm->priv->plan_back);
-
     // Attach the MPI communicator to the plans
     cufftMpAttachComm(pm->priv->plan_forw, CUFFT_COMM_MPI, &comm);
     cufftMpAttachComm(pm->priv->plan_back, CUFFT_COMM_MPI, &comm);
@@ -204,8 +185,8 @@ pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
     // C2R plans only support CUFFT_XT_FORMAT_DISTRIBUTED_OUTPUT ans always perform a CUFFT_INVERSE transform
     // So, in both, the "input" box should be the real box and the "output" box should be the complex box
 
-    // cufftXtSetDistribution(plan_r2c, 3, box_real.lower, box_real.upper, box_complex.lower, box_complex.upper, box_real.strides, box_complex.strides);
-    // cufftXtSetDistribution(plan_c2r, 3, box_complex.lower, box_complex.upper, box_real.lower, box_real.upper, box_complex.strides, box_real.strides);
+    cufftXtSetDistribution(pm->priv->plan_forw, 3, box_real.lower, box_real.upper, box_complex.lower, box_complex.upper, box_real.strides, box_complex.strides);
+    cufftXtSetDistribution(pm->priv->plan_back, 3, box_complex.lower, box_complex.upper, box_real.lower, box_real.upper, box_complex.strides, box_real.strides);
 
     // Set the stream
     cufftSetStream(pm->priv->plan_forw, pm->priv->stream);
@@ -217,6 +198,11 @@ pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
     cufftMakePlan3d(pm->priv->plan_back, Nmesh, Nmesh, Nmesh, CUFFT_C2R, &workspace);
 
 
+
+
+    //===============================================================================================
+
+
     // Allocate GPU memory, copy CPU data to GPU
     // Data is initially distributed according to CUFFT_XT_FORMAT_INPLACE
     cudaLibXtDesc *desc;
@@ -224,36 +210,6 @@ pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
     // TODO: what to make of the cpu_data here?
     cufftXtMemcpy(pm->priv->plan_back, (void*)desc, (void*)cpu_data, CUFFT_COPY_HOST_TO_DEVICE);
 
-    /* now lets fill up the mesh2task arrays */
-
-#if 0
-    message(1, "ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask,
-            pm->real_space_region.offset[0],
-            pm->real_space_region.offset[1],
-            pm->real_space_region.offset[2],
-            pm->real_space_region.size[0],
-            pm->real_space_region.size[1],
-            pm->real_space_region.size[2]);
-#endif
-
-    int * tmp = (int *) mymalloc("tmp", sizeof(int) * Nmesh);
-    for(k = 0; k < 2; k ++) {
-        for(i = 0; i < Nmesh; i ++) {
-            tmp[i] = 0;
-        }
-        for(i = 0; i < pm->real_space_region.size[k]; i ++) {
-            tmp[i + pm->real_space_region.offset[k]] = pm->ThisTask2d[k];
-        }
-        /* which column / row hosts this tile? */
-        /* FIXME: this is very inefficient */
-        MPI_Allreduce(tmp, pm->Mesh2Task[k], Nmesh, MPI_INT, MPI_MAX, comm);
-        /*
-        for(i = 0; i < Nmesh; i ++) {
-            message(0, "Mesh2Task[%d][%d] == %d\n", k, i, Mesh2Task[k][i]);
-        }
-        */
-    }
-    myfree(tmp);
 }
 
 void
