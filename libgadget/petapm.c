@@ -142,6 +142,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
 
 
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
+    //CUDA NOTE: keep np[2] to be two numbers for now, but np[0] = np[1]
     ptrdiff_t np[2]; // 2D arrangement of ranks
 
     int ThisTask;
@@ -154,13 +155,15 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     MPI_Comm_size(comm, &NTask);
 
     /* try to find a square 2d decomposition */
+    /* CUDA NOTE: CufftMp only supports square decomposition, 
+    so Ntask has to be a perfect square*/
     int i;
     int k;
-    for(i = sqrt(NTask) + 1; i >= 0; i --) {
-        if(NTask % i == 0) break;
+    np[0] = sqrt(NTask);
+    np[1] = Ntask / np[0];
+    if (np[0] * np[1] != NTask) {
+        endrun(0, "Error: The number of MPI ranks has to be a perfect square for CufftMp\n");
     }
-    np[0] = i;
-    np[1] = NTask / i;
 
 message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
 
