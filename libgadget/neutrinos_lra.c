@@ -209,6 +209,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     }
     if(delta_tot_table.nk != PowerSpectrum->nonzero)
         myfree(Power_in);
+
     boost::math::interpolators::barycentric_rational<double> pkint(logwavenum, delta_nu_ratio, delta_tot_table.nk);
 
     double xmin = logwavenum[0];
@@ -717,6 +718,8 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
         double * fsscales = (double *) mymalloc("fsscales", Nfs* sizeof(double));
         for(ik=0; ik < Nfs; ik++) {
             fsscales[ik] = log(d_tot->TimeTransfer) + ik*(log(a) - log(d_tot->TimeTransfer))/(Nfs-1.);
+            if (ik == Nfs-1)
+                fsscales[ik] = log(a); // Make sure the last point is exactly a without precision loss
             fslengths[ik] = fslength(CP, fsscales[ik], log(a),d_tot->light);
         }
         params.fslengths = fslengths;
@@ -724,11 +727,19 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
 
         params.fs_spline = new boost::math::interpolators::barycentric_rational<double>(params.fsscales,params.fslengths,Nfs);
 
+        // if Na is less than 4, the approximation order for interpolation should be adjusted
+        size_t approx_order = 3;
+        if (Na < 4) {
+            approx_order = Na - 1;
+        }
+
         for (ik = 0; ik < d_tot->nk; ik++) {
             double abserr,d_nu_tmp;
             params.k=d_tot->wavenum[ik];
             params.delta_tot=d_tot->delta_tot[ik];
-            params.spline = new boost::math::interpolators::barycentric_rational<double>(params.scale,params.delta_tot,Na);
+            // print the number of data points
+            
+            params.spline = new boost::math::interpolators::barycentric_rational<double>(params.scale,params.delta_tot,Na,approx_order);
             // Define the integrand as a lambda function wrapping get_delta_nu_int
             auto integrand = [&params](double logai) {
                 return get_delta_nu_int(logai, (void *)&params);
