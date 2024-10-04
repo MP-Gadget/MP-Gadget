@@ -9,9 +9,8 @@
 #include <math.h>
 #include <string.h>
 #include <bigfile-mpi.h>
-#include <gsl/gsl_errno.h>
 #include <boost/math/interpolators/barycentric_rational.hpp>
-#include <gsl/gsl_sf_bessel.h>
+#include <boost/math/special_functions/bessel.hpp>
 
 #include "neutrinos_lra.h"
 
@@ -583,7 +582,9 @@ static inline double specialJ_fit(const double x)
 /*Asymptotic series expansion from YAH. Not good when qc * x is small, but fine otherwise.*/
 static inline double II(const double x, const double qc, const int n)
 {
-    return (n*n+n*n*n*qc+n*qc*x*x - x*x)* qc*gsl_sf_bessel_j0(qc*x) + (2*n+n*n*qc+qc*x*x)*cos(qc*x);
+    using boost::math::cyl_bessel_j;  // Import Boost Bessel function
+    return (n*n+n*n*n*qc+n*qc*x*x - x*x) * qc * cyl_bessel_j(0, qc * x)  // Bessel J0
+           + (2 * n + n * n * qc + qc * x * x) * cos(qc * x);
 }
 
 /* Fourier transform of truncated Fermi Dirac distribution, with support on q > qc only.

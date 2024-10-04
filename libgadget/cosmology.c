@@ -88,23 +88,6 @@ double GrowthFactor(Cosmology * CP, double astart, double aend)
     return growth(CP, astart, NULL) / growth(CP, aend, NULL);
 }
 
-int growth_ode(double a, const double yy[], double dyda[], void * params)
-{
-    Cosmology * CP = (Cosmology *) params;
-    const double hub = hubble_function(CP, a)/CP->Hubble;
-    dyda[0] = yy[1]/pow(a,3)/hub;
-    /*Only use gravitating part*/
-    /* Note: we do not include neutrinos
-     * here as they are free-streaming at the initial time.
-     * This is not right if our box is very large and thus overlaps
-     * with their free-streaming scale. In that case the growth factor will be scale-dependent
-     * and we need to numerically differentiate. In practice the box will either be larger
-     * than the horizon, and so need radiation perturbations, or the neutrino
-     * mass will be larger than current constraints allow, so we just warn for now.*/
-    dyda[1] = yy[0] * 1.5 * a * (CP->OmegaCDM + CP->OmegaBaryon)/(a*a*a) / hub;
-    return GSL_SUCCESS;
-}
-
 // Define the ODE system for the growth factor
 void growth_ode(const std::vector<double> &yy, std::vector<double> &dyda, double a, void * params)
 {
