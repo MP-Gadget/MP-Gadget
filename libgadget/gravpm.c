@@ -318,9 +318,7 @@ static void compute_neutrino_power(PetaPM * pm) {
     delta_nu_from_power(ps, GravPM.CP, GravPM.Time, GravPM.TimeIC);
 
     /*Initialize the interpolation for the neutrinos*/
-    ps->nu_spline = gsl_interp_alloc(gsl_interp_linear,ps->nonzero);
-    ps->nu_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(ps->nu_spline,ps->logknu,ps->delta_nu_ratio,ps->nonzero);
+    ps->nu_spline = new boost::math::interpolators::barycentric_rational<double>(ps->logknu, ps->delta_nu_ratio, ps->nonzero);
     /*Zero power spectrum, which is stored with the neutrinos*/
     powerspectrum_zero(ps);
 }
@@ -430,8 +428,7 @@ potential_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex *value)
          *            = (M_cdm + M_nu) * delta_t
          * This is correct for the forces, and gives the right power spectrum,
          * once we multiply PowerSpectrum.Norm by (Omega0 / (Omega0 - OmegaNu))**2 */
-        const double nufac = 1 + ps->nu_prefac * gsl_interp_eval(ps->nu_spline,ps->logknu,
-                                                                       ps->delta_nu_ratio,logk2,ps->nu_acc);
+        const double nufac = 1 + ps->nu_prefac * (*ps->nu_spline)(logk2);
         value[0][0] *= nufac;
         value[0][1] *= nufac;
     }
