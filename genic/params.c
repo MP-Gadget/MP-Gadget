@@ -28,7 +28,7 @@ create_parameters(void)
     param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced CDM particles are created.");
     param_declare_int(ps, "NgridGas", OPTIONAL, -1, "Size of regular grid on which the undisplaced gas particles are created.");
-    param_declare_int(ps, "NgridNu", OPTIONAL, 0, "Number of neutrino particles created for hybrid neutrinos.");
+    param_declare_int(ps, "NgridNu", OPTIONAL, 0, "Number of neutrino particles created for hybrid neutrinos. Not supported in this version.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "Random number generator seed used for the phases of the Gaussian random field.");
     param_declare_int(ps, "MakeGlassGas", OPTIONAL, -1, "Generate Glass IC for gas instead of Grid IC.");
     param_declare_int(ps, "MakeGlassCDM", OPTIONAL, 0, "Generate Glass IC for CDM instead of Grid IC.");
@@ -43,7 +43,7 @@ create_parameters(void)
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
-    param_declare_double(ps, "MWDM_therm", OPTIONAL, 0, "Assign a thermal velocity to the DM. Specifies WDM particle mass in keV.");
+    param_declare_double(ps, "MWDM_therm", OPTIONAL, 0, "Not supported in this version.");
     param_declare_double(ps, "Max_nuvel", OPTIONAL, 5000, "Maximum neutrino velocity sampled from the F-D distribution.");
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 1, "Use species specific transfer functions for baryon and CDM.");
