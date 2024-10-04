@@ -1,7 +1,5 @@
 #include <math.h>
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_odeiv2.h>
-
+#include <boost/numeric/odeint.hpp>
 #include "cosmology.h"
 #include "physconst.h"
 #include "utils.h"
@@ -107,6 +105,24 @@ int growth_ode(double a, const double yy[], double dyda[], void * params)
     return GSL_SUCCESS;
 }
 
+// Define the ODE system for the growth factor
+void growth_ode(const std::vector<double> &yy, std::vector<double> &dyda, double a, void * params)
+{
+    Cosmology * CP = (Cosmology *) params;
+    const double hub = hubble_function(CP, a) / CP->Hubble;
+
+    dyda[0] = yy[1] / pow(a, 3) / hub;
+    /*Only use gravitating part*/
+    /* Note: we do not include neutrinos
+     * here as they are free-streaming at the initial time.
+     * This is not right if our box is very large and thus overlaps
+     * with their free-streaming scale. In that case the growth factor will be scale-dependent
+     * and we need to numerically differentiate. In practice the box will either be larger
+     * than the horizon, and so need radiation perturbations, or the neutrino
+     * mass will be larger than current constraints allow, so we just warn for now.*/
+    dyda[1] = yy[0] * 1.5 * a * (CP->OmegaCDM + CP->OmegaBaryon) / (a * a * a) / hub;
+}
+
 /** The growth function is given as a 2nd order DE in Peacock 1999, Cosmological Physics.
  * D'' + a'/a D' - 1.5 * (a'/a)^2 D = 0
  * 1/a (a D')' - 1.5 (a'/a)^2 D
@@ -114,39 +130,59 @@ int growth_ode(double a, const double yy[], double dyda[], void * params)
  * Define F = a^3 H dD/da
  * and we have: dF/da = 1.5 a H D
  */
-double growth(Cosmology * CP, double a, double * dDda)
+
+double growth(Cosmology *CP, double a, double *dDda)
 {
-  gsl_odeiv2_system FF;
-  FF.function = &growth_ode;
-  FF.jacobian = NULL;
-  FF.params = CP;
-  FF.dimension = 2;
-  gsl_odeiv2_driver * drive = gsl_odeiv2_driver_alloc_standard_new(&FF,gsl_odeiv2_step_rkf45, 1e-5, 1e-8,1e-8,1,1);
-   /* We start early to avoid lambda.*/
-  double curtime = 1e-5;
-  /* Handle even earlier times*/
-  if(a < curtime)
-      curtime = a / 10;
-  /* Initial velocity chosen so that D = Omegar + 3/2 Omega_m a,
-   * the solution for a matter/radiation universe.*
-   * Note the normalisation of D is arbitrary
-   * and never seen outside this function.*/
-  double yinit[2] = {1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime), pow(curtime,3)*hubble_function(CP, curtime)/CP->Hubble * 1.5 * (CP->OmegaCDM + CP->OmegaBaryon)/(curtime*curtime*curtime)};
-  if(CP->RadiationOn)
-      yinit[0] += CP->OmegaG/pow(curtime, 4)+get_omega_nu(&CP->ONu, curtime);
+    using namespace boost::numeric::odeint;
 
-  int stat = gsl_odeiv2_driver_apply(drive, &curtime,a, yinit);
-  if (stat != GSL_SUCCESS) {
-      endrun(1,"gsl_odeiv in growth: %d. Result at %g is %g %g\n",stat, curtime, yinit[0], yinit[1]);
-  }
-  gsl_odeiv2_driver_free(drive);
-  /*Store derivative of D if needed.*/
-  if(dDda) {
-      *dDda = yinit[1]/pow(a,3)/(hubble_function(CP, a)/CP->Hubble);
-  }
-  return yinit[0];
+    // Define a default start time (scale factor)
+    double curtime = 1e-5;
+
+    // Adjust `curtime` if `a` is smaller than the default
+    if (a < curtime) {
+        curtime = a / 10.0;  // Ensure `curtime` is smaller than the target `a`
+    }
+
+    // Initial conditions for the growth factor
+    std::vector<double> yinit(2);
+
+    // Initial conditions at curtime: [D(curtime), D'(curtime)]
+    yinit[0] = 1.5 * (CP->OmegaCDM + CP->OmegaBaryon) / (curtime * curtime);  
+    yinit[1] = pow(curtime, 3) * hubble_function(CP, curtime) / CP->Hubble *
+               1.5 * (CP->OmegaCDM + CP->OmegaBaryon) / (curtime * curtime * curtime); 
+
+    // Include radiation if enabled
+    if (CP->RadiationOn) {
+        yinit[0] += CP->OmegaG / pow(curtime, 4) + get_omega_nu(&CP->ONu, curtime);
+    }
+
+    // Define the ODE system (as a lambda function)
+    auto growth_system = [&CP](const std::vector<double> &yy, std::vector<double> &dyda, double a) {
+        growth_ode(yy, dyda, a, CP);
+    };
+
+    // Use Boost's Runge-Kutta-Fehlberg (RKF45) adaptive step-size integrator
+    runge_kutta_cash_karp54<std::vector<double>> stepper;
+    double abs_error = 1e-8;
+    double rel_error = 1e-8;
+    double step_size = 1e-5;
+
+    try {
+        // Integrate the ODE from curtime (curtime) to the given `a`
+        integrate_adaptive(make_controlled(abs_error, rel_error, stepper),
+                           growth_system, yinit, curtime, a, step_size);
+    } catch (...) {
+        endrun(1, "Boost ODE solver failed during integration\n");
+    }
+
+    // If the derivative is needed, store it in dDda
+    if (dDda) {
+        *dDda = yinit[1] / pow(a, 3) / (hubble_function(CP, a) / CP->Hubble);
+    }
+
+    // Return the growth factor D(a)
+    return yinit[0];
 }
-
 /*
  * This is the Zeldovich approximation prefactor,
  * f1 = d ln D1 / dlna = a / D (dD/da)

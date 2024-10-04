@@ -6,7 +6,6 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <math.h>
-#include <gsl/gsl_errno.h>
 #include <omp.h>
 
 #include <libgadget/slotsmanager.h>
@@ -20,11 +19,6 @@
 #include <libgadget/utils.h>
 
 #include "params.h"
-
-void gsl_handler (const char * reason, const char * file, int line, int gsl_errno)
-{
-    endrun(2001,"GSL_ERROR in file: %s, line %d, errno:%d, error: %s\n",file, line, gsl_errno, reason);
-}
 
 /*! \file main.c
  *  \brief start of the program
@@ -106,9 +100,6 @@ int main(int argc, char **argv)
     if(RestartFlag == 3 && RestartSnapNum < 0) {
         endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
-
-    /*Set up GSL so it gives a proper MPI termination*/
-    gsl_set_error_handler(gsl_handler);
 
     /*Initialize the memory manager*/
     mymalloc_init(MaxMemSizePerNode);

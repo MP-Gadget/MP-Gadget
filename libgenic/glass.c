@@ -4,7 +4,8 @@
 #include <string.h>
 #include <omp.h>
 
-#include <gsl/gsl_rng.h>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 #include "allvars.h"
 #include "proto.h"
@@ -40,28 +41,26 @@ static void glass_stats(struct ic_part_data * ICP, int NumPart);
 int
 setup_glass(IDGenerator * idgen, PetaPM * pm, double shift, int seed, double mass, struct ic_part_data * ICP, const double UnitLength_in_cm, const char * OutputDir)
 {
-    gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-    gsl_rng_set(rng, seed + ThisTask);
+    boost::random::mt19937 rng(seed + ThisTask);
     memset(ICP, 0, idgen->NumPart*sizeof(struct ic_part_data));
+    boost::random::uniform_real_distribution<double> dist(0, 1);
 
     int i;
     /* Note: this loop should nto be omp because
-     * of the call to gsl_rng_uniform*/
+     * of the call to rng_uniform*/
     for(i = 0; i < idgen->NumPart; i ++) {
         int k;
         idgen_create_pos_from_index(idgen, i, &ICP[i].Pos[0]);
         /* a spread of 3 will kill most of the grid anisotropy structure;
          * and still being local */
         for(k = 0; k < 3; k++) {
-            double rand = idgen->BoxSize / idgen->Ngrid * 3 * (gsl_rng_uniform(rng) - 0.5);
+            double rand = idgen->BoxSize / idgen->Ngrid * 3 * (dist(rng) - 0.5);
             ICP[i].Pos[k] += shift + rand;
         }
         ICP[i].Mass = mass;
     }
-
-    gsl_rng_free(rng);
 
     char * fn = fastpm_strdup_printf("powerspectrum-glass-%08X", seed);
     glass_evolve(pm, 14, fn, ICP, idgen->NumPart, UnitLength_in_cm, OutputDir);
