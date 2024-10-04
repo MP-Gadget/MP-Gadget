@@ -3,7 +3,11 @@
 /** \file
  * Routines for computing the matter density in a single neutrino species*/
 
-#include <gsl/gsl_interp.h>
+// Undefine P before including Boost
+#ifdef P
+#undef P
+#endif
+#include <boost/math/interpolators/barycentric_rational.hpp>
 
 /** Ratio between the massless neutrino temperature and the CMB temperature.
  * Note there is a slight correction from 4/11
@@ -24,8 +28,7 @@
 struct _rho_nu_single {
     double * loga;
     double * rhonu;
-    gsl_interp * interp;
-    gsl_interp_accel * acc;
+    boost::math::interpolators::barycentric_rational<double>* interp;
     /*Neutrino mass for this structure*/
     double mnu;
 };

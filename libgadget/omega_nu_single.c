@@ -13,8 +13,6 @@
 #define NRHOTAB 200
 /** Floating point accuracy*/
 #define FLOAT_ACC   1e-6
-/** Number of bins in integrations*/
-#define GSL_VAL 200
 
 void init_omega_nu(_omega_nu * omnu, const double MNu[], const double a0, const double HubbleParam, const double tcmb0)
 {
@@ -139,9 +137,7 @@ void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu,
      /*Allocate memory for arrays*/
      rho_nu_tab->loga = (double *) mymalloc("rho_nu_table",2*NRHOTAB*sizeof(double));
      rho_nu_tab->rhonu = rho_nu_tab->loga+NRHOTAB;
-     rho_nu_tab->acc = gsl_interp_accel_alloc();
-     rho_nu_tab->interp=gsl_interp_alloc(gsl_interp_cspline,NRHOTAB);
-     if(!rho_nu_tab->interp || !rho_nu_tab->acc || !rho_nu_tab->loga)
+     if(!rho_nu_tab->loga)
          endrun(2035,"Could not initialise tables for neutrino matter density\n");
 
      for(i=0; i< NRHOTAB; i++){
@@ -161,7 +157,7 @@ void rho_nu_init(_rho_nu_single * const rho_nu_tab, double a0, const double mnu,
         rho_nu_tab->rhonu[i] = result / pow(exp(rho_nu_tab->loga[i]), 4) * get_rho_nu_conversion();
      }
 
-     gsl_interp_init(rho_nu_tab->interp,rho_nu_tab->loga,rho_nu_tab->rhonu,NRHOTAB);
+     rho_nu_tab->interp = new boost::math::interpolators::barycentric_rational<double>(rho_nu_tab->loga, rho_nu_tab->rhonu, NRHOTAB);
      return;
 }
 
@@ -205,7 +201,7 @@ double rho_nu(const _rho_nu_single * rho_nu_tab, const double a, const double kT
             if (!rho_nu_tab->loga || loga < rho_nu_tab->loga[0])
                 rho_nu_val = rel_rho_nu(a,kT);
             else
-                rho_nu_val=gsl_interp_eval(rho_nu_tab->interp,rho_nu_tab->loga,rho_nu_tab->rhonu,loga,rho_nu_tab->acc);
+                rho_nu_val=(*rho_nu_tab->interp)(loga);
         }
         return rho_nu_val;
 }
