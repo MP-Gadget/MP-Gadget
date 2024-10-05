@@ -20,7 +20,8 @@ jobs:
 
     - name: Checkout source code
       uses: actions/checkout@v4
-
+    - name: Install MPI
+          sudo apt install -y -q build-essential mpich libmpich-dev
     - name: Cache conda
       uses: actions/cache@v4
       env:

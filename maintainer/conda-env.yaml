@@ -12,5 +12,6 @@ dependencies:
   - configobj
   # Below are for building MP-Gadget
   - openmpi
+  - compilers
   - gxx_linux-64
   - gcc_linux-64
