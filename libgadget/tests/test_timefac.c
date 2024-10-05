@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <gsl/gsl_integration.h>
+#include "../timefac.h"
 #include <stdint.h>
 
 #include "stub.h"
@@ -64,14 +64,12 @@ static inline inttime_t get_ti(double aa)
 double exact_drift_factor(Cosmology * CP, double a1, double a2, int exp)
 {
     double result, abserr;
-    gsl_function F;
-    gsl_integration_workspace *workspace;
-    workspace = gsl_integration_workspace_alloc(10000);
-    F.function = &fac_integ;
+    
     struct fac_params ff = {CP, exp};
-    F.params = &ff;
-    gsl_integration_qag(&F, a1,a2, 0, 1.0e-8, 10000, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+    auto integrand = [&ff](double a) {
+        return fac_integ(a, (void*)&ff);
+    };
+    result = tanh_sinh_integrate_adaptive(integrand, a1, a2, &abserr, 1e-8);
     return result;
 }
 

@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <gsl/gsl_rng.h>
 
 #define qsort_openmp qsort
 

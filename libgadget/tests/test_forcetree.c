@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <omp.h>
-#include <gsl/gsl_rng.h>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 #include <libgadget/forcetree.h>
 #include <libgadget/partmanager.h>
@@ -23,7 +24,7 @@
 struct forcetree_testdata
 {
     DomainDecomp ddecomp;
-    gsl_rng * r;
+    boost::random::mt19937 r;
 };
 
 #define NODECACHE_SIZE 100
@@ -355,8 +356,9 @@ static void test_rebuild_close(void ** state) {
     myfree(PartManager->Base);
 }
 
-void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
+void do_random_test(boost::random::mt19937 & r, const int numpart, const ForceTree tb, DomainDecomp * ddecomp)
 {
+    boost::random::uniform_real_distribution<double> dist(0, 1);
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -364,19 +366,19 @@ void do_random_test(gsl_rng * r, const int numpart, const ForceTree tb, DomainDe
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = PartManager->BoxSize * dist(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(dist(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(dist(r)-0.5,2));
     }
     PartManager->NumPart = numpart;
     do_tree_test(numpart, tb, ddecomp);
@@ -387,7 +389,7 @@ static void test_rebuild_random(void ** state) {
     int ncbrt = 64;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    gsl_rng * r = (gsl_rng *) data->r;
+    boost::random::mt19937 & r = data->r;
     int numpart = ncbrt*ncbrt*ncbrt;
     particle_alloc_memory(PartManager, 8, numpart);
     /*Allocate tree*/
@@ -442,8 +444,7 @@ static int setup_tree(void **state) {
     /*Set up the top-level domain grid*/
     struct forcetree_testdata *data = malloc(sizeof(struct forcetree_testdata));
     trivial_domain(&data->ddecomp);
-    data->r = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(data->r, 0);
+    data->r = boost::random::mt19937(0);
     *state = (void *) data;
     walltime_init(&Clocks);
     return 0;

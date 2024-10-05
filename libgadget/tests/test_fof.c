@@ -9,7 +9,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <gsl/gsl_rng.h>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 #define qsort_openmp qsort
 
@@ -30,8 +31,8 @@ setup_particles(int NumPart, double BoxSize)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
 
-    gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(r, 0);
+    boost::random::mt19937 r(0);
+    boost::random::uniform_real_distribution<double> dist(0, 1);
 
     particle_alloc_memory(PartManager, BoxSize, 1.5 * NumPart);
     PartManager->NumPart = NumPart;
@@ -46,10 +47,9 @@ setup_particles(int NumPart, double BoxSize)
         P[i].IsGarbage = 0;
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = BoxSize * dist(r);
     }
 
-    gsl_rng_free(r);
     /* TODO: Here create particles in some halo-like configuration*/
 
     return 0;

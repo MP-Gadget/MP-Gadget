@@ -282,7 +282,6 @@ static int teardown_density(void **state) {
     myfree(data->ddecomp.Tasks);
     myfree(data->ddecomp.TopLeaves);
     myfree(data->ddecomp.TopNodes);
-    free(data->r);
     myfree(data);
     return 0;
 }
