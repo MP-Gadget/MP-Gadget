@@ -82,7 +82,6 @@ static void test_cosmology(void ** state)
     assert_true(fabs(GrowthFactor(&CP, 0.01,0.001) - radgrow(0.01, CP.OmegaG)/radgrow(0.001, CP.OmegaG))< 1e-3);
 
     //Check against exact solutions from gr-qc/0504089: No radiation!
-    //Note that the GSL hyperg needs the last argument to be < 1
     double omegam = 0.5;
     setup_cosmology(&CP, omegam, 0.0455, 0.7);
     CP.RadiationOn = 0;

@@ -390,8 +390,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* We need to re-seed the random number table each timestep.
          * The seed needs to be the same on all processors, and a different
-         * value each timestep. Only the lowest 32 bits are used in the GSL
-         * random number generator. The populated part of the timestep hierarchy
+         * value each timestep. Only the lowest 32 bits are used in some
+         * random number generators. The populated part of the timestep hierarchy
          * is added to the random seed. The current snapshot is folded into
          * bits 32 - 23 so that the random tables do not cycle after every snapshot.
          * We may still cycle after 512 snapshots but that should be far enough apart. */

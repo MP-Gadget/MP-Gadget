@@ -55,17 +55,6 @@ if(${MPI_C_FOUND})
     
     install(TARGETS bigfile-copy-mpi bigfile-iosim
             RUNTIME DESTINATION bin)
-    
-    if(${GSL_FOUND})
-        include_directories(${GSL_INCLUDE_DIRS})
-
-        # bigfile-sample-mpi
-        add_executable(bigfile-sample-mpi bigfile-sample-mpi.c)
-        target_link_libraries(bigfile-sample-mpi bigfile-mpi bigfile ${GSL_LIBRARIES} ${MPI_C_LIBRARIES})
-        
-        install(TARGETS bigfile-sample-mpi
-                RUNTIME DESTINATION bin)
-    endif()
 endif()
 
 # Install bash scripts

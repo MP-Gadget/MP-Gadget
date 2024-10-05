@@ -5,8 +5,6 @@
 #NVCC=nvcc
 #NVOPTIMIZE = -O3 -arch=sm_61 # specify architecture according to you GPU model, sm_90 shall be used for Vista's H100
 
-#GSL_LIBS=
-#GSL_INCL=
 #This is a good optimized build default for gcc
 OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math
 #This is a good non-optimized default for debugging
