@@ -105,7 +105,7 @@ GADGET_OBJS =  \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o \
 	 petapm.o gravity.o \
-	 densitykernel.o lightcone.o walltime.o\
+	 densitykernel.o walltime.o\
 	 runtests.o \
 	 neutrinos_lra.o \
      omega_nu_single.o \
