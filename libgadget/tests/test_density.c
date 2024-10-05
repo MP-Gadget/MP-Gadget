@@ -8,7 +8,8 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <time.h>
-#include <gsl/gsl_rng.h>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 #include <libgadget/partmanager.h>
 #include <libgadget/walltime.h>
@@ -28,7 +29,7 @@ struct density_testdata
     struct sph_pred_data sph_pred;
     DomainDecomp ddecomp;
     struct density_params dp;
-    gsl_rng * r;
+    boost::random::mt19937 r;
 };
 
 /* Perform some simple checks on the densities*/
@@ -204,8 +205,9 @@ static void test_density_close(void ** state) {
     do_density_test(state, numpart, 0.131726, 1e-4);
 }
 
-void do_random_test(void **state, gsl_rng * r, const int numpart)
+void do_random_test(void **state, boost::random::mt19937 &r, const int numpart)
 {
+    boost::random::uniform_real_distribution<double> dist(0.0, 1.0);
     /* Create a randomly space set of particles, 8x8x8, all of type 0. */
     int i;
     for(i=0; i<numpart/4; i++) {
@@ -215,7 +217,7 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
 
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize * gsl_rng_uniform(r);
+            P[i].Pos[j] = PartManager->BoxSize * dist(r);
     }
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 0;
@@ -223,7 +225,7 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
         P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize/2 + PartManager->BoxSize/8 * exp(pow(dist(r)-0.5,2));
     }
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 0;
@@ -231,7 +233,7 @@ void do_random_test(void **state, gsl_rng * r, const int numpart)
         P[i].Hsml = PartManager->BoxSize/cbrt(numpart);
         int j;
         for(j=0; j<3; j++)
-            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
+            P[i].Pos[j] = PartManager->BoxSize*0.1 + PartManager->BoxSize/32 * exp(pow(dist(r)-0.5,2));
     }
     do_density_test(state, numpart, 0.187515, 1e-3);
 }
@@ -240,7 +242,7 @@ static void test_density_random(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 32;
     struct density_testdata * data = * (struct density_testdata **) state;
-    gsl_rng * r = (gsl_rng *) data->r;
+    boost::random::mt19937 &r = (boost::random::mt19937) data->r;
     int numpart = ncbrt*ncbrt*ncbrt;
     /*Allocate tree*/
     /*Base pointer*/
@@ -324,8 +326,7 @@ static int setup_density(void **state) {
     data->dp.BlackHoleMaxAccretionRadius = 99999.;
 
     set_densitypar(data->dp);
-    data->r = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(data->r, 0);
+    data->r = boost::random::mt19937(0);
     *state = (void *) data;
     return 0;
 }
