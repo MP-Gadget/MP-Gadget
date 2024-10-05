@@ -1,8 +1,0 @@
-MPICC       =   mpiicc
-
-OPTIMIZE =  -openmp -O0 -g
-GSL_INCL = -I/opt/gsl/impi/include/gsl
-GSL_LIBS = -L/opt/gsl/impi/lib64 -lgsl -lgslcblas
-
-#OPT += -DDEBUG
-#OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.

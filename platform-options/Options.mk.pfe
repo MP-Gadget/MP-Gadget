@@ -1,6 +1,0 @@
-OPTIMIZE =  -fopenmp -O3 -g
-GSL_INCL = -I$(HOME)/anaconda3/envs/3.5/include
-GSL_LIBS = $(HOME)/anaconda3/envs/3.5/lib/libgsl.a $(HOME)/anaconda3/envs/3.5/lib/libgslcblas.a
-
-#OPT += -DVALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
-#OPT += -DDEBUG      # print a lot of debugging messages
