@@ -484,7 +484,7 @@ double TopHatSigma2(double R)
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
   result = tanh_sinh_integrate_adaptive(integrand, 0, 500. / R, &abserr, 1e-4, 0.);
-/*   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
+/*   printf("integration in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
   return result;
 }
 
