@@ -3,7 +3,14 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <gsl/gsl_interp.h>
+
+// Undefine P before including Boost
+#ifdef P
+#undef P
+#endif
+#include <boost/math/interpolators/barycentric_rational.hpp>
+
+#define P PartManager->Base
 
 typedef struct _powerspectrum {
     double * kk;
@@ -20,8 +27,7 @@ typedef struct _powerspectrum {
     double * logknu;
     double * delta_nu_ratio;
     double nu_prefac;
-    gsl_interp *nu_spline;
-    gsl_interp_accel * nu_acc;
+    boost::math::interpolators::barycentric_rational<double>* nu_spline;
 
 } Power;
 

@@ -9,10 +9,8 @@
 #include <math.h>
 #include <string.h>
 #include <bigfile-mpi.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_interp.h>
-#include <gsl/gsl_sf_bessel.h>
+#include <boost/math/interpolators/barycentric_rational.hpp>
+#include <boost/math/special_functions/bessel.hpp>
 
 #include "neutrinos_lra.h"
 
@@ -23,11 +21,10 @@
 #include "cosmology.h"
 #include "powerspectrum.h"
 #include "physconst.h"
+#include "timefac.h"
 
 /** Floating point accuracy*/
 #define FLOAT_ACC   1e-6
-/** Number of bins in integrations*/
-#define GSL_VAL 400
 
 /** Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
@@ -100,19 +97,16 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
     d_tot->nk=nk_in;
     const double OmegaNua3=get_omega_nu_nopart(d_tot->omnu, d_tot->TimeTransfer)*pow(d_tot->TimeTransfer,3);
     const double OmegaNu1 = get_omega_nu(d_tot->omnu, 1);
-    gsl_interp_accel *acc = gsl_interp_accel_alloc();
-    gsl_interp * spline;
-    if(t_init->NPowerTable > 2)
-        spline = gsl_interp_alloc(gsl_interp_cspline,t_init->NPowerTable);
-    else
-        spline = gsl_interp_alloc(gsl_interp_linear,t_init->NPowerTable);
-    gsl_interp_init(spline,t_init->logk,t_init->T_nu,t_init->NPowerTable);
+    boost::math::interpolators::barycentric_rational<double>* spline;
+
+    spline = new boost::math::interpolators::barycentric_rational<double>(t_init->logk,t_init->T_nu,t_init->NPowerTable);
+
     /*Check we have a long enough power table: power tables are in log_10*/
     if(log10(wavenum[d_tot->nk-1]) > t_init->logk[t_init->NPowerTable-1])
         endrun(2,"Want k = %g but maximum in CLASS table is %g\n",wavenum[d_tot->nk-1], pow(10, t_init->logk[t_init->NPowerTable-1]));
     for(ik=0;ik<d_tot->nk;ik++) {
             /* T_nu contains T_nu / T_cdm.*/
-            double T_nubyT_nonu = gsl_interp_eval(spline,t_init->logk,t_init->T_nu,log10(wavenum[ik]),acc);
+            double T_nubyT_nonu = (*spline)(log10(wavenum[ik]));
             /*Initialise delta_nu_init to use the first timestep's delta_cdm_curr
              * so that it includes potential Rayleigh scattering. */
             d_tot->delta_nu_init[ik] = delta_cdm_curr[ik]*T_nubyT_nonu;
@@ -122,8 +116,6 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
             /*Set up the wavenumber array*/
             d_tot->wavenum[ik] = wavenum[ik];
     }
-    gsl_interp_accel_free(acc);
-    gsl_interp_free(spline);
 
     /*If we are not restarting, make sure we set the scale factor*/
     d_tot->scalefact[0]=log(TimeIC);
@@ -155,19 +147,20 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         double * logPower = (double *) mymalloc("logpk", PowerSpectrum->nonzero * sizeof(double));
         for(i = 0; i < PowerSpectrum->nonzero; i++)
             logPower[i] = log(PowerSpectrum->Power[i]);
-        gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, PowerSpectrum->nonzero);
-        gsl_interp_init(pkint, PowerSpectrum->logknu, logPower, PowerSpectrum->nonzero);
-        gsl_interp_accel * pkacc = gsl_interp_accel_alloc();
+
+        boost::math::interpolators::barycentric_rational<double> pkint(PowerSpectrum->logknu, logPower, PowerSpectrum->nonzero);
+        double xmin = PowerSpectrum->logknu[0];
+        double xmax = PowerSpectrum->logknu[PowerSpectrum->nonzero-1];
+
         for(i = 0; i < delta_tot_table.nk; i++) {
             double logk = log(delta_tot_table.wavenum[i]);
-            if(pkint->xmax < logk || pkint->xmin > logk)
+            if(xmax < logk || xmin > logk)
                 Power_in[i] = delta_tot_table.delta_tot[i][delta_tot_table.ia-1];
             else
-                Power_in[i] = exp(gsl_interp_eval(pkint, PowerSpectrum->logknu, logPower, logk, pkacc));
+                Power_in[i] = exp(pkint(logk));
+
         }
         myfree(logPower);
-        gsl_interp_accel_free(pkacc);
-        gsl_interp_free(pkint);
     }
 
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
@@ -202,8 +195,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     }
     double * delta_nu_ratio = (double *) mymalloc2("dnu_rat", delta_tot_table.nk * sizeof(double));
     double * logwavenum = (double *) mymalloc2("logwavenum", delta_tot_table.nk * sizeof(double));
-    gsl_interp * pkint = gsl_interp_alloc(gsl_interp_linear, delta_tot_table.nk);
-    gsl_interp_accel * pkacc = gsl_interp_accel_alloc();
+
     /*We want to interpolate in log space*/
     for(i=0; i < delta_tot_table.nk; i++) {
         if(isnan(delta_tot_table.delta_nu_last[i]))
@@ -216,7 +208,11 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     }
     if(delta_tot_table.nk != PowerSpectrum->nonzero)
         myfree(Power_in);
-    gsl_interp_init(pkint, logwavenum, delta_nu_ratio, delta_tot_table.nk);
+
+    boost::math::interpolators::barycentric_rational<double> pkint(logwavenum, delta_nu_ratio, delta_tot_table.nk);
+
+    double xmin = logwavenum[0];
+    double xmax = logwavenum[delta_tot_table.nk-1];
 
     /*We want to interpolate in log space*/
     for(i=0; i < PowerSpectrum->nonzero; i++) {
@@ -224,14 +220,12 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
             PowerSpectrum->delta_nu_ratio[i] = delta_nu_ratio[i];
         else {
             double logk = PowerSpectrum->logknu[i];
-            if(logk > pkint->xmax)
-                logk = pkint->xmax;
-            PowerSpectrum->delta_nu_ratio[i] = gsl_interp_eval(pkint, logwavenum, delta_nu_ratio, logk, pkacc);
+            if(logk > xmax)
+                logk = xmax;
+            PowerSpectrum->delta_nu_ratio[i] = pkint(logk);
         }
     }
 
-    gsl_interp_accel_free(pkacc);
-    gsl_interp_free(pkint);
     myfree(logwavenum);
     myfree(delta_nu_ratio);
 }
@@ -257,9 +251,6 @@ void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * O
     }
     fclose(fp);
     myfree(fname);
-    /*Clean up the neutrino memory now we saved the power spectrum.*/
-    gsl_interp_free(PowerSpectrum->nu_spline);
-    gsl_interp_accel_free(PowerSpectrum->nu_acc);
 }
 
 void petaio_save_neutrinos(BigFile * bf, int ThisTask)
@@ -552,17 +543,19 @@ Result is in Unit_Length/Unit_Time.
 ******************************************************************************************************/
 double fslength(Cosmology * CP, const double logai, const double logaf, const double light)
 {
-  double abserr;
-  double fslength_val;
-  gsl_function F;
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
-  F.function = &fslength_int;
-  F.params = CP;
-  if(logai >= logaf)
-      return 0;
-  gsl_integration_qag (&F, logai, logaf, 0, 1e-6,GSL_VAL,6,w,&(fslength_val), &abserr);
-  gsl_integration_workspace_free (w);
-  return light*fslength_val;
+    double abserr;
+    if (logai >= logaf)
+        return 0;
+
+    // Define the integrand as a lambda function wrapping fslength_int
+    auto integrand = [CP](double loga) {
+        return fslength_int(loga, (void *)CP);
+    };
+
+    // Use Tanh-Sinh adaptive integration
+    double fslength_val = tanh_sinh_integrate_adaptive(integrand, logai, logaf, &abserr, 1e-6);
+
+    return light * fslength_val;
 }
 
 /**************************************************************************************************
@@ -589,7 +582,9 @@ static inline double specialJ_fit(const double x)
 /*Asymptotic series expansion from YAH. Not good when qc * x is small, but fine otherwise.*/
 static inline double II(const double x, const double qc, const int n)
 {
-    return (n*n+n*n*n*qc+n*qc*x*x - x*x)* qc*gsl_sf_bessel_j0(qc*x) + (2*n+n*n*qc+qc*x*x)*cos(qc*x);
+    using boost::math::cyl_bessel_j;  // Import Boost Bessel function
+    return (n*n+n*n*n*qc+n*qc*x*x - x*x) * qc * cyl_bessel_j(0, qc * x)  // Bessel J0
+           + (2 * n + n * n * qc + qc * x * x) * cos(qc * x);
 }
 
 /* Fourier transform of truncated Fermi Dirac distribution, with support on q > qc only.
@@ -628,12 +623,10 @@ struct _delta_nu_int_params
     double k;
     /**Neutrino mass divided by k_B T_nu*/
     double mnubykT;
-    gsl_interp_accel *acc;
-    gsl_interp *spline;
+    boost::math::interpolators::barycentric_rational<double>* spline;
     Cosmology * CP;
     /**Precomputed free-streaming lengths*/
-    gsl_interp_accel *fs_acc;
-    gsl_interp *fs_spline;
+    boost::math::interpolators::barycentric_rational<double>* fs_spline;
     double * fslengths;
     double * fsscales;
     /**Make sure this is at the same k as above*/
@@ -648,12 +641,12 @@ struct _delta_nu_int_params
 };
 typedef struct _delta_nu_int_params delta_nu_int_params;
 
-/**GSL integration kernel for get_delta_nu*/
+/**integration kernel for get_delta_nu*/
 double get_delta_nu_int(double logai, void * params)
 {
     delta_nu_int_params * p = (delta_nu_int_params *) params;
-    double fsl_aia = gsl_interp_eval(p->fs_spline,p->fsscales,p->fslengths,logai,p->fs_acc);
-    double delta_tot_at_a = gsl_interp_eval(p->spline,p->scale,p->delta_tot,logai,p->acc);
+    double fsl_aia = (*p->fs_spline)(logai);
+    double delta_tot_at_a = (*p->spline)(logai);
     double specJ = specialJ(p->k*fsl_aia/p->mnubykT, p->qc, p->nufrac_low);
     double ai = exp(logai);
     return fsl_aia/(ai*hubble_function(p->CP, ai)) * specJ * delta_tot_at_a;
@@ -709,19 +702,7 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
   /*If neutrino mass is zero, we are not accurate, just use the initial conditions piece*/
   if(Na > 1 && mnubykT > 0){
         delta_nu_int_params params;
-        params.acc = gsl_interp_accel_alloc();
-        gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
-        gsl_function F;
-        F.function = &get_delta_nu_int;
-        F.params=&params;
-        /*Use cubic interpolation*/
-        if(Na > 2) {
-                params.spline=gsl_interp_alloc(gsl_interp_cspline,Na);
-        }
-        /*Unless we have only two points*/
-        else {
-                params.spline=gsl_interp_alloc(gsl_interp_linear,Na);
-        }
+
         params.scale=d_tot->scalefact;
         params.mnubykT=mnubykT;
         params.qc = qc;
@@ -731,34 +712,42 @@ void get_delta_nu(Cosmology * CP, const _delta_tot_table * const d_tot, const do
          * which is exactly where it doesn't matter, but
          * we still want to be safe. */
         int Nfs = Na*16;
-        params.fs_acc = gsl_interp_accel_alloc();
-        params.fs_spline=gsl_interp_alloc(gsl_interp_cspline,Nfs);
+
         params.CP = CP;
         /*Pre-compute the free-streaming lengths, which are scale-independent*/
         double * fslengths = (double *) mymalloc("fslengths", Nfs* sizeof(double));
         double * fsscales = (double *) mymalloc("fsscales", Nfs* sizeof(double));
         for(ik=0; ik < Nfs; ik++) {
             fsscales[ik] = log(d_tot->TimeTransfer) + ik*(log(a) - log(d_tot->TimeTransfer))/(Nfs-1.);
+            if (ik == Nfs-1)
+                fsscales[ik] = log(a); // Make sure the last point is exactly a without precision loss
             fslengths[ik] = fslength(CP, fsscales[ik], log(a),d_tot->light);
         }
         params.fslengths = fslengths;
         params.fsscales = fsscales;
 
-        if(!params.spline || !params.acc || !w || !params.fs_spline || !params.fs_acc || !fslengths || !fsscales)
-              endrun(2016,"Error initialising and allocating memory for gsl interpolator and integrator.\n");
+        params.fs_spline = new boost::math::interpolators::barycentric_rational<double>(params.fsscales,params.fslengths,Nfs);
 
-        gsl_interp_init(params.fs_spline,params.fsscales,params.fslengths,Nfs);
+        // if Na is less than 4, the approximation order for interpolation should be adjusted
+        size_t approx_order = 3;
+        if (Na < 4) {
+            approx_order = Na - 1;
+        }
+
         for (ik = 0; ik < d_tot->nk; ik++) {
             double abserr,d_nu_tmp;
             params.k=d_tot->wavenum[ik];
             params.delta_tot=d_tot->delta_tot[ik];
-            gsl_interp_init(params.spline,params.scale,params.delta_tot,Na);
-            gsl_integration_qag (&F, log(d_tot->TimeTransfer), log(a), 0, relerr,GSL_VAL,6,w,&d_nu_tmp, &abserr);
+            // print the number of data points
+            
+            params.spline = new boost::math::interpolators::barycentric_rational<double>(params.scale,params.delta_tot,Na,approx_order);
+            // Define the integrand as a lambda function wrapping get_delta_nu_int
+            auto integrand = [&params](double logai) {
+                return get_delta_nu_int(logai, (void *)&params);
+            };
+            d_nu_tmp = tanh_sinh_integrate_adaptive(integrand, log(d_tot->TimeTransfer), log(a), &abserr, relerr);
             delta_nu_curr[ik] += d_tot->delta_nu_prefac * d_nu_tmp;
          }
-         gsl_integration_workspace_free (w);
-         gsl_interp_free(params.spline);
-         gsl_interp_accel_free(params.acc);
          myfree(fsscales);
          myfree(fslengths);
    }

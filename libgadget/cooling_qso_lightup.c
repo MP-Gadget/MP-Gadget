@@ -30,7 +30,7 @@
 #include <mpi.h>
 #include <string.h>
 #include <omp.h>
-#include <gsl/gsl_interp.h>
+#include <boost/math/interpolators/barycentric_rational.hpp>
 #include "physconst.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
@@ -46,6 +46,9 @@
 
 #define E0_HeII 54.4 /* HeII ionization potential in eV*/
 #define HEMASS 4.002602 /* Helium mass in amu*/
+
+boost::math::interpolators::barycentric_rational<double>* HeIII_intp;
+boost::math::interpolators::barycentric_rational<double>* LMFP_intp;
 
 typedef struct
 {
@@ -83,8 +86,6 @@ static int Nreionhist;
 static double * He_zz;
 static double * XHeIII;
 static double * LMFP;
-static gsl_interp * HeIII_intp;
-static gsl_interp * LMFP_intp;
 
 /*This is a helper for the tests*/
 void set_qso_lightup_par(struct qso_lightup_params qso)
@@ -226,11 +227,11 @@ load_heii_reion_hist(const char * reion_hist_file)
     /*Broadcast data to other processors*/
     MPI_Bcast(He_zz, 3 * Nreionhist, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&qso_inst_heating, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    /* Initialize the interpolators*/
-    HeIII_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
-    LMFP_intp = gsl_interp_alloc(gsl_interp_linear,Nreionhist);
-    gsl_interp_init(HeIII_intp, He_zz, XHeIII, Nreionhist);
-    gsl_interp_init(LMFP_intp, He_zz, LMFP, Nreionhist);
+
+    // Initialize HeIII interpolation using barycentric rational interpolation
+    HeIII_intp = new boost::math::interpolators::barycentric_rational<double>(He_zz, XHeIII, Nreionhist);
+    // Initialize LMFP interpolation
+    LMFP_intp = new boost::math::interpolators::barycentric_rational<double>(He_zz, LMFP, Nreionhist);
 
     QSOLightupParams.heIIIreion_start = 1/He_zz[0]-1;
 
@@ -271,7 +272,7 @@ get_long_mean_free_path_heating(double redshift)
     if(atime > He_zz[Nreionhist-1])
         return 0;
 
-    double long_mfp_heating = gsl_interp_eval(LMFP_intp, He_zz, LMFP, atime, NULL);
+    double long_mfp_heating = (*LMFP_intp)(atime);
 
     last_zz = redshift;
     last_long_mfp_heating = long_mfp_heating;
@@ -529,7 +530,8 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
     int * qso_cand = NULL;
     int64_t n_gas_tot=0, tot_n_ionized=0, ncand_tot=0;
     MPI_Allreduce(&SlotsManager->info[0].size, &n_gas_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-    double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
+    // Evaluate the interpolators
+    double desired_ion_frac = (*HeIII_intp)(atime);
     struct QSOPriv priv;
     priv.fof = fof;
     priv.uu_in_cgs = uu_in_cgs;
@@ -663,7 +665,7 @@ do_heiii_reionization(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmol
 int
 need_change_helium_ionization_fraction(double atime)
 {
-    double desired_ion_frac = gsl_interp_eval(HeIII_intp, He_zz, XHeIII, atime, NULL);
+    double desired_ion_frac = (*HeIII_intp)(atime);
     double curionfrac = gas_ionization_fraction();
     if(curionfrac < desired_ion_frac)
         return 1;
