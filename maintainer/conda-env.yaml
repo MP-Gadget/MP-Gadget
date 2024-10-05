@@ -4,14 +4,14 @@ channels:
   - bccp
 
 dependencies:
-  - python
-  - mpi4py
-  - nbodykit
-  - matplotlib
-  - numpy
-  - configobj
   # Below are for building MP-Gadget
-  - openmpi
-  - compilers
   - gxx_linux-64
   - gcc_linux-64
+  - mpich
+  # For the tests
+  - python
+  - numpy
+  - matplotlib
+  - mpi4py
+  - nbodykit
+  - configobj
