@@ -1,5 +1,4 @@
 #These variables are set to useful defaults, but may be overriden if needed
-#MPICC=mpicc
 #This is a good optimized build default for nvc
 OPTIMIZE =  -mp -g -Wall -fast
 #This is a good non-optimized default for debugging

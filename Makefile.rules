@@ -1,7 +1,7 @@
 # vim: set ft=make:
 #
 AR ?= ar
-MPICC ?= mpicc
+MPICC ?= mpic++
 LOW_PRECISION ?= double
 
 OPTIMIZE ?= -O2 -g -fopenmp -Wall
