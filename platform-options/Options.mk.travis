@@ -1,6 +1,4 @@
 OPTIMIZE =  -fopenmp -O2 -g -std=gnu99
-GSL_INCL = 
-GSL_LIBS = -lgsl -lgslcblas
 AR=ar
 SHELL = /bin/bash
 

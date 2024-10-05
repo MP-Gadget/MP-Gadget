@@ -29,7 +29,6 @@
 #include "hci.h"
 #include "fof.h"
 #include "cooling_qso_lightup.h"
-#include "lightcone.h"
 #include "timefac.h"
 #include "uvbg.h"
 #include "neutrinos_lra.h"
@@ -247,9 +246,6 @@ begrun(const int RestartSnapNum, struct header_data * head)
     init_cooling_and_star_formation(All.CoolingOn, All.StarformationOn, &All.CP, head->MassTable[0], head->BoxSize, units);
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
-
-    if(All.LightconeOn)
-        lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
 
     /* Ensure that the timeline runs at least to the current time*/
     if(head->TimeSnapshot > All.TimeMax)
@@ -650,11 +646,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&gasTree);
-
-        /* Compute the list of particles that cross a lightcone and write it to disc.
-         * This should happen when kick and drift times are synchronised.*/
-        if(All.LightconeOn)
-            lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next, &rnd);
 
         /* Now done with random numbers*/
         if(rnd.Table)
