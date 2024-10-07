@@ -8,8 +8,6 @@ include Makefile.version
 FILES = $(shell git ls-files)
 
 all: $(CONFIG)
-	@echo "=================$(BOOST_LIBS)======================="
-	@echo "=================$(GSL_LIBS)======================="
 	cd depends; $(MAKE)
 	cd libgadget; $(MAKE)
 	cd libgenic; $(MAKE)
