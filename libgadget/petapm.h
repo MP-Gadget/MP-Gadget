@@ -31,6 +31,8 @@ typedef struct Region {
 /* a layout is the communication object, represent
  * pencil / cells exchanged  */
 
+
+// Layout determins which cells are sent to which task.
 struct Layout {
     MPI_Comm comm;
     int NpExport;

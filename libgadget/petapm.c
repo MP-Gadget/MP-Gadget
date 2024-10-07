@@ -324,7 +324,9 @@ cufftComplex * petapm_force_r2c(PetaPM * pm,
     cufftXtExecDescriptor(pm->priv->plan_forw, pm->priv->desc, pm->priv->desc, CUFFT_FORWARD);
     myfree(real);
 
-
+     // CUDA TODO: need to check if the output complex array is transpose
+     // need to verify
+     // can verify by using both version of the code
     //=============================== End of R2C =============================================
     //========================== Begin Transfer Function =====================================
     cufftComplex * rho_k = (cufftComplex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
@@ -920,6 +922,8 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 /**************
  * functions iterating over particle / mesh pairs
  ***************/
+ // can write to some other place and add up later
+ // look for numpy reduce at/bin count
 static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weight) {
     double Mass = *MASS(i);
     if(INACTIVE(i))
