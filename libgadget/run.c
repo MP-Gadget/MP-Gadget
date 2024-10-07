@@ -25,12 +25,10 @@
 #include "blackhole.h"
 #include "hydra.h"
 #include "sfr_eff.h"
-#include "metal_return.h"
 #include "slotsmanager.h"
 #include "hci.h"
 #include "fof.h"
 #include "cooling_qso_lightup.h"
-#include "lightcone.h"
 #include "timefac.h"
 #include "uvbg.h"
 #include "neutrinos_lra.h"
@@ -249,9 +247,6 @@ begrun(const int RestartSnapNum, struct header_data * head)
 
     gravshort_fill_ntab(All.ShortRangeForceWindowType, All.Asmth);
 
-    if(All.LightconeOn)
-        lightcone_init(&All.CP, head->TimeSnapshot, head->UnitLength_in_cm, All.OutputDir);
-
     /* Ensure that the timeline runs at least to the current time*/
     if(head->TimeSnapshot > All.TimeMax)
         All.TimeMax = head->TimeSnapshot;
@@ -395,8 +390,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         /* We need to re-seed the random number table each timestep.
          * The seed needs to be the same on all processors, and a different
-         * value each timestep. Only the lowest 32 bits are used in the GSL
-         * random number generator. The populated part of the timestep hierarchy
+         * value each timestep. Only the lowest 32 bits are used in some
+         * random number generators. The populated part of the timestep hierarchy
          * is added to the random seed. The current snapshot is folded into
          * bits 32 - 23 so that the random tables do not cycle after every snapshot.
          * We may still cycle after 512 snapshots but that should be far enough apart. */
@@ -599,12 +594,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             if(!gasTree.tree_allocated_flag)
                 force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK | BHMASK, All.OutputDir);
 
-            /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
-            if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
-                metal_return(&Act, &gasTree, &All.CP, atime, AvgGasMass);
-            }
-
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
@@ -657,11 +646,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&gasTree);
-
-        /* Compute the list of particles that cross a lightcone and write it to disc.
-         * This should happen when kick and drift times are synchronised.*/
-        if(All.LightconeOn)
-            lightcone_compute(atime, PartManager->BoxSize, &All.CP, Ti_Last, Ti_Next, &rnd);
 
         /* Now done with random numbers*/
         if(rnd.Table)

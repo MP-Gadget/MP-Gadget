@@ -1,7 +1,4 @@
 #These variables are set to useful defaults, but may be overriden if needed
-#MPICC=mpicc
-GSL_LIBS=-L$(TACC_GSL_LIB) -lgsl -lgslcblas
-GSL_INCL=-I$(TACC_GSL_INC)
 #This is a good optimized build default for nvc
 OPTIMIZE =  -mp -g -Wall -fast
 #This is a good non-optimized default for debugging
@@ -12,9 +9,3 @@ OPTIMIZE =  -mp -g -Wall -fast
 #OPT += -DDEBUG      # print a lot of debugging messages
 #Disable openmp locking. This means no threading.
 #OPT += -DNO_OPENMP_SPINLOCK
-
-#-----------
-#OPT += -DEXCUR_REION  # reionization with excursion set
-
-#--------- CFITSIO (required only for saving potential plane files)
-# OPT += -DUSE_CFITSIO

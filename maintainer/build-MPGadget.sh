@@ -59,7 +59,6 @@ function build {
         cp platform-options/Options.mk.$host Options.mk
         ./bootstrap.sh
     fi
-    module load gsl
     make
 
     popd

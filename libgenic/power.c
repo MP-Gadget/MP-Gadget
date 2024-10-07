@@ -3,8 +3,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <mpi.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_interp.h>
+#include <boost/math/interpolators/barycentric_rational.hpp>
 #include <bigfile-mpi.h>
 
 #include <libgadget/cosmology.h>
@@ -13,6 +12,8 @@
 #include <libgadget/physconst.h>
 #include "power.h"
 #include "proto.h"
+#include <libgadget/timefac.h>
+
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
 static double sigma2_int(double k, void * params);
@@ -36,7 +37,7 @@ struct table
     int Nentry;
     double * logk;
     double * logD[MAXCOLS];
-    gsl_interp * mat_intp[MAXCOLS];
+    boost::math::interpolators::barycentric_rational<double>* mat_intp[MAXCOLS];
 };
 
 /*Typedef for a function that parses the table from text*/
@@ -75,12 +76,12 @@ static double get_Tabulated(double k, enum TransferType Type, double oobval)
     if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
       return oobval;
 
-    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, NULL);
+    double logD = (*power_table.mat_intp[0])(logk);
     double trans = 1;
     /*Transfer table stores (T_type(k) / T_tot(k))*/
     if(transfer_table.Nentry > 0)
        if(Type >= DELTA_BAR && Type < DELTA_TOT)
-          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, NULL);
+          trans = (*transfer_table.mat_intp[Type])(logk);
 
     /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
     logD += 1.5 * log10(scale);
@@ -321,9 +322,6 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
     }
 
     MPI_Bcast(out_tab->logk, (ncols+1)*out_tab->Nentry, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    for(j=0; j<ncols; j++) {
-        out_tab->mat_intp[j] = gsl_interp_alloc(gsl_interp_cspline,out_tab->Nentry);
-    }
 }
 
 int
@@ -392,7 +390,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     }
     /*Initialise the interpolation*/
     for(t = 0; t < MAXCOLS; t++)
-        gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
+        transfer_table.mat_intp[t] = new boost::math::interpolators::barycentric_rational<double>(transfer_table.logk, transfer_table.logD[t], transfer_table.Nentry);
 
     message(0,"Scale-dependent growth calculated. Mean = %g %g %g %g %g\n",meangrowth[0], meangrowth[1], meangrowth[2], meangrowth[3], meangrowth[4]);
     message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g)\n", power_table.Nentry, transfer_table.Nentry, transfer_table.logD[DELTA_BAR][0],transfer_table.logD[DELTA_BAR][transfer_table.Nentry-1]);
@@ -410,7 +408,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
         /*Initialise the interpolation*/
-        gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
+        power_table.mat_intp[0] = new boost::math::interpolators::barycentric_rational<double>(power_table.logk, power_table.logD[0], power_table.Nentry);
         transfer_table.Nentry = 0;
         if(ppar->DifferentTransferFunctions || ppar->ScaleDepVelocity) {
             init_transfer_table(ThisTask, InitTime, ppar);
@@ -477,19 +475,18 @@ double tk_eh(double k)		/* from Martin White */
 
 double TopHatSigma2(double R)
 {
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  double result,abserr;
-  gsl_function F;
-  F.function = &sigma2_int;
-  F.params = &R;
+    double result,abserr;
+  
+  // Define the integrand as a lambda function, wrapping sigma2_int
+    auto integrand = [R](double k) {
+        return sigma2_int(k, (void*)&R);
+    };
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
-  gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
-/*   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
-  gsl_integration_workspace_free (w);
+  result = tanh_sinh_integrate_adaptive(integrand, 0, 500. / R, &abserr, 1e-4, 0.);
+/*   printf("integration in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
   return result;
 }
-
 
 double sigma2_int(double k, void * params)
 {

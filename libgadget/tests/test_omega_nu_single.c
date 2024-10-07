@@ -4,10 +4,10 @@
 #include <cmocka.h>
 #include <stdio.h>
 #include <math.h>
-#include <gsl/gsl_integration.h>
 #include "stub.h"
 #include "../omega_nu_single.h"
 #include "../physconst.h"
+#include "../timefac.h"
 
 #define  T_CMB0      2.7255	/* present-day CMB temperature, from Fixsen 2009 */
 
@@ -33,7 +33,6 @@ static void test_rho_nu_init(void **state) {
 /*Check massless neutrinos work*/
 #define STEFAN_BOLTZMANN 5.670373e-5
 #define OMEGAR (4*STEFAN_BOLTZMANN*8*M_PI*GRAVITY/(3*LIGHTCGS*LIGHTCGS*LIGHTCGS*HUBBLE*HUBBLE*HubbleParam*HubbleParam)*pow(T_CMB0,4))
-#define GSL_VAL 200
 
 
 /* Check that the table gives the right answer. */
@@ -76,17 +75,15 @@ double rho_nu_int(double q, void * params);
 
 double do_exact_rho_nu_integration(double a, double mnu, double rhocrit)
 {
-    gsl_function F;
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (GSL_VAL);
+    auto integrand = [&param](double q) {
+        return rho_nu_int(q, (void*) &param);
+    };
     double abserr;
-    F.function = &rho_nu_int;
     double kTnu = BOLEVK*TNUCMB*T_CMB0;
     double param[2] = {mnu * a, kTnu};
-    F.params = &param;
     double result;
-    gsl_integration_qag (&F, 0, 500*kTnu,0 , 1e-9,GSL_VAL,6,w,&result, &abserr);
+    result = tanh_sinh_integrate_adaptive(integrand, 0, 500*kTnu, &abserr, 1e-9);
     result*=get_rho_nu_conversion()/pow(a,4)/rhocrit;
-    gsl_integration_workspace_free (w);
     return result;
 }
 

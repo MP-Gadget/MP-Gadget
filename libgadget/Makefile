@@ -23,7 +23,6 @@ INCL = densitykernel.h \
 	physconst.h   \
 	sfr_eff.h \
 	stats.h \
-	metal_return.h \
 	winds.h \
 	timefac.h \
 	blackhole.h bhdynfric.h bhinfo.h \
@@ -68,7 +67,6 @@ TESTED = hci \
 	timebinmgr \
 	neutrinos_lra \
 	omega_nu_single \
-	metal_return \
 	cooling_rates \
 	density \
 	gravity \
@@ -101,13 +99,13 @@ GADGET_OBJS =  \
 	 run.o drift.o stats.o \
 	 timestep.o init.o checkpoint.o \
 	 sfr_eff.o cooling.o cooling_rates.o cooling_uvfluc.o cooling_qso_lightup.o \
-	 winds.o veldisp.o density.o metal_return.o \
+	 winds.o veldisp.o density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o \
 	 petapm.o gravity.o \
-	 densitykernel.o lightcone.o walltime.o\
+	 densitykernel.o walltime.o\
 	 runtests.o \
 	 neutrinos_lra.o \
      omega_nu_single.o \
@@ -157,9 +155,6 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_density: tests/test_density.c .objs/density.o libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
-	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
-
-.objs/test_metal_return: tests/test_metal_return.c .objs/metal_return.o libgadget.a ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(TCFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_cooling: tests/test_cooling.c .objs/cooling.o .objs/cooling_rates.o .objs/cooling_uvfluc.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a

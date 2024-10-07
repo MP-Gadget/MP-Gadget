@@ -31,7 +31,6 @@ double get_physmem_bytes(void);
  * independent of processor.*/
 double get_random_number(const uint64_t id, const RandTable * const rnd);
 /* Generate the random number table. The seed should be the same on each processor so the output is invariant to
- * To quote the GSL documentation: 'Note that the most generators only accept 32-bit seeds, with higher values being reduced modulo 2^32.'
  * It is important that each timestep uses a new seed value, so the seed should change by less than 2^32 each timestep.
  * The random number table is heap-allocated high, and random numbers are uniform doubles between 0 and 1.*/
 RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize);

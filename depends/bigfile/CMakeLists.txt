@@ -4,7 +4,6 @@ project(bigfile)
 
 # Finding optional dependencies
 find_package(MPI)
-find_package(GSL)
 
 # Add library subdirectoy
 add_subdirectory(src)

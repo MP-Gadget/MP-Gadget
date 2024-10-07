@@ -7,7 +7,6 @@
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <gsl/gsl_rng.h>
 
 #include <libgadget/utils/peano.h>
 #include "stub.h"

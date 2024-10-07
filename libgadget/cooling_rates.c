@@ -59,7 +59,15 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <string.h>
-#include <gsl/gsl_interp.h>
+// Undefine P before including Boost
+#ifdef P
+#undef P
+#endif
+
+#include <boost/math/interpolators/barycentric_rational.hpp>
+
+// Optionally, redefine P afterward if you still need it
+#define P PartManager->Base
 #include "physconst.h"
 #include "utils/endrun.h"
 #include "utils/paramset.h"
@@ -67,7 +75,7 @@
 
 static struct cooling_params CoolingParams;
 
-static gsl_interp * GrayOpac;
+boost::math::interpolators::barycentric_rational<double>* GrayOpac;
 
 /*Tables for the self-shielding correction. Note these are not well-measured for z > 5!*/
 #define NGRAY 6
@@ -75,11 +83,11 @@ static gsl_interp * GrayOpac;
 static const double GrayOpac_ydata[NGRAY] = { 2.59e-18, 2.37e-18, 2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18};
 static const double GrayOpac_zz[NGRAY] = {0, 1, 2, 3, 4, 5};
 
-/*Convenience structure bundling together the gsl interpolation routines.*/
+/*Convenience structure bundling together the interpolation routines.*/
 struct itp_type
 {
     double * ydata;
-    gsl_interp * intp;
+    boost::math::interpolators::barycentric_rational<double>* intp;
 };
 /*Interpolation objects for the redshift evolution of the UVB.*/
 /*Number of entries in the table*/
@@ -119,8 +127,7 @@ static double * cool_freefree1;
 static void
 init_itp_type(double * xarr, struct itp_type * Gamma, int Nelem)
 {
-    Gamma->intp = gsl_interp_alloc(gsl_interp_linear,Nelem);
-    gsl_interp_init(Gamma->intp, xarr, Gamma->ydata, Nelem);
+    Gamma->intp = new boost::math::interpolators::barycentric_rational<double>(xarr, Gamma->ydata, Nelem);
 }
 
 /* Helper function to correctly load a value in the TREECOOL file*/
@@ -325,7 +332,7 @@ get_photo_rate(double redshift, struct itp_type * Gamma_tab)
     else if (log1z < Gamma_log1z[0])
         photo_rate = Gamma_tab->ydata[0];
     else {
-        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_log1z, Gamma_tab->ydata, log1z, NULL);
+        photo_rate = (*Gamma_tab->intp)(log1z);
     }
     return pow(10, photo_rate) * CoolingParams.PhotoIonizeFactor;
 }
@@ -355,7 +362,7 @@ get_self_shield_dens(double redshift, const struct UVBG * uvbg)
     else if (redshift >= GrayOpac_zz[NGRAY-1])
         greyopac = GrayOpac_ydata[NGRAY-1];
     else {
-        greyopac = gsl_interp_eval(GrayOpac, GrayOpac_zz, GrayOpac_ydata,redshift, NULL);
+        greyopac = (*GrayOpac)(redshift);
     }
     return 6.73e-3 * pow(greyopac / 2.49e-18, -2./3)*pow(G12, 2./3)*pow(CoolingParams.fBar/0.17,-1./3);
 }
@@ -408,7 +415,7 @@ get_photorate_coeff(double alpha, struct itp_type * Gamma_tab)
     else if (alpha < Gamma_alpha[0])
         photo_rate = Gamma_tab->ydata[0];
     else {
-        photo_rate = gsl_interp_eval(Gamma_tab->intp, Gamma_alpha, Gamma_tab->ydata, alpha, NULL);
+        photo_rate = (*Gamma_tab->intp)(alpha);
     }
     //pow 10 here because the treecool load does log10
     return pow(10,photo_rate) * CoolingParams.PhotoIonizeFactor;
@@ -1107,10 +1114,8 @@ init_cooling_rates(const char * TreeCoolFile, const char * J21CoeffFile, const c
     CoolingParams.fBar = CP->OmegaBaryon / CP->OmegaCDM;
     CoolingParams.rho_crit_baryon = CP->OmegaBaryon * 3.0 * pow(CP->HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
 
-    /* Initialize the interpolation for the self-shielding module as a function of redshift.
-     * A crash has been observed in GSL with a cspline interpolator. */
-    GrayOpac = gsl_interp_alloc(gsl_interp_linear,NGRAY);
-    gsl_interp_init(GrayOpac,GrayOpac_zz,GrayOpac_ydata, NGRAY);
+    /* Initialize the interpolation for the self-shielding module as a function of redshift.*/
+    GrayOpac = new boost::math::interpolators::barycentric_rational<double>(GrayOpac_zz,GrayOpac_ydata, NGRAY);
 
     if(!TreeCoolFile || strnlen(TreeCoolFile,100) == 0) {
         CoolingParams.PhotoIonizationOn = 0;

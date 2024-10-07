@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <gsl/gsl_sf_hyperg.h>
+#include <boost/math/special_functions/hypergeometric_2f1.hpp>
 #include <libgadget/physconst.h>
 #include <libgadget/cosmology.h>
 #include "stub.h"
@@ -51,8 +51,8 @@ static inline double radgrow(double aa, double omegar) {
 
 //Omega_L + Omega_M = 1 => D+ ~ Gauss hypergeometric function
 static inline double growth(double aa, double omegam) {
-    double omegal = 1-omegam;
-    return aa * gsl_sf_hyperg_2F1(1./3, 1, 11./6, -omegal/omegam*pow(aa,3));
+    double omegal = 1 - omegam;
+    return aa * boost::math::hypergeometric_2f1(1./3, 1, 11./6, -omegal/omegam * pow(aa, 3));
 }
 
 static void test_cosmology(void ** state)
@@ -82,7 +82,6 @@ static void test_cosmology(void ** state)
     assert_true(fabs(GrowthFactor(&CP, 0.01,0.001) - radgrow(0.01, CP.OmegaG)/radgrow(0.001, CP.OmegaG))< 1e-3);
 
     //Check against exact solutions from gr-qc/0504089: No radiation!
-    //Note that the GSL hyperg needs the last argument to be < 1
     double omegam = 0.5;
     setup_cosmology(&CP, omegam, 0.0455, 0.7);
     CP.RadiationOn = 0;

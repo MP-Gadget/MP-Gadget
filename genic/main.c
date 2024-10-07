@@ -8,7 +8,6 @@
 #include <bigfile-mpi.h>
 #include <libgenic/allvars.h>
 #include <libgenic/proto.h>
-#include <libgenic/thermal.h>
 #include <libgadget/walltime.h>
 #include <libgadget/physconst.h>
 #include <libgadget/petapm.h>
@@ -63,18 +62,10 @@ int main(int argc, char **argv)
   const double meanspacing = All2.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
-  
-  double shift_nu = 0;
-  if(!All2.ProduceGas && All2.NGridNu > 0) {
-      double OmegaNu = get_omega_nu(&CP.ONu, 1);
-      shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
-      shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
-  }
-    
+
   if(All2.PrePosGridCenter){
       shift_dm += 0.5 * meanspacing;
       shift_gas += 0.5 * meanspacing;
-      shift_nu += 0.5 * meanspacing;
   }
 
   /*Write the header*/
@@ -88,15 +79,6 @@ int main(int argc, char **argv)
 
   const int64_t TotNu = (int64_t) All2.NGridNu*All2.NGridNu*All2.NGridNu;
   double total_nufrac = 0;
-  struct thermalvel nu_therm;
-  if(TotNu > 0) {
-    const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
-    double v_th = NU_V0(All2.TimeIC, kBMNu, All2.units.UnitVelocity_in_cm_per_s);
-    if(!All2.UsePeculiarVelocity)
-        v_th /= sqrt(All2.TimeIC);
-    total_nufrac = init_thermalvel(&nu_therm, v_th, All2.Max_nuvel/v_th, 0);
-    message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All2.TimeIC), All2.Max_nuvel*sqrt(All2.TimeIC), total_nufrac);
-  }
   saveheader(&bf, TotNumPart, TotNumPartGas, TotNu, total_nufrac, All2.BoxSize, &CP, All2);
 
   /*Save the transfer functions*/
@@ -163,33 +145,6 @@ int main(int argc, char **argv)
 
   if(NumPartCDM > 0) {
     displacement_fields(pm, DMType, ICP, NumPartCDM, &CP, All2);
-
-    /*Add a thermal velocity to WDM particles*/
-    if(All2.WDM_therm_mass > 0){
-        int i;
-        double v_th = WDM_V0(All2.TimeIC, All2.WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, All2.units.UnitVelocity_in_cm_per_s);
-        if(!All2.UsePeculiarVelocity)
-           v_th /= sqrt(All2.TimeIC);
-        struct thermalvel WDM;
-        init_thermalvel(&WDM, v_th, 10000/v_th, 0);
-        unsigned int * seedtable = init_rng(All2.Seed+1,All2.Ngrid);
-        gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-        /*Seed the random number table with the Id.*/
-        gsl_rng_set(g_rng, seedtable[0]);
-
-        for(i = 0; i < NumPartCDM; i++) {
-             /*Find the slab, and reseed if it has zero z rank*/
-             if(i % All2.Ngrid == 0) {
-                  uint64_t id = idgen_create_id_from_index(idgen_cdm, i);
-                  /*Seed the random number table with x,y index.*/
-                  gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
-             }
-             add_thermal_speeds(&WDM, g_rng, ICP[i].Vel);
-        }
-        gsl_rng_free(g_rng);
-        myfree(seedtable);
-    }
-
     write_particle_data(idgen_cdm, 1, &bf, 0, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP);
   }
 
@@ -199,43 +154,6 @@ int main(int argc, char **argv)
     write_particle_data(idgen_gas, 0, &bf, TotNumPart, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP+NumPartCDM);
   }
   myfree(ICP);
-
-  /*Now add random velocity neutrino particles*/
-  if(All2.NGridNu > 0) {
-      int i;
-      IDGenerator idgen_nu[1];
-      idgen_init(idgen_nu, pm, All2.NGridNu, All2.BoxSize);
-
-      int NumPartNu = idgen_nu->NumPart;
-      ICP = (struct ic_part_data *) mymalloc("PartTable", NumPartNu*sizeof(struct ic_part_data));
-
-      NumPartNu = setup_grid(idgen_nu, shift_nu, mass[2], ICP);
-
-	  /*Write initial positions into ICP struct (for neutrinos)*/
-	  for(j=0; j<NumPartNu; j++)
-		  for(k=0; k<3; k++)
-		      ICP[j].PrePos[k] = ICP[j].Pos[k];
-
-      displacement_fields(pm, NuType, ICP, NumPartNu, &CP, All2);
-      unsigned int * seedtable = init_rng(All2.Seed+2,All2.NGridNu);
-      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
-      /*Just in case*/
-      gsl_rng_set(g_rng, seedtable[0]);
-      for(i = 0; i < NumPartNu; i++) {
-           /*Find the slab, and reseed if it has zero z rank*/
-           if(i % All2.NGridNu == 0) {
-                uint64_t id = idgen_create_id_from_index(idgen_nu, i);
-                /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[id / All2.NGridNu]);
-           }
-           add_thermal_speeds(&nu_therm, g_rng, ICP[i].Vel);
-      }
-      gsl_rng_free(g_rng);
-      myfree(seedtable);
-
-      write_particle_data(idgen_nu, 2, &bf, TotNumPart+TotNumPartGas, All2.SavePrePos, All2.NumFiles, All2.NumWriters, ICP);
-      myfree(ICP);
-  }
 
   petapm_destroy(pm);
   big_file_mpi_close(&bf, MPI_COMM_WORLD);

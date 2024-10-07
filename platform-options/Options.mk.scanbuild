@@ -5,8 +5,6 @@ MPICC=$(CC) -I/usr/include/openmpi-x86_64 -L/usr/lib64/openmpi/lib -lmpi
 OPTIMIZE =  -fopenmp -O0 -std=gnu99 -g -Wall -Wextra -Wno-unused-parameter -Wvla
 
 #--------------------------------------- Basic operation mode of code
-#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += -DNO_OPENMP_SPINLOCK
 OPT += -DVALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 OPT += -DDEBUG      # print a lot of debugging messages
-OPT += -DEXCUR_REION  # reionization with excursion set
