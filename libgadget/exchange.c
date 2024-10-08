@@ -339,6 +339,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
         /* Garbage particle of the same type is best*/
         if(plan->ngarbage[type] >= 1) {
             dest = plan->garbage_list[type][plan->ngarbage[type]-1];
+            if(dest < 0 || dest >= pman->NumPart)
+                endrun(7, "Invalid garbage list entry %ld numpart %ld", dest, pman->NumPart);
             /* Copy PI so it is not over-written*/
             PI = pman->Base[dest].PI;
             /* No longer garbage!*/
@@ -365,8 +367,8 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
                 }
             }
         }
-        if(dest >= pman->MaxPart)
-            endrun(6, "Not enough room for particle %ld of type %d from task %d (need %ld). Garbage is 0=%ld 1=%ld 4=%ld 5=%ld\n", i, type, task, plan->toGet[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4], plan->ngarbage[5]);
+        if(dest >= pman->MaxPart || dest < 0)
+            endrun(6, "Not enough room for particle %ld of type %d from task %d (need %ld). dest %ld Garbage is 0=%ld 1=%ld 4=%ld 5=%ld\n", i, type, task, plan->toGet[task].base, dest, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4], plan->ngarbage[5]);
         memcpy(pman->Base+dest, exchptr, sizeof(struct particle_data));
 
         exchptr += sizeof(struct particle_data);
@@ -376,9 +378,11 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
             /* Enforce that we have enough slots*/
             if(PI == sman->info[type].size) {
                 sman->info[type].size++;
-                if(sman->info[type].size >= sman->info[type].maxsize)
-                    endrun(6, "Not enough room for slot %d after exchange\n",type);
             }
+            if(sman->info[type].size >= sman->info[type].maxsize)
+                endrun(6, "Not enough room for slot %d after exchange\n",type);
+            if(PI >= sman->info[type].size || PI < 0)
+                endrun(6, "Bad PI %d for slot %d size %ld after exchange\n",PI, type, sman->info[type].size);
             memcpy((char*) sman->info[type].ptr + PI * elsize, exchptr, elsize);
             exchptr += elsize;
             /* Update the PI to be correct*/
