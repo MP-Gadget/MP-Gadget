@@ -244,9 +244,17 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     walltime_measure("/Domain/exchange/plan");
     /* Do this after domain_build_plan so the target lists are already allocated*/
     size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
+#ifdef DEBUG
+    MPI_Barrier(Comm);
+    message(0, "Plan build, failure %d", failure);
+#endif
     /* Now to do an exchange if it will succeed*/
     if(!failure)
         failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
+#ifdef DEBUG
+    MPI_Barrier(Comm);
+    message(0, "Finished exchange. %d", failure);
+#endif
     domain_free_exchangeplan(&plan);
 
 #ifdef DEBUG
@@ -434,7 +442,9 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int6
         for(n = 0; n < 6; n++)
             expected_freeslots[n] += plan->toGo[sendtask].slots[n];
     }
-    // message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
+#ifdef DEBUG
+    message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
+#endif
     if(senditer->StartTask == senditer->EndTask) {
         senditer->estat = SUBTASK;
         senditer->transferbytes = maxsendexch;
@@ -488,7 +498,9 @@ domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64
         recviter->transferbytes += plan->toGet[recvtask].totalbytes;
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
     }
-    // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
+#ifdef DEBUG
+    message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
+#endif
     if(recviter->StartTask == recviter->EndTask) {
         recviter->estat = SUBTASK;
         recviter->transferbytes = maxrecvexch;
