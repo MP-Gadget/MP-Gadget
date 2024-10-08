@@ -1,4 +1,4 @@
-OPTIMIZE =  -fopenmp -O2 -g -std=gnu99
+OPTIMIZE =  -fopenmp -O2 -g 
 AR=ar
 SHELL = /bin/bash
 

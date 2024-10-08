@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <boost/math/special_functions/hypergeometric_2f1.hpp>
+#include <boost/math/special_functions/hypergeometric_2F1.hpp>
 #include <libgadget/physconst.h>
 #include <libgadget/cosmology.h>
 #include "stub.h"
@@ -52,7 +52,7 @@ static inline double radgrow(double aa, double omegar) {
 //Omega_L + Omega_M = 1 => D+ ~ Gauss hypergeometric function
 static inline double growth(double aa, double omegam) {
     double omegal = 1 - omegam;
-    return aa * boost::math::hypergeometric_2f1(1./3, 1, 11./6, -omegal/omegam * pow(aa, 3));
+    return aa * boost::math::hypergeometric_2F1(1./3, 1, 11./6, -omegal/omegam * pow(aa, 3));
 }
 
 static void test_cosmology(void ** state)
