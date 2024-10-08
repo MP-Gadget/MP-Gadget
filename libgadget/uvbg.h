@@ -1,7 +1,6 @@
 #ifndef UVBG_H
 #define UVBG_H
 
-#include <pfft.h>
 #include "petapm.h"
 #include "utils/paramset.h"
 #include "fof.h"

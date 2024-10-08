@@ -13,7 +13,6 @@ all: $(CONFIG)
 	cd libgenic; $(MAKE)
 	cd gadget; $(MAKE)
 	cd genic; $(MAKE)
-
 clean :
 	cd libgadget; $(MAKE) clean
 	cd libgenic; $(MAKE) clean

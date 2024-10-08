@@ -16,10 +16,10 @@
 #include <libgadget/powerspectrum.h>
 #include <libgadget/gravity.h>
 
-static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value);
 static void readout_force_x(PetaPM *pm, int i, double * mesh, double weight);
 static void readout_force_y(PetaPM *pm, int i, double * mesh, double weight);
 static void readout_force_z(PetaPM *pm, int i, double * mesh, double weight);
@@ -278,7 +278,7 @@ _prepare(PetaPM * pm, PetaPMParticleStruct * pstruct, void * userdata, int * Nre
  *
  *********************/
 
-static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex *value) {
+static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex *value) {
 
     double f = 1.0;
     const double smth = 1.0 / k2;
@@ -301,13 +301,13 @@ static void potential_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex
 
     if(k2 == 0) {
         /* Remove zero mode corresponding to the mean.*/
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
+        value[0].x = 0.0;
+        value[0].y = 0.0;
         return;
     }
 
-    value[0][0] *= fac;
-    value[0][1] *= fac;
+    value[0].x *= fac;
+    value[0].y *= fac;
 }
 
 /* the transfer functions for force in fourier space applied to potential */
@@ -322,7 +322,7 @@ static double diff_kernel(double w) {
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
 
-static void force_transfer(PetaPM *pm, int k, pfft_complex * value) {
+static void force_transfer(PetaPM *pm, int k, cufftComplex * value) {
     double tmp0;
     double tmp1;
     /*
@@ -331,18 +331,18 @@ static void force_transfer(PetaPM *pm, int k, pfft_complex * value) {
      * filter is   i K(w)
      * */
     double fac = -1 * diff_kernel (k * (2 * M_PI / pm->Nmesh)) * (pm->Nmesh / pm->BoxSize);
-    tmp0 = - value[0][1] * fac;
-    tmp1 = value[0][0] * fac;
-    value[0][0] = tmp0;
-    value[0][1] = tmp1;
+    tmp0 = - value[0].y * fac;
+    tmp1 = value[0].x * fac;
+    value[0].x = tmp0;
+    value[0].y = tmp1;
 }
-static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void force_x_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value) {
     force_transfer(pm, kpos[0], value);
 }
-static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void force_y_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value) {
     force_transfer(pm, kpos[1], value);
 }
-static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void force_z_transfer(PetaPM *pm, int64_t k2, int kpos[3], cufftComplex * value) {
     force_transfer(pm, kpos[2], value);
 }
 static void readout_force_x(PetaPM *pm, int i, double * mesh, double weight) {

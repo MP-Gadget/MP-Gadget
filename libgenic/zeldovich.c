@@ -4,7 +4,6 @@
 #include <string.h>
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
-#include <pfft.h>
 #include "allvars.h"
 #include "proto.h"
 #include "power.h"
@@ -16,13 +15,13 @@
 #include <libgadget/utils.h>
 
 #define MESH2K(i) petapm_mesh_to_k(i)
-static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
-static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value);
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value);
 static void readout_density(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_vel_x(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_vel_y(PetaPM * pm, int i, double * mesh, double weight);
@@ -30,7 +29,7 @@ static void readout_vel_z(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_x(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_y(PetaPM * pm, int i, double * mesh, double weight);
 static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight);
-static void gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase, const int Seed);
+static void gaussian_fill(int Nmesh, PetaPMRegion * region, cufftComplex * rho_k, int UnitaryAmplitude, int InvertPhase, const int Seed);
 
 static inline double periodic_wrap(double x, const double BoxSize)
 {
@@ -218,7 +217,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
            &icprep);
 
     /*This allocates the memory*/
-    pfft_complex * rho_k = petapm_alloc_rhok(pm);
+    cufftComplex * rho_k = petapm_alloc_rhok(pm);
 
     gaussian_fill(pm->Nmesh, petapm_get_fourier_region(pm),
 		  rho_k, GenicConfig.UnitaryAmplitude, GenicConfig.InvertPhase, GenicConfig.Seed);
@@ -274,7 +273,7 @@ void displacement_fields(PetaPM * pm, enum TransferType Type, struct ic_part_dat
  *
  *********************/
 
-static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
         double r2 = 1.0 / pm->Nmesh;
@@ -284,12 +283,12 @@ static void density_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex 
         double kmag = sqrt(k2) * 2 * M_PI / pm->BoxSize;
         fac *= DeltaSpec(kmag, ptype) / sqrt(pm->BoxSize * pm->BoxSize * pm->BoxSize);
 
-        value[0][0] *= fac;
-        value[0][1] *= fac;
+        value[0].x *= fac;
+        value[0].y *= fac;
     }
 }
 
-static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
+static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, cufftComplex * value, int include_growth) {
     if(k2) {
         double fac = 1./ (2 * M_PI) / sqrt(pm->BoxSize) * kaxis / k2;
         /*
@@ -307,29 +306,29 @@ static void disp_transfer(PetaPM * pm, int64_t k2, int kaxis, pfft_complex * val
             fac *= dlogGrowth(kmag, ptype);
         else
             fac *= DeltaSpec(kmag, ptype);
-        double tmp = value[0][0];
-        value[0][0] = - value[0][1] * fac;
-        value[0][1] = tmp * fac;
+        double tmp = value[0].x;
+        value[0].x = - value[0].y * fac;
+        value[0].y = tmp * fac;
     }
 }
 
-static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void vel_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[0], value, 1);
 }
-static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void vel_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[1], value, 1);
 }
-static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void vel_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[2], value, 1);
 }
 
-static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void disp_x_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[0], value, 0);
 }
-static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void disp_y_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[1], value, 0);
 }
-static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], pfft_complex * value) {
+static void disp_z_transfer(PetaPM * pm, int64_t k2, int kpos[3], cufftComplex * value) {
     disp_transfer(pm, k2, kpos[2], value, 0);
 }
 
@@ -360,7 +359,7 @@ static void readout_disp_z(PetaPM * pm, int i, double * mesh, double weight) {
 }
 
 static void
-gaussian_fill(int Nmesh, PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase, const int Seed)
+gaussian_fill(int Nmesh, PetaPMRegion * region, cufftComplex * rho_k, int setUnitaryAmplitude, int setInvertPhase, const int Seed)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PMDesc pm[1];

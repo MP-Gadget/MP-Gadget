@@ -19,7 +19,7 @@ layout_prepare(PetaPM * pm,
                const int Nregions,
                MPI_Comm comm);
 static void layout_finish(struct Layout * L);
-static void layout_build_and_exchange_cells_to_pfft(PetaPM * pm, struct Layout * L, double * meshbuf, double * real);
+static void layout_build_and_exchange_cells_to_fft(PetaPM * pm, struct Layout * L, double * meshbuf, double * real);
 static void layout_build_and_exchange_cells_to_local(PetaPM * pm, struct Layout * L, double * meshbuf, double * real);
 
 /* cell_iterator needs to be thread safe !*/
@@ -46,10 +46,10 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 static MPI_Datatype MPI_PENCIL;
 
 /*Used only in MP-GenIC*/
-pfft_complex *
+cufftComplex *
 petapm_alloc_rhok(PetaPM * pm)
 {
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
+    cufftComplex * rho_k = (cufftComplex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
     memset(rho_k, 0, pm->priv->fftsize * sizeof(double));
     return rho_k;
 }
@@ -57,18 +57,10 @@ petapm_alloc_rhok(PetaPM * pm)
 static void pm_init_regions(PetaPM * pm, PetaPMRegion * regions, const int Nregions);
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
-static PetaPMReionPartStruct * CPS_R; /* stored by calculate_uvbg, how to access other properties in P, SphP, and Fof */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))
 
-/* (jdavies) reion defs */
-#define TYPE(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS_R->offset_type]))
-#define PI(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS_R->offset_pi]))
-/* NOTE: These are 'myfloat' types */
-#define FESC(i) ((double*) (&((char*)CPS_R->Starslot)[CPS_R->star_elsize * *PI(i) + CPS_R->offset_fesc]))
-#define FESCSPH(i) ((double*) (&((char*)CPS_R->Sphslot)[CPS_R->sph_elsize * *PI(i) + CPS_R->offset_fesc_sph]))
-#define SFR(i) ((double*)  (&((char*)CPS_R->Sphslot)[CPS_R->sph_elsize * *PI(i) + CPS_R->offset_sfr]))
 
 PetaPMRegion * petapm_get_fourier_region(PetaPM * pm) {
     return &pm->fourier_space_region;
@@ -90,11 +82,16 @@ int *petapm_get_ntask2d(PetaPM * pm) {
 void
 petapm_module_init(int Nthreads)
 {
-    pfft_init();
+    // CUDA Device Initialization if necessary (optional if only one GPU is used)
+    int device_id = 0;
+    cudaSetDevice(device_id);  // Set the active GPU device
 
-    pfft_plan_with_nthreads(Nthreads);
+    // Handle CPU threads manually, if needed (optional if not using multithreading on the CPU)
+    // #ifdef _OPENMP
+    // omp_set_num_threads(Nthreads); // Set number of threads for OpenMP parallelism
+    // #endif
+    // cuFFT itself is inherently multithreaded; no cuFFT-specific thread setting needed
 
-    /* initialize the MPI Datatype of pencil */
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
 }
@@ -110,121 +107,105 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, MPI_
     pm->CellSize = BoxSize / Nmesh;
     pm->comm = comm;
 
-    ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
-    ptrdiff_t np[2];
 
     int ThisTask;
     int NTask;
-
-    pm->Mesh2Task[0] = (int *) mymalloc2("Mesh2Task", 2*sizeof(int) * Nmesh);
-    pm->Mesh2Task[1] = pm->Mesh2Task[0] + Nmesh;
-
     MPI_Comm_rank(comm, &ThisTask);
     MPI_Comm_size(comm, &NTask);
+    int ndevices;
+    cudaGetDeviceCount(&ndevices);
+    cudaSetDevice(ThisTask % ndevices);
 
     /* try to find a square 2d decomposition */
-    int i;
-    int k;
-    for(i = sqrt(NTask) + 1; i >= 0; i --) {
-        if(NTask % i == 0) break;
-    }
-    np[0] = i;
-    np[1] = NTask / i;
-
-    message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
-    if( pfft_create_procmesh_2d(comm, np[0], np[1], &pm->priv->comm_cart_2d) ){
-        endrun(0, "Error: This test file only works with %td processes.\n", np[0]*np[1]);
+    /* CUDA NOTE: CufftMp only supports square decomposition, 
+    so Ntask has to be a perfect square*/
+    int nranks1d;
+    nranks1d = sqrt(NTask);
+    if (nranks1d != NTask/nranks1d) {
+        endrun(0, "Error: The number of MPI ranks has to be a perfect square for CufftMp\n");
     }
 
-    int periods_unused[2];
-    MPI_Cart_get(pm->priv->comm_cart_2d, 2, pm->NTask2d, periods_unused, pm->ThisTask2d);
+    message(0, "Using 2D Task mesh %td x %td \n", nranks1d, nranks1d);
+    // Define custom data distribution
+    int64 nx               = Nmesh;
+    int64 ny               = Nmesh;
+    int64 nz               = Nmesh;
+    int64 nz_real          = nz;
+    int64 nz_complex       = (nz/2+1);
+    int64 nz_real_padded   = 2*nz_complex;
 
-    if(pm->NTask2d[0] != np[0] || pm->NTask2d[1] != np[1])
-        endrun(6, "Bad PM mesh: Task2D = %d %d np %ld %ld\n", pm->NTask2d[0], pm->NTask2d[1], np[0], np[1]);
-
-    pm->priv->fftsize = 2 * pfft_local_size_dft_r2c_3d(n, pm->priv->comm_cart_2d,
-           PFFT_TRANSPOSED_OUT,
-           pm->real_space_region.size, pm->real_space_region.offset,
-           pm->fourier_space_region.size, pm->fourier_space_region.offset);
-
-    /*
-     * In fourier space, the transposed array is ordered in
-     * are in (y, z, x). The strides and sizes returned
-     * from local size is in (Nx, Ny, Nz), hence we roll them once
-     * so that the strides will give correct linear indexing for
-     * integer coordinates given in order of (y, z, x).
-     * */
-
-#define ROLL(a, N, j) { \
-    typeof(a[0]) tmp[N]; \
-    ptrdiff_t k; \
-    for(k = 0; k < N; k ++) tmp[k] = a[k]; \
-    for(k = 0; k < N; k ++) a[k] = tmp[(k + j)% N]; \
-    }
-
-    ROLL(pm->fourier_space_region.offset, 3, 1);
-    ROLL(pm->fourier_space_region.size, 3, 1);
-
-#undef ROLL
-
-    /* calculate the strides */
-    petapm_region_init_strides(&pm->real_space_region);
-    petapm_region_init_strides(&pm->fourier_space_region);
-
-    /* planning the fft; need temporary arrays */
-
-    double * real = (double * ) mymalloc("PMreal", pm->priv->fftsize * sizeof(double));
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", pm->priv->fftsize * sizeof(double));
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
-
-    pm->priv->plan_forw = pfft_plan_dft_r2c_3d(
-        n, real, rho_k, pm->priv->comm_cart_2d, PFFT_FORWARD,
-        PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
-    pm->priv->plan_back = pfft_plan_dft_c2r_3d(
-        n, complx, real, pm->priv->comm_cart_2d, PFFT_BACKWARD,
-        PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
-
-    myfree(complx);
-    myfree(rho_k);
-    myfree(real);
-
-    /* now lets fill up the mesh2task arrays */
-
-#if 0
-    message(1, "ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask,
-            pm->real_space_region.offset[0],
-            pm->real_space_region.offset[1],
-            pm->real_space_region.offset[2],
-            pm->real_space_region.size[0],
-            pm->real_space_region.size[1],
-            pm->real_space_region.size[2]);
-#endif
-
-    int * tmp = (int *) mymalloc("tmp", sizeof(int) * Nmesh);
-    for(k = 0; k < 2; k ++) {
-        for(i = 0; i < Nmesh; i ++) {
-            tmp[i] = 0;
+    // Describe the data distribution using boxes
+    auto make_box = [](int64 lower[3], int64 upper[3], int64 strides[3]) {
+        Box3D box;
+        for(int i = 0; i < 3; i++) {
+            box.lower[i] = lower[i];
+            box.upper[i] = upper[i];
+            box.strides[i] = strides[i];
         }
-        for(i = 0; i < pm->real_space_region.size[k]; i ++) {
-            tmp[i + pm->real_space_region.offset[k]] = pm->ThisTask2d[k];
-        }
-        /* which column / row hosts this tile? */
-        /* FIXME: this is very inefficient */
-        MPI_Allreduce(tmp, pm->Mesh2Task[k], Nmesh, MPI_INT, MPI_MAX, comm);
-        /*
-        for(i = 0; i < Nmesh; i ++) {
-            message(0, "Mesh2Task[%d][%d] == %d\n", k, i, Mesh2Task[k][i]);
-        }
-        */
-    }
-    myfree(tmp);
+        return box;
+    };
+
+    auto displacement = [](int64 length, int rank, int size) {
+        int ranks_cutoff = length % size;
+        return (rank < ranks_cutoff ? rank * (length / size + 1) : ranks_cutoff * (length / size + 1) + (rank - ranks_cutoff) * (length / size));
+    };
+
+    // Input data are real pencils in X & Y, along Z
+    // Strides are packed and in-place (i.e., real is padded)
+    Box3D box_real;
+    Box3D box_complex;
+    int i,j;
+    i = ThisTask / nranks1d;
+    j = ThisTask % nranks1d;
+
+    int64 lower[3]   = {displacement(nx, i,   nranks1d), displacement(ny, j,   nranks1d), 0};
+    int64 upper[3]   = {displacement(nx, i+1, nranks1d), displacement(ny, j+1, nranks1d), nz_real};
+    int64 strides[3] = {(upper[1]-lower[1])*nz_real_padded, nz_real_padded, 1};
+    box_real = make_box(lower, upper, strides);
+
+    // Output data are complex pencils in X & Z, along Y (picked arbitrarily)
+    // Strides are packed
+    // For best performances, the local dimension in the input (Z, here) and output (Y, here) should be different
+    // to ensure cuFFTMp will only perform two communication phases.
+    // If Z was also local in the output, cuFFTMp would perform three communication phases, decreasing performances.
+    int64 lower_c[3]   = {displacement(nx, i,   nranks1d), 0,  displacement(nz_complex, j,   nranks1d)};
+    int64 upper_c[3]   = {displacement(nx, i+1, nranks1d), ny, displacement(nz_complex, j+1, nranks1d)};
+    int64 strides_c[3] = {(upper[1]-lower[1])*(upper[2]-lower[2]), (upper[2]-lower[2]), 1};
+    box_complex = make_box(lower_c, upper_c, strides_c);
+
+
+    //===============================================================================================
+    cudaStreamCreate(&pm->priv->stream);
+    cufftCreate(&pm->priv->plan_forw);
+    cufftCreate(&pm->priv->plan_back);
+    // Attach the MPI communicator to the plans
+    cufftMpAttachComm(pm->priv->plan_forw, CUFFT_COMM_MPI, &comm);
+    cufftMpAttachComm(pm->priv->plan_back, CUFFT_COMM_MPI, &comm);
+
+    // Describe the data distribution (only for custumized data decomposition, not needed for default slab decomposition)
+    // R2C plans only support CUFFT_XT_FORMAT_DISTRIBUTED_INPUT and always perform a CUFFT_FORWARD transform
+    // C2R plans only support CUFFT_XT_FORMAT_DISTRIBUTED_OUTPUT ans always perform a CUFFT_INVERSE transform
+    // So, in both, the "input" box should be the real box and the "output" box should be the complex box
+
+    cufftXtSetDistribution(pm->priv->plan_forw, 3, box_real.lower, box_real.upper, box_complex.lower, box_complex.upper, box_real.strides, box_complex.strides);
+    cufftXtSetDistribution(pm->priv->plan_back, 3, box_complex.lower, box_complex.upper, box_real.lower, box_real.upper, box_complex.strides, box_real.strides);
+
+    // Set the stream
+    cufftSetStream(pm->priv->plan_forw, pm->priv->stream);
+    cufftSetStream(pm->priv->plan_back, pm->priv->stream);
+
+    // Make the plan
+    size_t workspace;
+    cufftMakePlan3d(pm->priv->plan_forw, Nmesh, Nmesh, Nmesh, CUFFT_R2C, &workspace);
+    cufftMakePlan3d(pm->priv->plan_back, Nmesh, Nmesh, Nmesh, CUFFT_C2R, &workspace);
+    //===============================================================================================
 }
 
 void
 petapm_destroy(PetaPM * pm)
 {
-    pfft_destroy_plan(pm->priv->plan_forw);
-    pfft_destroy_plan(pm->priv->plan_back);
+    cufftDestroy(pm->priv->plan_forw);
+    cufftDestroy(pm->priv->plan_back);
     MPI_Comm_free(&pm->priv->comm_cart_2d);
     myfree(pm->Mesh2Task[0]);
 }
@@ -237,13 +218,10 @@ typedef void (* pm_iterator)(PetaPM * pm, int i, double * mesh, double weight);
 static void pm_iterate(PetaPM * pm, pm_iterator iterator, PetaPMRegion * regions, const int Nregions);
 /* apply transfer function to value, kpos array is in x, y, z order */
 static void pm_apply_transfer_function(PetaPM * pm,
-        pfft_complex * src,
-        pfft_complex * dst, petapm_transfer_func H);
+        cufftComplex * src,
+        cufftComplex * dst, petapm_transfer_func H);
 
 static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
-static void put_star_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
-static void put_sfr_to_mesh(PetaPM * pm, int i, double * mesh, double weight);
-
 /*
  * 1. calls prepare to build the Regions covering particles
  * 2. CIC the particles
@@ -279,31 +257,79 @@ petapm_force_init(
     return regions;
 }
 
-pfft_complex * petapm_force_r2c(PetaPM * pm,
+static void pm_apply_transfer_function(PetaPM * pm,
+        cufftComplex * src,
+        cufftComplex * dst, petapm_transfer_func H
+        ){
+    size_t ip = 0;
+
+    PetaPMRegion * region = &pm->fourier_space_region;
+
+#pragma omp parallel for
+    for(ip = 0; ip < region->totalsize; ip ++) {
+        ptrdiff_t tmp = ip;
+        int pos[3];
+        int kpos[3];
+        int64_t k2 = 0.0;
+        int k;
+        for(k = 0; k < 3; k ++) {
+            pos[k] = tmp / region->strides[k];
+            tmp -= pos[k] * region->strides[k];
+            /* lets get the abs pos on the grid*/
+            pos[k] += region->offset[k];
+            /* check */
+            if(pos[k] >= pm->Nmesh) {
+                endrun(1, "position didn't make sense\n");
+            }
+            kpos[k] = petapm_mesh_to_k(pm, pos[k]);
+            /* Watch out the cast */
+            k2 += ((int64_t)kpos[k]) * kpos[k];
+        }
+        /* swap 0 and 1 because fourier space was transposed */
+        /* kpos is y, z, x */
+        pos[0] = kpos[2];
+        pos[1] = kpos[0];
+        pos[2] = kpos[1];
+        dst[ip].x = src[ip].x;
+        dst[ip].y = src[ip].y;
+        if(H) {
+            H(pm, k2, pos, &dst[ip]);
+        }
+    }
+
+}
+
+cufftComplex * petapm_force_r2c(PetaPM * pm,
         PetaPMGlobalFunctions * global_functions
         ) {
-    /* call pfft rho_k is CFT of rho */
-
-    /* this is because
-     *
-     * CFT = DFT * dx **3
-     * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
-     * */
+     // CUDA TODO: figureout how to properly get fftsize
     double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
     memset(real, 0, sizeof(double) * pm->priv->fftsize);
-    layout_build_and_exchange_cells_to_pfft(pm, &pm->priv->layout, pm->priv->meshbuf, real);
+    layout_build_and_exchange_cells_to_fft(pm, &pm->priv->layout, pm->priv->meshbuf, real);
     walltime_measure("/PMgrav/comm2");
-
 #ifdef DEBUG
     verify_density_field(pm, real, pm->priv->meshbuf, pm->priv->meshbufsize);
     walltime_measure("/PMgrav/Verify");
 #endif
 
-    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
-    pfft_execute_dft_r2c(pm->priv->plan_forw, real, complx);
+    cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
+
+    // CUDA TODO: figure out if this is needed
+    // Allocate GPU memory, copy CPU data to GPU
+    // Data is initially distributed according to CUFFT_XT_FORMAT_INPLACE
+    cufftXtMalloc(pm->priv->plan_forw, &pm->priv->desc, CUFFT_XT_FORMAT_INPLACE);
+    // copy real array to gpu
+    cufftXtMemcpy(pm->priv->plan_back, (void*)pm->priv->desc, (void*)real, CUFFT_COPY_HOST_TO_DEVICE);
+    // execute the plan
+    cufftXtExecDescriptor(pm->priv->plan_forw, pm->priv->desc, pm->priv->desc, CUFFT_FORWARD);
     myfree(real);
 
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
+     // CUDA TODO: need to check if the output complex array is transpose
+     // need to verify
+     // can verify by using both version of the code
+    //=============================== End of R2C =============================================
+    //========================== Begin Transfer Function =====================================
+    cufftComplex * rho_k = (cufftComplex * ) mymalloc2("PMrho_k", pm->priv->fftsize * sizeof(double));
 
     /*Do any analysis that may be required before the transfer function is applied*/
     petapm_transfer_func global_readout = global_functions->global_readout;
@@ -322,7 +348,7 @@ pfft_complex * petapm_force_r2c(PetaPM * pm,
 
 void
 petapm_force_c2r(PetaPM * pm,
-        pfft_complex * rho_k,
+        cufftComplex * rho_k,
         PetaPMRegion * regions,
         const int Nregions,
         PetaPMFunctions * functions)
@@ -333,13 +359,14 @@ petapm_force_c2r(PetaPM * pm,
         petapm_transfer_func transfer = f->transfer;
         petapm_readout_func readout = f->readout;
 
-        pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
+        cufftComplex * complx = (cufftComplex *) mymalloc("PMcomplex", pm->priv->fftsize * sizeof(double));
         /* apply the greens function turn rho_k into potential in fourier space */
         pm_apply_transfer_function(pm, rho_k, complx, transfer);
         walltime_measure("/PMgrav/calc");
-
-        double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
-        pfft_execute_dft_c2r(pm->priv->plan_back, complx, real);
+        // double * real = (double * ) mymalloc2("PMreal", pm->priv->fftsize * sizeof(double));
+        /* CUDA TODO: BUT WHERE DO I INPUT THE ACTUAL ARRAY? */
+        cufftXtExecDescriptor(pm->priv->plan_back, pm->priv->desc, pm->priv->desc, CUFFT_INVERSE);
+        double * real = (double * ) pm->priv->desc->descriptor->data[0];
 
         walltime_measure("/PMgrav/c2r");
         if(f == functions) // Once
@@ -366,7 +393,7 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
         void * userdata) {
     int Nregions;
     PetaPMRegion * regions = petapm_force_init(pm, prepare, pstruct, &Nregions, userdata);
-    pfft_complex * rho_k = petapm_force_r2c(pm, global_functions);
+    cufftComplex * rho_k = petapm_force_r2c(pm, global_functions);
     if(functions)
         petapm_force_c2r(pm, rho_k, regions, Nregions, functions);
     myfree(rho_k);
@@ -376,205 +403,7 @@ void petapm_force(PetaPM * pm, petapm_prepare_func prepare,
     petapm_force_finish(pm);
 }
 
-/* These functions are for the excursion set reionization module*/
-
-/* initialise one set of regions with custom iterator
- * this is the same as petapm_force_init with a custom iterator
- * (and no CPS definition since it's called multiple times)*/
-PetaPMRegion *
-petapm_reion_init(
-        PetaPM * pm,
-        petapm_prepare_func prepare,
-        pm_iterator iterator,
-        PetaPMParticleStruct * pstruct,
-        int * Nregions,
-        void * userdata) {
-
-    *Nregions = 0;
-    PetaPMRegion * regions = prepare(pm, pstruct, userdata, Nregions);
-    pm_init_regions(pm, regions, *Nregions);
-
-    walltime_measure("/PMreion/Misc");
-    pm_iterate(pm, iterator, regions, *Nregions);
-    walltime_measure("/PMreion/cic");
-
-    layout_prepare(pm, &pm->priv->layout, pm->priv->meshbuf, regions, *Nregions, pm->comm);
-
-    walltime_measure("/PMreion/comm");
-    return regions;
-}
-
-/* 30Mpc to 0.5 Mpc with a delta of 1.1 is ~50 iterations, this should be more than enough*/
-#define MAX_R_ITERATIONS 10000
-
-/* differences from force c2r (why I think I need this separate)
- * radius loop (could do this with long list of same function + global R)
- * I'm pretty sure I need a third function type (reion loop) with all three grids
- * ,after c2r but iteration over the grid, instead of particles */
-void
-petapm_reion_c2r(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
-        pfft_complex * mass_unfiltered, pfft_complex * star_unfiltered, pfft_complex * sfr_unfiltered,
-        PetaPMRegion * regions,
-        const int Nregions,
-        PetaPMFunctions * functions,
-        petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta, int use_sfr)
-{
-    PetaPMFunctions * f = functions;
-    double R = fmin(R_max,pm_mass->BoxSize);
-    int last_step = 0;
-    int f_count = 0;
-    petapm_readout_func readout = f->readout;
-
-    /* TODO: seriously re-think the allocation ordering in this function */
-    double * mass_real = (double * ) mymalloc2("mass_real", pm_mass->priv->fftsize * sizeof(double));
-
-    //TODO: add CellLengthFactor for lowres (>1Mpc, see old find_HII_bubbles function)
-    while(!last_step) {
-        f_count++;
-        //The last step will be unfiltered
-        if(R/R_delta < R_min || R/R_delta < (pm_mass->CellSize) || f_count > MAX_R_ITERATIONS)
-        {
-            last_step = 1;
-            R = pm_mass->CellSize;
-        }
-
-        //NOTE: The PetaPM structs for reionisation use the G variable for filter radius in order to use
-        //the transfer functions correctly
-        pm_mass->G = R;
-        pm_star->G = R;
-        if(use_sfr)pm_sfr->G = R;
-
-        //TODO: maybe allocate and free these outside the loop
-        pfft_complex * mass_filtered = (pfft_complex *) mymalloc("mass_filtered", pm_mass->priv->fftsize * sizeof(double));
-        pfft_complex * star_filtered = (pfft_complex *) mymalloc("star_filtered", pm_star->priv->fftsize * sizeof(double));
-        pfft_complex * sfr_filtered;
-        if(use_sfr){
-            sfr_filtered = (pfft_complex *) mymalloc("sfr_filtered", pm_sfr->priv->fftsize * sizeof(double));
-        }
-
-        /* apply the filtering at this radius */
-        /*We want the last step to be unfiltered,
-         *  calling apply transfer with NULL should just copy the grids */
-
-        petapm_transfer_func transfer = last_step ? NULL : f->transfer;
-
-        pm_apply_transfer_function(pm_mass, mass_unfiltered, mass_filtered, transfer);
-        pm_apply_transfer_function(pm_star, star_unfiltered, star_filtered, transfer);
-        if(use_sfr){
-            pm_apply_transfer_function(pm_sfr, sfr_unfiltered, sfr_filtered, transfer);
-        }
-        walltime_measure("/PMreion/calc");
-
-        double * star_real = (double * ) mymalloc2("star_real", pm_star->priv->fftsize * sizeof(double));
-        /* back to real space */
-        pfft_execute_dft_c2r(pm_mass->priv->plan_back, mass_filtered, mass_real);
-        pfft_execute_dft_c2r(pm_star->priv->plan_back, star_filtered, star_real);
-        double * sfr_real = NULL;
-        if(use_sfr){
-            sfr_real = (double * ) mymalloc2("sfr_real", pm_sfr->priv->fftsize * sizeof(double));
-            pfft_execute_dft_c2r(pm_sfr->priv->plan_back, sfr_filtered, sfr_real);
-            myfree(sfr_filtered);
-        }
-        walltime_measure("/PMreion/c2r");
-
-        myfree(star_filtered);
-        myfree(mass_filtered);
-
-        /* the reion loop calculates the J21 and stores it,
-         * for now the mass_real grid will be reused to hold J21
-         * on the last filtering step*/
-        reion_loop(pm_mass,pm_star,pm_sfr,mass_real,star_real,sfr_real,last_step);
-
-        /* since we don't need to readout star and sfr grids...*/
-        /* on the last step, the mass grid is populated with J21 and read out*/
-        if(sfr_real){
-            myfree(sfr_real);
-        }
-        myfree(star_real);
-
-        R = R / R_delta;
-    }
-    //J21 grid is exchanged to pm_mass buffer and freed
-    layout_build_and_exchange_cells_to_local(pm_mass, &pm_mass->priv->layout, pm_mass->priv->meshbuf, mass_real);
-    walltime_measure("/PMreion/comm");
-    //J21 read out to particles
-    pm_iterate(pm_mass, readout, regions, Nregions);
-    walltime_measure("/PMreion/readout");
-}
-
-/* We need a slightly different flow for reionisation, so I
- * will define these here instead of messing with the force functions.
- * The c2r function is the same, however we need a new function, reion_loop
- * to run over all three filtered grids, after the inverse transform.
- * The c2r function itself is also different since we need to apply the
- * transfer (filter) function on all three grids and run reion_loop before any readout.*/
-void petapm_reion(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
-        petapm_prepare_func prepare,
-        PetaPMGlobalFunctions * global_functions, //petapm_transfer_func global_transfer,
-        PetaPMFunctions * functions,
-        PetaPMParticleStruct * pstruct,
-        PetaPMReionPartStruct * rstruct,
-        petapm_reion_func reion_loop,
-        double R_max, double R_min, double R_delta, int use_sfr,
-        void * userdata) {
-
-    //assigning CPS here due to three sets of regions
-    CPS = pstruct;
-    CPS_R = rstruct;
-
-    /* initialise regions for each grid
-     * NOTE: these regions should be identical except for the grid buffer */
-    int Nregions_mass, Nregions_star, Nregions_sfr;
-    PetaPMRegion * regions_mass = petapm_reion_init(pm_mass, prepare, put_particle_to_mesh, pstruct, &Nregions_mass, userdata);
-    PetaPMRegion * regions_star = petapm_reion_init(pm_star, prepare, put_star_to_mesh, pstruct, &Nregions_star, userdata);
-    PetaPMRegion * regions_sfr;
-    if(use_sfr){
-        regions_sfr = petapm_reion_init(pm_sfr, prepare, put_sfr_to_mesh, pstruct, &Nregions_sfr, userdata);
-    }
-
-    walltime_measure("/PMreion/comm2");
-
-    //using force r2c since this part can be done independently
-    pfft_complex * mass_unfiltered = petapm_force_r2c(pm_mass, global_functions);
-    pfft_complex * star_unfiltered = petapm_force_r2c(pm_star, global_functions);
-    pfft_complex * sfr_unfiltered = NULL;
-    if(use_sfr){
-        sfr_unfiltered = petapm_force_r2c(pm_sfr, global_functions);
-    }
-
-    //need custom reion_c2r to implement the 3 grid c2r and readout
-    //the readout is only performed on the mass grid so for now I only pass in regions/Nregions for mass
-    if(functions)
-        petapm_reion_c2r(pm_mass, pm_star, pm_sfr,
-               mass_unfiltered, star_unfiltered, sfr_unfiltered,
-               regions_mass, Nregions_mass, functions, reion_loop,
-               R_max, R_min, R_delta, use_sfr);
-
-    //free everything in the correct order
-    if(sfr_unfiltered){
-        myfree(sfr_unfiltered);
-    }
-    myfree(star_unfiltered);
-    myfree(mass_unfiltered);
-
-    if(CPS->RegionInd)
-        myfree(CPS->RegionInd);
-
-    if(use_sfr){
-        myfree(regions_sfr);
-    }
-    myfree(regions_star);
-    myfree(regions_mass);
-
-    if(use_sfr){
-        petapm_force_finish(pm_sfr);
-    }
-    petapm_force_finish(pm_star);
-    petapm_force_finish(pm_mass);
-}
-/* End excursion set reionization module*/
-
+/******************************************************************************************************************************************** */
 /* build a communication layout */
 
 static void layout_build_pencils(PetaPM * pm, struct Layout * L, double * meshbuf, PetaPMRegion * regions, const int Nregions);
@@ -780,15 +609,15 @@ static void layout_finish(struct Layout * L) {
     myfree(L->ibuffer);
 }
 
-/* exchange cells to their pfft host, then reduce the cells to the pfft
+/* exchange cells to their fft host, then reduce the cells to the fft
  * array */
-static void to_pfft(double * cell, double * buf) {
+static void to_fft(double * cell, double * buf) {
 #pragma omp atomic update
             cell[0] += buf[0];
 }
 
 static void
-layout_build_and_exchange_cells_to_pfft(
+layout_build_and_exchange_cells_to_fft(
         PetaPM * pm,
         struct Layout * L,
         double * meshbuf,
@@ -832,12 +661,12 @@ layout_build_and_exchange_cells_to_pfft(
     message(0, "totmassExport = %g totmassImport = %g\n", totmassExport, totmassImport);
 #endif
 
-    layout_iterate_cells(pm, L, to_pfft, real);
+    layout_iterate_cells(pm, L, to_fft, real);
     myfree(L->BufRecv);
     myfree(L->BufSend);
 }
 
-/* readout cells on their pfft host, then exchange the cells to the domain
+/* readout cells on their fft host, then exchange the cells to the domain
  * host */
 static void to_region(double * cell, double * region) {
     *region = *cell;
@@ -863,7 +692,7 @@ layout_build_and_exchange_cells_to_local(
     L->BufSend = (double *) mymalloc("PMBufSend", L->NcExport * sizeof(double));
 
     /* exchange cells */
-    /* notice the order is reversed from to_pfft */
+    /* notice the order is reversed from to_fft */
     MPI_Alltoallv(
             L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE,
             L->BufSend, L->NcSend, L->DcSend, MPI_DOUBLE,
@@ -904,8 +733,8 @@ layout_iterate_cells(PetaPM * pm,
             while(ix >= pm->Nmesh) ix -= pm->Nmesh;
             ix -= pm->real_space_region.offset[k];
             if(ix >= pm->real_space_region.size[k]) {
-                /* serious problem assumption about pfft layout was wrong*/
-                endrun(1, "bad pfft: original k: %d ix: %d, cur ix: %d, region: off %ld size %ld\n", k, p->offset[k], ix, pm->real_space_region.offset[k], pm->real_space_region.size[k]);
+                /* serious problem assumption about fft layout was wrong*/
+                endrun(1, "bad fft: original k: %d ix: %d, cur ix: %d, region: off %ld size %ld\n", k, p->offset[k], ix, pm->real_space_region.offset[k], pm->real_space_region.size[k]);
             }
             linear0 += ix * pm->real_space_region.strides[k];
         }
@@ -915,8 +744,8 @@ layout_iterate_cells(PetaPM * pm,
             while(iz < 0) iz += pm->Nmesh;
             while(iz >= pm->Nmesh) iz -= pm->Nmesh;
             if(iz >= pm->real_space_region.size[2]) {
-                /* serious problem assmpution about pfft layout was wrong*/
-                endrun(1, "bad pfft: original iz: %d, cur iz: %d, region: off %ld size %ld\n", p->offset[2], iz, pm->real_space_region.offset[2], pm->real_space_region.size[2]);
+                /* serious problem assmpution about fft layout was wrong*/
+                endrun(1, "bad fft: original iz: %d, cur iz: %d, region: off %ld size %ld\n", p->offset[2], iz, pm->real_space_region.offset[2], pm->real_space_region.size[2]);
             }
             ptrdiff_t linear = iz * pm->real_space_region.strides[2] + linear0;
             /*
@@ -1087,76 +916,20 @@ static void verify_density_field(PetaPM * pm, double * real, double * meshbuf, c
 }
 #endif
 
-static void pm_apply_transfer_function(PetaPM * pm,
-        pfft_complex * src,
-        pfft_complex * dst, petapm_transfer_func H
-        ){
-    size_t ip = 0;
 
-    PetaPMRegion * region = &pm->fourier_space_region;
-
-#pragma omp parallel for
-    for(ip = 0; ip < region->totalsize; ip ++) {
-        ptrdiff_t tmp = ip;
-        int pos[3];
-        int kpos[3];
-        int64_t k2 = 0.0;
-        int k;
-        for(k = 0; k < 3; k ++) {
-            pos[k] = tmp / region->strides[k];
-            tmp -= pos[k] * region->strides[k];
-            /* lets get the abs pos on the grid*/
-            pos[k] += region->offset[k];
-            /* check */
-            if(pos[k] >= pm->Nmesh) {
-                endrun(1, "position didn't make sense\n");
-            }
-            kpos[k] = petapm_mesh_to_k(pm, pos[k]);
-            /* Watch out the cast */
-            k2 += ((int64_t)kpos[k]) * kpos[k];
-        }
-        /* swap 0 and 1 because fourier space was transposed */
-        /* kpos is y, z, x */
-        pos[0] = kpos[2];
-        pos[1] = kpos[0];
-        pos[2] = kpos[1];
-        dst[ip][0] = src[ip][0];
-        dst[ip][1] = src[ip][1];
-        if(H) {
-            H(pm, k2, pos, &dst[ip]);
-        }
-    }
-
-}
 
 
 /**************
  * functions iterating over particle / mesh pairs
  ***************/
+ // can write to some other place and add up later
+ // look for numpy reduce at/bin count
 static void put_particle_to_mesh(PetaPM * pm, int i, double * mesh, double weight) {
     double Mass = *MASS(i);
     if(INACTIVE(i))
         return;
 #pragma omp atomic update
     mesh[0] += weight * Mass;
-}
-//escape fraction scaled GSM
-static void put_star_to_mesh(PetaPM * pm, int i, double * mesh, double weight) {
-    if(INACTIVE(i) || *TYPE(i) != 4)
-        return;
-    double Mass = *MASS(i);
-    double fesc = *FESC(i);
-#pragma omp atomic update
-    mesh[0] += weight * Mass * fesc;
-}
-//escape fraciton scaled SFR
-static void put_sfr_to_mesh(PetaPM * pm, int i, double * mesh, double weight) {
-    if(INACTIVE(i) || *TYPE(i) != 0)
-        return;
-    double Sfr = *SFR(i);
-    double fesc = *FESCSPH(i);
-#pragma omp atomic update
-    mesh[0] += weight * Sfr * fesc;
 }
 static int64_t reduce_int64(int64_t input, MPI_Comm comm) {
     int64_t result = 0;
