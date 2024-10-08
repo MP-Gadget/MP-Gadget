@@ -36,6 +36,9 @@ test : build-tests
 libgenic.a: $(OBJS)
 	$(AR) r $@ $(OBJS)
 
+DEPS := $(OBJS:.o=.d)
+-include $(DEPS)
+
 clean:
 	rm -rf .objs libgenic.a
 

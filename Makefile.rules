@@ -42,8 +42,8 @@ LIBS  = -lm  $(BOOST_LIBS) $(GSL_LIBS) $(FITSIO_LIBS) $(CUDA_LIBS) $(CUFFTMP_LIB
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 
-.objs/%.o: %.c $(INCL) Makefile $(CONFIG)
-	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
+.objs/%.o: %.c Makefile $(CONFIG)
+	@cmd="$(MPICC) -MMD -c -o $@ $(CFLAGS) $<"; \
 	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
 	mkdir -p `dirname $@`; \
 	echo Compiling $<; $$cmd
