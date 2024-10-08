@@ -58,9 +58,7 @@ tag:
 sdist:
 	(git rev-parse --abbrev-ref HEAD | grep master )|| (echo "Must be on master" && exit 1);
 	git checkout -B "rc-$(VERSION)";
-	git add -f depends/pfft-1.0.8-alpha2-fftw3.tar.gz
 	git commit -m "rc-$(VERSION) packaging"
-	git rm --cached depends/pfft-1.0.8-alpha2-fftw3.tar.gz
 	git commit -m "rc-$(VERSION) cleanup"
 	bash maintainer/git-archive-all.sh --prefix MPGadget-$(VERSION)/ -- - | gzip -c > MPGadget-$(VERSION).tar.gz
 	git checkout master

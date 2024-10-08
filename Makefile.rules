@@ -37,7 +37,7 @@ CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 #For tests
 TCFLAGS = $(CFLAGS) -DGADGET_TESTDATA_ROOT=\"$(GADGET_TESTDATA_ROOT)\"
 
-BUNDLEDLIBS = -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
+BUNDLEDLIBS = -lbigfile-mpi -lbigfile
 LIBS  = -lm  $(BOOST_LIBS) $(GSL_LIBS) $(FITSIO_LIBS) $(CUDA_LIBS) $(CUFFTMP_LIBS) $(NVSHMEM_LIBS)
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0

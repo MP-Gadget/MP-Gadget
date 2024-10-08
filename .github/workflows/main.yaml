@@ -35,7 +35,7 @@ jobs:
     - name: Cache depends/
       uses: actions/cache@v4
       with:
-        key: ${{ runner.os }}-build-${{ hashFiles('depends/Makefile', 'depends/install_pfft.sh') }}
+        key: ${{ runner.os }}-build-${{ hashFiles('depends/Makefile') }}
         path: |
           ~/depends/install
           ~/depends/include
