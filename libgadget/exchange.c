@@ -270,7 +270,7 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     Returns: size of buffer packed. Writes first not-packed particle to endpart
    */
 static size_t
-exchange_pack_buffer(char * exch, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, int64_t * endpart)
+exchange_pack_buffer(char * exch, const size_t databufsize, const int task, const size_t StartPart, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const size_t maxsendexch, int64_t * endpart)
 {
     char * exchptr = exch;
     int64_t n;
@@ -280,6 +280,8 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
             endrun(4, "target list not allocated for task %d with %ld togo", task, plan->toGo[task].base);
         const int i = plan->target_list[task][n];
         /* preparing for export */
+        if(i > pman->NumPart || i < 0)
+            endrun(6, "Invalid particle %d at entry %ld in target list task %d, numpart %ld\n", i, n, task, pman->NumPart);
         const int type = pman->Base[i].Type;
         size_t elsize = 0;
         if(sman->info[type].enabled)
@@ -293,6 +295,8 @@ exchange_pack_buffer(char * exch, const int task, const size_t StartPart, Exchan
             memcpy(exchptr,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
         exchptr += elsize;
+        if(exchptr > exch + databufsize)
+            endrun(3, "Exchange buffer overrun: packed %ld data, size %ld, entry %ld of togo %ld task %d\n", exchptr - exch, databufsize, n, plan->toGo[task].base, task);
         /* Add this particle to the garbage list so we can unpack something else into it.*/
         int64_t gslot = plan->ngarbage[type];
         plan->garbage_list[type][gslot] = i;
@@ -539,7 +543,7 @@ static void
 domain_pack_single_send(ExchangePlan * plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
 {
     /* Move the data into the buffer*/
-    size_t packed_bytes = exchange_pack_buffer(sends->databuf, senditer->StartTask, senditer->StartPart, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+    size_t packed_bytes = exchange_pack_buffer(sends->databuf, sends->databufsize, senditer->StartTask, senditer->StartPart, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
     MPI_Isend(sends->databuf, packed_bytes, MPI_BYTE, senditer->StartTask, tag, Comm, sends->rdata_all);
     // message(1, "Partial send task %d bytes %ld, startpart %lu endpart %lu total %ld\n", senditer->StartTask, senditer->transferbytes, senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     sends->rqst_task[0] = senditer->StartTask;
@@ -566,7 +570,7 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
         if(plan->toGo[sendtask].totalbytes == 0)
             continue;
         /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
-        exchange_pack_buffer(sends->databuf + displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+        exchange_pack_buffer(sends->databuf + displs, sends->databufsize-displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
         if(senditer->EndPart < plan->toGo[sendtask].base)
             endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
         MPI_Isend(sends->databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends->rdata_all[sends->nrequest_all]);
