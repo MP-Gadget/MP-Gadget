@@ -59,6 +59,8 @@ typedef struct {
     int64_t ngarbage[6];
     /* List of entries in particle table which are garbage particles of each type*/
     int * garbage_list[6];
+    /* Number of allowed entries in the garbage list*/
+    int64_t glist_size[6];
     /* Per-task list of particles to send.*/
     int ** target_list;
 } ExchangePlan;
@@ -299,6 +301,8 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
             endrun(3, "Exchange buffer overrun: packed %ld data, size %ld, entry %ld of togo %ld task %d\n", exchptr - exch, databufsize, n, plan->toGo[task].base, task);
         /* Add this particle to the garbage list so we can unpack something else into it.*/
         int64_t gslot = plan->ngarbage[type];
+        if(gslot >= plan->glist_size[type])
+            endrun(3, "Not enough space in garbage list for type %d. Max size is %ld, togo %ld", type, plan->glist_size[type], plan->toGo[task].base);
         plan->garbage_list[type][gslot] = i;
         plan->ngarbage[type]++;
         /* mark the particle for removal. Both secondary and base slots will be marked. */
@@ -898,9 +902,11 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
     for(n = 0; n < 6; n++) {
         if(plan->toGoSum.slots[n] + plan->ngarbage[n] == 0) {
             plan->garbage_list[n] = NULL;
+            plan->glist_size[n] = 0;
             continue;
         }
         plan->garbage_list[n] = (int *) mymalloc("garbage",sizeof(int) * (plan->toGoSum.slots[n] + plan->ngarbage[n]+1));
+        plan->glist_size[n] = plan->toGoSum.slots[n] + plan->ngarbage[n]+1;
         /* Copy over the existing garbage*/
         memcpy(plan->garbage_list[n], &tmp_garbage_list[n * preplan->ngarbage], sizeof(int)* plan->ngarbage[n]);
     }
