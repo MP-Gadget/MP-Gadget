@@ -736,14 +736,14 @@ static void
 domain_build_exchange_list(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, PreExchangeList * preplan, struct part_manager_type * pman, struct slots_manager_type * sman, MPI_Comm Comm)
 {
     /*Garbage particles are counted so we have an accurate memory estimate*/
-    int ngarbage = 0;
+    int64_t ngarbage = 0;
     gadget_thread_arrays gthread = gadget_setup_thread_arrays("exchangelist", 1, pman->NumPart);
     int ThisTask;
     MPI_Comm_rank(Comm, &ThisTask);
     /* flag the particles that need to be exported */
     #pragma omp parallel
     {
-        int i;
+        int64_t i;
         size_t nexthr_local = 0;
         const int tid = omp_get_thread_num();
         int * threx_local = gthread.srcs[tid];
@@ -919,15 +919,17 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         /* This is garbage*/
         if(target == plan->ThisTask)
             continue;
+        if(counts[target] >= plan->toGo[target].base || !plan->target_list[target])
+            endrun(5, "Corruption in target list n %lu target %d count %ld togo %ld nexchange %ld tlist %p\n", n, target, counts[target], plan->toGo[target].base, preplan->nexchange, plan->target_list[target]);
         plan->target_list[target][counts[target]] = preplan->ExchangeList[n];
         counts[target]++;
-        if(counts[target] > plan->toGo[target].base)
-            endrun(5, "Corruption in target list n %lu target %d count %ld togo %ld nexchange %ld\n", n, target, counts[target], plan->toGo[target].base, preplan->nexchange);
     }
+#ifdef DEBUG
     for(target = 0; target < plan->NTask; target++) {
         if(counts[target] != plan->toGo[target].base)
             endrun(1, "Expected %ld in target list for task %d from plan but got %ld layout %d\n", plan->toGo[target].base, target, counts[target], layouts[0]);
     }
+#endif
 
     myfree(counts);
     myfree(layouts);
