@@ -247,6 +247,9 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     /* Now to do an exchange if it will succeed*/
     if(!failure)
         failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
+#ifdef DEBUG
+    message(0, "Finished exchange. %d\n", failure);
+#endif
     domain_free_exchangeplan(&plan);
 
 #ifdef DEBUG
@@ -413,14 +416,20 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
     /* Last loop was a subtask*/
     if(senditer->estat == SUBTASK) {
         senditer->StartPart = senditer->EndPart;
-        // message(5, "SendIter fastreturn: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+        // message(5, "SendIter subtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
         return;
     }
+    // if(senditer->estat == LASTSUBTASK)
+        // message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     senditer->StartTask = senditer->EndTask;
     if(senditer->StartTask == plan->ThisTask) {
         senditer->estat = DONE;
         return;
     }
+#ifdef DEBUG
+    if(senditer->estat != LASTSUBTASK && senditer->estat != TASK && senditer->estat != DONE)
+        endrun(6, "estat = %d, invalid!\n", senditer->estat);
+#endif
     /* Total bytes needed to send*/
     senditer->transferbytes = 0;
     /* Note LASTSUBTASK will not hit the conditions above and will just hit here*/
@@ -440,7 +449,6 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
         for(n = 0; n < 6; n++)
             expected_freeslots[n] += plan->toGo[sendtask].slots[n];
     }
-    // message(1, "Using %ld bytes to send from %d to %d\n", senditer->transferbytes, senditer->StartTask, senditer->EndTask);
     if(senditer->StartTask == senditer->EndTask) {
         senditer->estat = SUBTASK;
         senditer->transferbytes = maxsendexch;
@@ -449,6 +457,10 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
         /* Start at 0 particle: endpart is set at send time.*/
         senditer->StartPart = 0;
     }
+#ifdef DEBUG
+    // message(1, "estat %d Using %ld bytes to send from %d to %d part start %ld end %ld\n", senditer->estat, senditer->transferbytes, senditer->StartTask, senditer->EndTask, senditer->StartPart, senditer->EndPart);
+#endif
+
     return;
 }
 
@@ -460,13 +472,20 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
     /* Last loop was a subtask*/
     if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
+        // message(5, "RecvIter subtask: startpart is now %ld end %ld togo %ld\n", recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
         return;
     }
+    // if(recviter->estat == LASTSUBTASK)
+        // message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
     recviter->StartTask = recviter->EndTask;
     if(recviter->StartTask == plan->ThisTask) {
         recviter->estat = DONE;
         return;
     }
+#ifdef DEBUG
+    if(recviter->estat != LASTSUBTASK && recviter->estat != TASK && recviter->estat != DONE)
+        endrun(6, "estat = %d, invalid!\n", recviter->estat);
+#endif
 
     recviter->transferbytes = 0;
     recviter->estat = TASK;
@@ -494,7 +513,6 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         recviter->transferbytes += plan->toGet[recvtask].totalbytes;
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
     }
-    // message(1, "Using %ld bytes to recv from %d to %d\n", recviter->transferbytes, recviter->StartTask, recviter->EndTask);
     if(recviter->StartTask == recviter->EndTask) {
         recviter->estat = SUBTASK;
         recviter->transferbytes = maxrecvexch;
@@ -502,6 +520,10 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         /* Start at 0 particle: endpart is set at send time.*/
         recviter->StartPart = 0;
     }
+#ifdef DEBUG
+    // message(1, "estat %d Using %ld bytes to recv from %d to %d part start %ld end %ld\n", recviter->estat, recviter->transferbytes, recviter->StartTask, recviter->EndTask, recviter->StartPart, recviter->EndPart);
+#endif
+
     return;
 }
 
