@@ -202,7 +202,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
 {
     double mass = 0, masstot, omega;
     int64_t i, totbad, badmass = 0;
-    double omegab = 0, omeganupart = 0, omegacdm = 0;
+    double omegab = 0, omeganupart = 0, omegacdm = 0, omegastar = 0, omegabh = 0;
 
     #pragma omp parallel for reduction(+: mass) reduction(+: badmass)
     for(i = 0; i < PartManager->NumPart; i++) {
@@ -218,6 +218,10 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
             omegacdm += P[i].Mass;
         if(P[i].Type == 2)
             omeganupart += P[i].Mass;
+        if(P[i].Type == 4)
+            omegastar += P[i].Mass;
+        if(P[i].Type == 5)
+            omegabh += P[i].Mass;
         mass += P[i].Mass;
     }
 
@@ -225,6 +229,8 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
     MPI_Allreduce(MPI_IN_PLACE, &omegab, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &omegacdm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &omeganupart, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &omegastar, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &omegabh, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     MPI_Allreduce(&badmass, &totbad, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbad)
@@ -235,12 +241,15 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
     omegab /= massnorm;
     omegacdm /= massnorm;
     omeganupart /= massnorm;
+    omegastar /= massnorm;
+    omegabh /= massnorm;
 
     double omeganu = get_omega_nu_nopart(&CP->ONu, 1);
     /*Add the density for analytically follows massive neutrinos*/
     if(CP->MassiveNuLinRespOn)
         omega += omeganu;
-    message(0, "Matter content: OmegaB = %g OmegaCDM = %g OmegaNu (LRA) = %g OmegaNu (particle) = %g\n", omegab, omegacdm, omeganu, omeganupart);
+    message(0, "Matter content: OmegaB = %g OmegaCDM = %g OmegaNu (LRA) = %g OmegaNu (particle) = %g Omega* = %g OmegaBH = %g\n",
+            omegab, omegacdm, omeganu, omeganupart, omegastar, omegabh);
 
     if(fabs(omega - CP->Omega0) > 1.0e-3)
         endrun(0, "The mass content is Omega0 = %g,but you specified Omega0 = %g in the parameterfile.\n", omega, CP->Omega0);
