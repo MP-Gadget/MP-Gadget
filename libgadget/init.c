@@ -202,9 +202,9 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
 {
     double mass = 0, masstot, omega;
     int64_t i, totbad, badmass = 0;
-    double omegab = 0, omeganupart = 0, omegacdm = 0, omegastar = 0, omegabh = 0;
+    double omegas[6] = {0};
 
-    #pragma omp parallel for reduction(+: mass) reduction(+: badmass)
+    #pragma omp parallel for reduction(+: mass) reduction(+: badmass) reduction(+: omegas[:6])
     for(i = 0; i < PartManager->NumPart; i++) {
         /* In case zeros have been written to the saved mass array,
          * recover the true masses*/
@@ -212,25 +212,13 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
             P[i].Mass = MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
             badmass++;
         }
-        if(P[i].Type == 0)
-            omegab += P[i].Mass;
-        if(P[i].Type == 1)
-            omegacdm += P[i].Mass;
-        if(P[i].Type == 2)
-            omeganupart += P[i].Mass;
-        if(P[i].Type == 4)
-            omegastar += P[i].Mass;
-        if(P[i].Type == 5)
-            omegabh += P[i].Mass;
+        if(P[i].Type >= 0 && P[i].Type < 6)
+            omegas[P[i].Type] += P[i].Mass;
         mass += P[i].Mass;
     }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &omegab, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &omegacdm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &omeganupart, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &omegastar, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &omegabh, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &omegas, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     MPI_Allreduce(&badmass, &totbad, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbad)
@@ -238,18 +226,15 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
 
     double massnorm = (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) * CP->RhoCrit;
     omega = masstot / massnorm;
-    omegab /= massnorm;
-    omegacdm /= massnorm;
-    omeganupart /= massnorm;
-    omegastar /= massnorm;
-    omegabh /= massnorm;
+    for(i = 0; i<6; i++)
+        omegas[i] /= massnorm;
 
     double omeganu = get_omega_nu_nopart(&CP->ONu, 1);
     /*Add the density for analytically follows massive neutrinos*/
     if(CP->MassiveNuLinRespOn)
         omega += omeganu;
     message(0, "Matter content: OmegaB = %g OmegaCDM = %g OmegaNu (LRA) = %g OmegaNu (particle) = %g Omega* = %g OmegaBH = %g\n",
-            omegab, omegacdm, omeganu, omeganupart, omegastar, omegabh);
+            omegas[0], omegas[1], omeganu, omegas[2], omegas[4], omegas[5]);
 
     if(fabs(omega - CP->Omega0) > 1.0e-3)
         endrun(0, "The mass content is Omega0 = %g,but you specified Omega0 = %g in the parameterfile.\n", omega, CP->Omega0);
