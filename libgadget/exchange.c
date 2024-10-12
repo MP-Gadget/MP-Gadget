@@ -577,10 +577,10 @@ domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct Exchang
         /* Skip zero-size sends*/
         if(plan->toGo[sendtask].totalbytes == 0)
             continue;
-        /* The openmp parallel is done inside exchange_pack_buffer so that we can issue MPI_Isend as soon as possible*/
-        exchange_pack_buffer(sends->databuf + displs, sends->databufsize-displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
-        if(senditer->EndPart < plan->toGo[sendtask].base)
-            endrun(4, "Expected %ld particles but only packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart);
+        /* No parallel because we cannot do ISend from anything but the master thread. With this we can issue MPI_Isend as soon as possible*/
+        size_t packed_bytes = exchange_pack_buffer(sends->databuf + displs, sends->databufsize-displs, sendtask, 0, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
+        if(senditer->EndPart < plan->toGo[sendtask].base || packed_bytes != plan->toGo[sendtask].totalbytes)
+            endrun(4, "Expected %ld particles but only packed %lu or %lu bytes but packed %lu\n", plan->toGo[sendtask].base, senditer->EndPart, packed_bytes, plan->toGo[sendtask].totalbytes);
         MPI_Isend(sends->databuf + displs, plan->toGo[sendtask].totalbytes, MPI_BYTE, sendtask, tag, Comm, &sends->rdata_all[sends->nrequest_all]);
         sends->rqst_task[sends->nrequest_all] = sendtask;
         sends->displs[sends->nrequest_all] = displs;
