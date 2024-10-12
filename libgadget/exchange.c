@@ -672,7 +672,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
-                all.Recvs.databufsize = recviter.transferbytes+sizeof(struct particle_data);
+                all.Recvs.databufsize = recviter.transferbytes;
                 /* Free any earlier buffer. If not called will be freed in free_combinedbuffer after loop end.*/
                 if(all.Recvs.databuf)
                     myfree(all.Recvs.databuf);
@@ -689,7 +689,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now post sends: note that the sends are done in reverse order to the receives.
          * This ensures that partial sends and receives can complete early.*/
         if(no_sends_pending && senditer.estat != DONE) {
-            all.Sends.databufsize = senditer.transferbytes+sizeof(struct particle_data);
+            all.Sends.databufsize = senditer.transferbytes;
             if(all.Sends.databuf)
                 myfree(all.Sends.databuf);
             all.Sends.databuf = mymalloc2("sendbuffer",all.Sends.databufsize * sizeof(char));
