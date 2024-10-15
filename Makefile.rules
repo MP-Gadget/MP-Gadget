@@ -5,10 +5,8 @@ MPICC ?= mpic++
 LOW_PRECISION ?= double
 
 OPTIMIZE ?= -O2 -g -fopenmp -Wall
-GSL_INCL ?= $(shell pkg-config --cflags gsl)
-GSL_LIBS ?= $(shell pkg-config --libs gsl)
-#BOOST_INCL ?= $(shell pkg-config --cflags boost)
-#BOOST_LIBS ?= $(shell pkg-config --libs boost)
+BOOST_INCL ?= $(shell pkg-config --cflags boost)
+BOOST_LIBS ?= $(shell pkg-config --libs boost)
 
 ifneq ($(findstring -DUSE_CFITSIO, $(OPT)),)
     # If found, set FITSIO_INCL with the cfitsio flags
@@ -30,7 +28,7 @@ endif
 OPTIONS = $(OPTIMIZE) $(OPT)
 GADGET_TESTDATA_ROOT = $(CURDIR)/../
 
-CFLAGS = $(OPTIONS) $(GSL_INCL) $(BOOST_INCL) $(FITSIO_INCL) $(CUDA_INCL) $(CUFFTMP_INCL) $(NVSHMEM_INCL)
+CFLAGS = $(OPTIONS) $(BOOST_INCL) $(FITSIO_INCL) $(CUDA_INCL) $(CUFFTMP_INCL) $(NVSHMEM_INCL)
 CFLAGS += -I../depends/include
 CFLAGS += -I../
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
@@ -38,7 +36,7 @@ CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 TCFLAGS = $(CFLAGS) -DGADGET_TESTDATA_ROOT=\"$(GADGET_TESTDATA_ROOT)\"
 
 BUNDLEDLIBS = -lbigfile-mpi -lbigfile
-LIBS  = -lm  $(BOOST_LIBS) $(GSL_LIBS) $(FITSIO_LIBS) $(CUDA_LIBS) $(CUFFTMP_LIBS) $(NVSHMEM_LIBS)
+LIBS  = -lm  $(BOOST_LIBS) $(FITSIO_LIBS) $(CUDA_LIBS) $(CUFFTMP_LIBS) $(NVSHMEM_LIBS)
 LIBS += -L../depends/lib $(BUNDLEDLIBS)
 V ?= 0
 
