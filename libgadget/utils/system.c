@@ -548,7 +548,7 @@ size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays)
     return asize;
 }
 
-gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc_high, size_t total_size)
+gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, const int alloc_high, const size_t total_size)
 {
     gadget_thread_arrays threadarray = {0};
     const int narrays = omp_get_max_threads();
