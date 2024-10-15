@@ -122,7 +122,7 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
     if(dir == ALLOC_DIR_BOT) {
         if(alloc->bottom + size > alloc->top) {
             allocator_print(alloc);
-            endrun(1, "Not enough memory for %s %td bytes\n", name, size);
+            endrun(1, "Not enough memory for %s %lu bytes\n", name, size);
         }
         ptr = alloc->base + alloc->bottom;
         alloc->bottom += size;
@@ -130,7 +130,7 @@ allocator_alloc_va(Allocator * alloc, const char * name, const size_t request_si
     } else if (dir == ALLOC_DIR_TOP) {
         if(alloc->top < alloc->bottom + size) {
             allocator_print(alloc);
-            endrun(1, "Not enough memory for %s %td bytes\n", name, size);
+            endrun(1, "Not enough memory for %s %lu bytes\n", name, size);
         }
         ptr = alloc->base + alloc->top - size;
         alloc->refcount += 1;
