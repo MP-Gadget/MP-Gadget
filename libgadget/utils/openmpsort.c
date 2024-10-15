@@ -302,6 +302,8 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             if(key == 0 && color % 2 == 0) {
                 int nextT = tid + sep;
                 /*merge with next guy */
+#pragma omp critical
+		    {
                 /* only even leaders arrives to this point*/
                 if(nextT >= Nt) {
                     /* no next guy, copy directly.*/
@@ -318,21 +320,23 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 #endif
                     merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], p.s, compar, indirect);
                     /* merge two lists */
-                    Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
+                    Anmemb[tid] += Anmemb[nextT];
                     Anmemb[nextT] = 0;
+		    }
                 }
             }
 
             /* now swap Abase and Atmp for next merge */
 #pragma omp barrier
-            if(tid == 0) {
+#pragma omp master
+	    {
                 void ** a = Abase;
                 Abase = Atmp;
                 Atmp = a;
-            }
+	    }
+#pragma omp barrier
             /* at this point Abase contains the sorted array */
         }
-#pragma omp barrier
         /* output was written to the tmp rather than desired location, copy it */
         if((!indirect && Abase[0] != base)
                 || (indirect && Abase[0] != (char *) tmp + nmemb * sizeof(void *))) {
