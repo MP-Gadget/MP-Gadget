@@ -203,6 +203,14 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     }
 
     tw->work_set_stolen_from_active = 0;
+    /* Explicitly deal with the case where the queue is zero and there is nothing to do.
+     * Some OpenMP compilers (nvcc) seem to still execute the below loop in that case*/
+    if(size == 0) {
+        tw->WorkSet = mymalloc("ActiveQueue", sizeof(int));
+        tw->WorkSetSize = size;
+        return;
+    }
+
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     gadget_thread_arrays gthread = gadget_setup_thread_arrays("ActiveQueue", 0, size);
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
