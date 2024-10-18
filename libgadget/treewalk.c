@@ -206,7 +206,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     /* Explicitly deal with the case where the queue is zero and there is nothing to do.
      * Some OpenMP compilers (nvcc) seem to still execute the below loop in that case*/
     if(size == 0) {
-        tw->WorkSet = mymalloc("ActiveQueue", sizeof(int));
+        tw->WorkSet = (int *) mymalloc("ActiveQueue", sizeof(int));
         tw->WorkSetSize = size;
         return;
     }
