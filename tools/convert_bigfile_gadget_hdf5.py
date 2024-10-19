@@ -225,7 +225,7 @@ def write_bf_segment(bf, hfile, startpart, atime):
                 bname = "%d/%s" % (ptype, block)
                 harray = np.array(hdf5["PartType"+str(ptype)][hname])
                 # Convert velocity units to peculiar velocity, as MP-Gadget expects.
-                if hname == "Velocity":
+                if hname == "Velocities":
                     harray *= np.sqrt(atime)
                 #Beware this is not checked.
                 bf[bname].write(startpart[ptype], harray)
