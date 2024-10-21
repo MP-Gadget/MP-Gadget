@@ -305,7 +305,7 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
             memcpy(exchptr,(char*) sman->info[type].ptr + pman->Base[i].PI * elsize, elsize);
         }
         exchptr += elsize;
-        if(exchptr >= exch + databufsize)
+        if(exchptr > exch + databufsize)
             endrun(3, "Exchange buffer overrun: packed %ld data, size %ld, entry %ld of togo %ld task %d\n", exchptr - exch, databufsize, n, plan->toGo[task].base, task);
         /* Add this particle to the garbage list so we can unpack something else into it.*/
         int64_t gslot = plan->ngarbage[type];
