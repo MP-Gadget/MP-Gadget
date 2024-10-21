@@ -246,14 +246,14 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
 #ifdef DEBUG
     MPI_Barrier(Comm);
-    message(0, "Plan build, failure %d", failure);
+    message(0, "Plan build, failure %d\n", failure);
 #endif
     /* Now to do an exchange if it will succeed*/
     if(!failure)
         failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
 #ifdef DEBUG
     MPI_Barrier(Comm);
-    message(0, "Finished exchange. %d", failure);
+    message(0, "Finished exchange. %d\n", failure);
 #endif
     domain_free_exchangeplan(&plan);
 
