@@ -19,6 +19,10 @@ import glob
 import bigfile
 import h5py
 import numpy as np
+try:
+    import hdf5plugin
+except ImportError:
+    pass
 
 
 class NameMaps:
@@ -221,7 +225,7 @@ def write_bf_segment(bf, hfile, startpart, atime):
                 bname = "%d/%s" % (ptype, block)
                 harray = np.array(hdf5["PartType"+str(ptype)][hname])
                 # Convert velocity units to peculiar velocity, as MP-Gadget expects.
-                if hname == "Velocity":
+                if hname == "Velocities":
                     harray *= np.sqrt(atime)
                 #Beware this is not checked.
                 bf[bname].write(startpart[ptype], harray)
@@ -277,7 +281,7 @@ def write_big_file(bfname, hdf5name):
         bf.create(str(n))
     create_big_file_arrays(bf, hdf5)
     hdf5.close()
-    startpart = np.zeros(6, dtype=np.int)
+    startpart = np.zeros(6, dtype=int)
     for hfile in hdf5_files:
         startpart = write_bf_segment(bf, hfile, startpart, atime)
         print("Copied HDF file %s" % hfile)
