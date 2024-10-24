@@ -174,7 +174,7 @@ set_all_global_params(ParameterSet * ps)
         All.CP.HybridVcrit = param_get_double(ps, "Vcrit");
         All.CP.HybridNuPartTime = param_get_double(ps, "NuPartTime");
         if(All.CP.MassiveNuLinRespOn && !All.CP.RadiationOn)
-            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
+            message(0, "WARNING: You have enabled (kspace) massive neutrinos without radiation, but this may give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
         if(All.StarformationOn != 0 && All.CoolingOn == 0)
@@ -678,7 +678,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
             WriteFOF |= action->write_fof;
-            WritePlane |= action->write_plane; 
+            WritePlane |= action->write_plane;
         }
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
