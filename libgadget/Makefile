@@ -28,8 +28,8 @@ TESTED = hci \
 MPI_TESTED = exchange fof
 
 TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(UTILS_MPI_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
-SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
 MPISUITE = $(MPI_TESTED:%=test_%) $(UTILS_MPI_TESTED:%=utils/test_%)
+SUITE = $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%) $(MPISUITE)
 include ../Makefile.rules
 
 FILES = $(shell git ls-files)
