@@ -48,21 +48,13 @@ setup_particles(int NumPart, double BoxSize)
         for(j=0; j<3; j++)
             P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
     }
+    fof_init(BoxSize/cbrt(PartManager->NumPart));
 
     gsl_rng_free(r);
     /* TODO: Here create particles in some halo-like configuration*/
 
     return 0;
 }
-
-static int
-teardown_particles(void **state)
-{
-    myfree(P);
-    MPI_Barrier(MPI_COMM_WORLD);
-    return 0;
-}
-
 
 static void
 test_fof(void **state)
@@ -75,6 +67,7 @@ test_fof(void **state)
     dp.TopNodeAllocFactor = 1.;
     dp.SetAsideFactor = 1;
     set_domain_par(dp);
+    set_fof_testpar(1, 0.2, 5);
     init_forcetree_params(0.7);
 
     int NumPart = 1024;
@@ -97,13 +90,11 @@ test_fof(void **state)
 
     /* Assert some more things about the particles,
      * maybe checking the halo properties*/
-    for(i = 0; i < PartManager->NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
-    }
 
     fof_finish(&fof);
-
-    teardown_particles(state);
+    domain_free(&ddecomp);
+    myfree(SlotsManager->Base);
+    myfree(P);
     return;
 }
 

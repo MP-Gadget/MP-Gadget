@@ -9,6 +9,8 @@
 void set_fof_params(ParameterSet * ps);
 
 void fof_init(double DMMeanSeparation);
+/* For the tests*/
+void set_fof_testpar(int FOFSaveParticles, double FOFHaloLinkingLength, int FOFHaloMinLength);
 
 struct BaseGroup {
     int OriginalTask;
