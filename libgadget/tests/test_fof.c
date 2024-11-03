@@ -84,10 +84,7 @@ test_fof(void **state)
 
     /* Example assertion: this checks that the groups were allocated. */
     assert_all_true(fof.Group);
-
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
+    assert_true(fof.TotNgroups == 11);
     /* Assert some more things about the particles,
      * maybe checking the halo properties*/
 
