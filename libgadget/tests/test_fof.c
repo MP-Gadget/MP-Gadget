@@ -27,11 +27,9 @@ static int
 setup_particles(int NumPart, double BoxSize)
 {
 
-    int ThisTask;
+    int ThisTask, NTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
-    gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(r, 0);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
     particle_alloc_memory(PartManager, BoxSize, 1.5 * NumPart);
     PartManager->NumPart = NumPart;
@@ -45,20 +43,21 @@ setup_particles(int NumPart, double BoxSize)
         P[i].Mass = 1;
         P[i].IsGarbage = 0;
         int j;
-        for(j=0; j<3; j++)
-            P[i].Pos[j] = BoxSize * gsl_rng_uniform(r);
+        for(j=0; j<3; j++) {
+            P[i].Pos[j] = BoxSize * (j+1) * P[i].ID / (PartManager->NumPart * NTask);
+            while(P[i].Pos[j] > BoxSize)
+                P[i].Pos[j] -= BoxSize;
+        }
     }
     fof_init(BoxSize/cbrt(PartManager->NumPart));
-
-    gsl_rng_free(r);
     /* TODO: Here create particles in some halo-like configuration*/
-
     return 0;
 }
 
 static void
 test_fof(void **state)
 {
+    int NTask;
     walltime_init(&CT);
 
     struct DomainParams dp = {0};
@@ -70,12 +69,12 @@ test_fof(void **state)
     set_fof_testpar(1, 0.2, 5);
     init_forcetree_params(0.7);
 
-    int NumPart = 1024;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    int NumPart = 512*512 / NTask;
     /* 20000 kpc*/
     double BoxSize = 20000;
     setup_particles(NumPart, BoxSize);
 
-    int i, NTask, ThisTask;
     /* Build a tree and domain decomposition*/
     DomainDecomp ddecomp = {0};
     domain_decompose_full(&ddecomp);
@@ -84,7 +83,7 @@ test_fof(void **state)
 
     /* Example assertion: this checks that the groups were allocated. */
     assert_all_true(fof.Group);
-    assert_true(fof.TotNgroups == 11);
+    assert_true(fof.TotNgroups == 1);
     /* Assert some more things about the particles,
      * maybe checking the halo properties*/
 
