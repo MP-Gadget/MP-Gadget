@@ -8,10 +8,6 @@ struct slots_manager_type SlotsManager[1];
 
 #define SLOTS_ENABLED(ptype, sman) (sman->info[ptype].enabled)
 
-MPI_Datatype MPI_TYPE_PARTICLE = 0;
-MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
-MPI_Datatype MPI_TYPE_SLOT[6] = {0};
-
 static struct sph_particle_data * GDB_SphP;
 static struct star_particle_data * GDB_StarP;
 static struct bh_particle_data * GDB_BhP;
@@ -581,9 +577,6 @@ void
 slots_init(double increase, struct slots_manager_type * sman)
 {
     memset(sman, 0, sizeof(sman[0]));
-
-    MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
-    MPI_Type_commit(&MPI_TYPE_PARTICLE);
     sman->increase = increase;
 }
 
@@ -592,8 +585,6 @@ slots_set_enabled(int ptype, size_t elsize, struct slots_manager_type * sman)
 {
     sman->info[ptype].enabled = 1;
     sman->info[ptype].elsize = elsize;
-    MPI_Type_contiguous(sman->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
-    MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
 }
 
 

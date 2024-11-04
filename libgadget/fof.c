@@ -64,6 +64,20 @@ void set_fof_params(ParameterSet * ps)
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
+/* Set parameters for the tests*/
+void set_fof_testpar(int FOFSaveParticles, double FOFHaloLinkingLength, int FOFHaloMinLength)
+{
+    fof_params.FOFSaveParticles = FOFSaveParticles;
+    fof_params.FOFPrimaryLinkTypes = 2;
+    fof_params.FOFSecondaryLinkTypes = 1+16+32;
+    fof_params.FOFHaloLinkingLength = FOFHaloLinkingLength;
+    fof_params.FOFHaloMinLength = FOFHaloMinLength;
+    /* For seeding (not yet tested)*/
+    fof_params.MinFoFMassForNewSeed = 2;
+    fof_params.MinMStarForNewSeed = 5e-4;
+
+}
+
 void fof_init(double DMMeanSeparation)
 {
     fof_params.FOFHaloComovingLinkingLength = fof_params.FOFHaloLinkingLength * DMMeanSeparation;

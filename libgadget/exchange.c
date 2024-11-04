@@ -18,6 +18,8 @@ typedef struct {
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
+static MPI_Datatype MPI_TYPE_PARTICLE = 0;
+static MPI_Datatype MPI_TYPE_SLOT[6] = {0};
 
 /*Small struct to cache the layout function and particle data*/
 typedef struct {
@@ -108,6 +110,19 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
     }
+    if (MPI_TYPE_PARTICLE == 0) {
+        MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
+        MPI_Type_commit(&MPI_TYPE_PARTICLE);
+        int ptype;
+        for(ptype = 0; ptype < 6; ptype++) {
+            if(!sman->info[ptype].enabled)
+                continue;
+            MPI_Type_contiguous(sman->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+            MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
+        }
+    }
+
+
 
     /*Structure for building a list of particles that will be exchanged*/
     ExchangePlan plan = domain_init_exchangeplan(Comm);
@@ -292,6 +307,8 @@ static int domain_exchange_once(ExchangePlan * plan, int do_gc, struct part_mana
 
     /* Do not need Particle buffer any more, make space for more slots*/
     myfree(partBuf);
+
+    message(0, "Done particle data exchange\n");
 
     slots_reserve(1, newSlots, sman);
     /* Ensure the reservations are finished on all tasks before we start sending the data*/

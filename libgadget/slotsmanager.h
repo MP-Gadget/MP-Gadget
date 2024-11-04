@@ -146,9 +146,6 @@ extern struct slots_manager_type {
 #define BHP(i) BhP[P[i].PI]
 #define STARP(i) StarP[P[i].PI]
 
-extern MPI_Datatype MPI_TYPE_PARTICLE;
-extern MPI_Datatype MPI_TYPE_SLOT[6];
-
 /* shortcuts to access base slot attributes */
 #define BASESLOT_PI(PI, ptype, sman) ((struct particle_data_ext *)(sman->info[ptype].ptr + sman->info[ptype].elsize * (PI)))
 
