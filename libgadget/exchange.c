@@ -883,6 +883,9 @@ domain_build_plan(ExchangeLayoutFunc layoutfunc, const void * layout_userdata, E
         finalNumPart += plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
         if(sman->info[n].enabled) {
             slots_needed[n] = sman->info[n].size + plan->toGetSum.slots[n]- plan->toGoSum.slots[n]- plan->ngarbage[n];
+            /* Add some extra slots in case we need to make more particles (sometimes necessary due to the order in which particles arrive)
+             * This may be too much.*/
+            slots_needed[n] +=  (PartManager->MaxPart - PartManager->NumPart);
             if(slots_needed[n] >= sman->info[n].maxsize) {
                 need_slot_reserve = 1;
             }
