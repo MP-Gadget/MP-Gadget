@@ -284,7 +284,9 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
         /* preparing for export */
         if(i > pman->NumPart || i < 0)
             endrun(6, "Invalid particle %d at entry %ld in target list task %d, numpart %ld\n", i, n, task, pman->NumPart);
-        const int type = pman->Base[i].Type;
+        const unsigned int type = pman->Base[i].Type;
+        if(type >= 6)
+            endrun(6, "Invalid particle type %d particle %d at entry %ld in target list task %d, numpart %ld\n", type, i, n, task, pman->NumPart);
         size_t elsize = 0;
         if(sman->info[type].enabled)
              elsize = sman->info[type].elsize;
@@ -325,8 +327,12 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
     int64_t i;
     for(i = 0; i < plan->toGet[task].base; i++)
     {
+        if(exchptr + sizeof(struct particle_data) - exch > recvd_bytes)
+            break;
         /* Extract type*/
         const unsigned int type = ((struct particle_data *) exchptr)->Type;
+        if(type >= 6)
+            endrun(6, "Invalid particle type %d at entry %ld of %ld in target list task %d, numpart %ld\n", type, i, plan->toGet[task].base, task, pman->NumPart);
         int PI = sman->info[type].size;
         int64_t elsize = 0;
         if(sman->info[type].enabled)
