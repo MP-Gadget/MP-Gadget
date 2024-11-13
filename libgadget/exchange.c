@@ -320,7 +320,7 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
  * This routine is not parallel.
 */
 static size_t
-exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
 {
     char * exchptr = exch;
     int64_t copybase = 0;
@@ -400,7 +400,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 #endif
         }
     }
-    // message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+    // message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4]);
     return copybase;
 }
 
@@ -408,7 +408,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * plan, struct part_m
 /*Find how many tasks we can send in current exchange iteration.
  If the current task does not fit in the buffer, work out how many particles can be sent. */
 static void
-domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
+domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
     if(senditer->estat == SUBTASK) {
@@ -455,7 +455,7 @@ domain_find_send_iter(ExchangePlan * plan, struct ExchangeIter * senditer,  int6
 /*Find how many tasks we can transfer in current exchange iteration.
  If the current task does not fit in the buffer, work out how many */
 static void
-domain_find_recv_iter(ExchangePlan * plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
+domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
 {
     /* Last loop was a subtask*/
     if(recviter->estat == SUBTASK) {
@@ -524,7 +524,7 @@ domain_post_single_recv(struct CommBuffer * recvs, struct ExchangeIter *thisiter
  * Note that receives are posted in reverse order! First the task before this one, then all tasks before that, backwards.
  * The sends are posted forwards, so that all send/recv pairs are ordered.*/
 static void
-domain_post_recvs(ExchangePlan * plan, struct CommBuffer * recvs, struct ExchangeIter *recviter, int tag, MPI_Comm Comm)
+domain_post_recvs(const ExchangePlan * plan, struct CommBuffer * recvs, struct ExchangeIter *recviter, int tag, MPI_Comm Comm)
 {
     /* First post receives*/
     size_t displs = 0;
@@ -554,7 +554,7 @@ domain_post_recvs(ExchangePlan * plan, struct CommBuffer * recvs, struct Exchang
 
 /* Pack a single send buffer when we don't have space for all the particles on one task.*/
 static void
-domain_pack_single_send(ExchangePlan * plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+domain_pack_single_send(ExchangePlan * const plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
 {
     /* Move the data into the buffer*/
     size_t packed_bytes = exchange_pack_buffer(sends->databuf, sends->databufsize, senditer->StartTask, senditer->StartPart, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
@@ -569,7 +569,7 @@ domain_pack_single_send(ExchangePlan * plan, struct CommBuffer * sends, struct E
 
 /* Pack the send buffers for each task and issue ISend requests for them*/
 static void
-domain_pack_sends(ExchangePlan * plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
+domain_pack_sends(ExchangePlan * const plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
 {
     size_t displs = 0;
     sends->nrequest_all = 0;
@@ -668,7 +668,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     domain_init_exchange_iter(&recviter, -1, plan);
     walltime_measure("/Domain/exchange/misc");
 
-    /* Loop. There is no blocking inside this loop. We keep track of the completion status
+    /* Loop. We wait inside domain_check_unpack for either all sends or all recvs to complete. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
         if(no_sends_pending && senditer.estat != DONE)
