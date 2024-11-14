@@ -57,14 +57,11 @@ show_backtrace(void)
         /* YF: xorg didn't have the last NULL; which seems to be wrong;
          * causing random failures in execle. */
 
-        /* try a few tools in order; */
-        execle("/usr/bin/pstack", "pstack", parent, NULL, NULL);
+        /* We can use pstack if the elfutils stack is not available,
+         * but elfutils is more powerful and we have the glibc stack trace anyway.
+         * Also ptrace will sometimes hang in some cluster configurations.*/
+        // execle("/usr/bin/pstack", "pstack", parent, NULL, NULL);
         execle("/usr/bin/eu-stack", "eu-stack", "-p", parent, NULL, NULL);
-
-        sprintf(buf, "No tools to pretty print a stack trace for pid %d.\n"
-                     "Fallback to glibc backtrace which may not contain all symbols.\n "
-                     "run eu-addr2line to pretty print the output.\n", getppid());
-
         write(STDERR_FILENO, buf, strlen(buf));
         exit(EXIT_FAILURE);
     } else {
@@ -88,18 +85,12 @@ show_backtrace(void)
                 done = 1;
         }
         close(pipefd[0]);
-
         waitpid(kidpid, &kidstat, 0);
-
-        if (WIFEXITED(kidstat) && (WEXITSTATUS(kidstat) == EXIT_FAILURE)) {
-            void * buf[BT_BUF_SIZE];
-            int nlines = backtrace(buf, BT_BUF_SIZE);
-            backtrace_symbols_fd(buf, nlines, STDERR_FILENO);
-            return -1;
-        }
     }
     return 0;
 }
+
+static int ShowBacktrace;
 
 static void
 OsSigHandler(int no)
@@ -113,6 +104,8 @@ OsSigHandler(int no)
     void * buf[BT_BUF_SIZE];
     int nlines = backtrace(buf, BT_BUF_SIZE);
     backtrace_symbols_fd(buf, nlines, STDERR_FILENO);
+    if(ShowBacktrace)
+        show_backtrace();
     MPI_Abort(MPI_COMM_WORLD, no);
 }
 
@@ -121,6 +114,7 @@ init_endrun(int backtrace)
 {
     struct sigaction act, oact;
 
+    ShowBacktrace = backtrace;
     int siglist[] = { SIGSEGV, SIGQUIT, SIGILL, SIGFPE, SIGBUS, 0};
     sigemptyset(&act.sa_mask);
 
