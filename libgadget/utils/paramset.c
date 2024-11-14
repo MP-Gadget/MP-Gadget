@@ -397,7 +397,6 @@ param_format_value(ParameterSet * ps, const char * name)
             snprintf(buf, 128, "%d", i);
             return fastpm_strdup(buf);
         }
-        break;
         case DOUBLE:
         {
             double d = ps->value[p->index].d;
@@ -405,19 +404,17 @@ param_format_value(ParameterSet * ps, const char * name)
             snprintf(buf, 128, "%g", d);
             return fastpm_strdup(buf);
         }
-        break;
         case STRING:
         {
             return fastpm_strdup(ps->value[p->index].s);
         }
-        break;
         case ENUM:
         {
             return format_enum(p->enumtable, ps->value[p->index].i);
         }
-        break;
+        default:
+            return fastpm_strdup("UNDEFINED TYPE");
     }
-    return fastpm_strdup("UNDEFINED TYPE");
 }
 
 void

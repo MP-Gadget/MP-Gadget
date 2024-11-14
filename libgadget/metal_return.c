@@ -3,9 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_interp2d.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_errno.h>
 #include <omp.h>

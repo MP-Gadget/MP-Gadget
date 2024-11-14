@@ -24,7 +24,7 @@ void linspace(double start, double stop, int num, double *result) {
 
 // Function to allocate a 1D array to be used as a 3D array, and initialize elements to zero
 double *allocate_3d_array_as_1d(int Nx, int Ny, int Nz) {
-    double *array = mymalloc("3d", Nx * Ny * Nz * sizeof(double));
+    double *array = (double *) mymalloc("3d", Nx * Ny * Nz * sizeof(double));
     // Initialize elements with memset
     memset(array, 0, Nx * Ny * Nz * sizeof(double));
     return array;
@@ -32,7 +32,7 @@ double *allocate_3d_array_as_1d(int Nx, int Ny, int Nz) {
 
 // Function to allocate a 1D array to be used as a 2D array, and initialize elements to zero
 double *allocate_2d_array_as_1d(int Nx, int Ny) {
-    double *array = mymalloc("2d", Nx * Ny * sizeof(double));
+    double *array = (double *) mymalloc("2d", Nx * Ny * sizeof(double));
     // Initialize elements with memset
     memset(array, 0, Nx * Ny * sizeof(double));
 
@@ -131,7 +131,7 @@ void projectDensity(double *density, GridDimensions dims, int normal) {
 
 void calculate_lensing_potential(double *density_projected, int plane_resolution, double bin_resolution_0, double bin_resolution_1, double chi,double smooth, double *lensing_potential) {
     // Allocate the complex FFT output array
-    fftw_complex *density_ft = fftw_malloc(sizeof(fftw_complex) * plane_resolution * (plane_resolution / 2 + 1));
+    fftw_complex *density_ft = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * plane_resolution * (plane_resolution / 2 + 1));
     // Initialize density_ft to zero
     for (int i = 0; i < plane_resolution * (plane_resolution / 2 + 1); i++) {
         density_ft[i][0] = 0.0;  // Real part
@@ -214,7 +214,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     for (int i = 0; i < 3; i++) {
         int resolution = (i == normal) ? thickness_resolution : plane_resolution;
-        binning[i] = mymalloc("lensbins", (resolution + 1) * sizeof(double));
+        binning[i] = (double *) mymalloc("lensbins", (resolution + 1) * sizeof(double));
         double start = (i == normal) ? (center - thickness / 2) : left_corner[i];
         double stop = (i == normal) ? (center + thickness / 2) : (left_corner[i] + Lbox);
         linspace(start, stop, resolution + 1, binning[i]);

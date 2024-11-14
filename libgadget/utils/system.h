@@ -59,7 +59,7 @@ typedef struct _gadget_thread_arrays {
 size_t gadget_compact_thread_arrays(int ** dest, gadget_thread_arrays * arrays);
 
 /* Set up pointers to different parts of a single segmented array, evenly spaced and corresponding queue space for different threads.*/
-gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, int alloc_high, size_t total_size);
+gadget_thread_arrays gadget_setup_thread_arrays(const char * destname, const int alloc_high, const size_t total_size);
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,

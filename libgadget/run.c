@@ -174,7 +174,7 @@ set_all_global_params(ParameterSet * ps)
         All.CP.HybridVcrit = param_get_double(ps, "Vcrit");
         All.CP.HybridNuPartTime = param_get_double(ps, "NuPartTime");
         if(All.CP.MassiveNuLinRespOn && !All.CP.RadiationOn)
-            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
+            message(0, "WARNING: You have enabled (kspace) massive neutrinos without radiation, but this may give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/
 
         if(All.StarformationOn != 0 && All.CoolingOn == 0)
@@ -210,6 +210,10 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
+    if(All.Nmesh < 4)
+        endrun(6, "Nmesh = %d. This is likely not what you meant! Usually you need Nmesh >= cbrt(Npart) (%d)\n", All.Nmesh, (int) cbrt(head->NTotalInit[1]));
+    if(All.Nmesh % 2 != 0)
+        message(6, "WARNING! Nmesh = %d. It is strongly recommended to use an even value for the FFT grid.\n", All.Nmesh);
     /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
     All.RandomParticleOffset /= All.Nmesh;
     if(head->neutrinonk <= 0)
@@ -677,7 +681,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
             WriteSnapshot |= action->write_snapshot;
             WriteFOF |= action->write_fof;
-            WritePlane |= action->write_plane; 
+            WritePlane |= action->write_plane;
         }
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/

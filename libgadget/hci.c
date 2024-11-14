@@ -54,7 +54,7 @@ hci_override_now(HCIManager * manager, double now)
 static double
 hci_get_elapsed_time(HCIManager * manager)
 {
-    return hci_now(manager) - manager->timer_begin;
+    return manager->timer_query_begin - manager->timer_begin;
 }
 
 static

@@ -77,6 +77,8 @@ double hubble_function(const Cosmology * CP, double a)
         hubble_a += CP->OmegaG / (a * a * a * a);
         hubble_a += get_omega_nu(&CP->ONu, a);
     }
+    else
+        hubble_a += get_omega_nu(&CP->ONu, 1);
     hubble_a += CP->Omega_ur/(a*a*a*a);
     /* Now finish it up. */
     hubble_a = CP->Hubble * sqrt(hubble_a);

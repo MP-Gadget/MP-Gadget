@@ -47,6 +47,8 @@ typedef struct {
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
+static MPI_Datatype MPI_TYPE_PARTICLE = 0;
+static MPI_Datatype MPI_TYPE_SLOT[6] = {0};
 
 typedef struct {
     ExchangePlanEntry * toGo;
@@ -457,6 +459,7 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
         /* Start at 0 particle: endpart is set at send time.*/
         senditer->StartPart = 0;
     }
+
 #ifdef DEBUG
     // message(1, "estat %d Using %ld bytes to send from %d to %d part start %ld end %ld\n", senditer->estat, senditer->transferbytes, senditer->StartTask, senditer->EndTask, senditer->StartPart, senditer->EndPart);
 #endif

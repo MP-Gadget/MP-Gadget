@@ -4,7 +4,7 @@
  * with the original Gadget-3 cooling code.
  *
  * Copyright (c) Simeon Bird 2019 and Yu Feng 2015-2019.
- * Released under the terms of the GPLv2 or later.
+ * Released under the terms of the 3-clause BSD license 
  */
 
 /* A rate network for neutral hydrogen following
@@ -261,7 +261,7 @@ load_J21coeffs(const char * J21CoeffFile)
         endrun(1, "Photon background contains: %d entries, not enough.\n", NJ21Coeffs);
 
     /*Allocate memory for the photon background table.*/
-    Gamma_alpha = mymalloc("J21CoeffTable", 7 * NJ21Coeffs * sizeof(double));
+    Gamma_alpha = (double *) mymalloc("J21CoeffTable", 7 * NJ21Coeffs * sizeof(double));
     G_HI_coeff.ydata = Gamma_alpha + NJ21Coeffs;
     G_HeI_coeff.ydata = Gamma_alpha + 2 * NJ21Coeffs;
     G_HeII_coeff.ydata = Gamma_alpha + 3 * NJ21Coeffs;

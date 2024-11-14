@@ -17,7 +17,7 @@
 #define FACT1 0.366025403785    /* FACT1 = 0.5 * (sqrt(3)-1) */
 
 /*!< Memory factor to leave for (N imported particles) > (N exported particles). */
-static int ImportBufferBoost;
+static double ImportBufferBoost;
 /* 7/9/24: The code segfaults if the send/recv buffer is larger than 4GB in size.
  * Likely a 32-bit variable is overflowing but it is hard to debug. Easier to enforce a maximum buffer size.*/
 static size_t MaxExportBufferBytes = 3584*1024*1024L;
@@ -28,8 +28,8 @@ void set_treewalk_params(ParameterSet * ps)
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(ThisTask == 0)
-        ImportBufferBoost = param_get_int(ps, "ImportBufferBoost");
-    MPI_Bcast(&ImportBufferBoost, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        ImportBufferBoost = param_get_double(ps, "ImportBufferBoost");
+    MPI_Bcast(&ImportBufferBoost, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 }
 
 /* This function is to allow a test which fills up the exchange buffer*/
@@ -113,9 +113,9 @@ ev_begin(TreeWalk * tw, int * active_set, const size_t size)
     /*This memory scales like the number of imports. In principle this could be much larger than Nexport
      * if the tree is very imbalanced and many processors all need to export to this one. In practice I have
      * not seen this happen, but provide a parameter to boost the memory for Nimport just in case.*/
-    bytesperbuffer += ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize);
+    bytesperbuffer += ceil(ImportBufferBoost * (tw->query_type_elsize + tw->result_type_elsize));
     /*Use all free bytes for the tree buffer, as in exchange. Leave some free memory for array overhead.*/
-    size_t freebytes = mymalloc_freebytes();
+    size_t freebytes = (size_t) mymalloc_freebytes();
     freebytes -= 4096 * 10 * bytesperbuffer;
 
     tw->BunchSize = (size_t) floor(((double)freebytes)/ bytesperbuffer);
@@ -203,6 +203,14 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const size_t size, int may
     }
 
     tw->work_set_stolen_from_active = 0;
+    /* Explicitly deal with the case where the queue is zero and there is nothing to do.
+     * Some OpenMP compilers (nvcc) seem to still execute the below loop in that case*/
+    if(size == 0) {
+        tw->WorkSet = (int *) mymalloc("ActiveQueue", sizeof(int));
+        tw->WorkSetSize = size;
+        return;
+    }
+
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     gadget_thread_arrays gthread = gadget_setup_thread_arrays("ActiveQueue", 0, size);
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
@@ -367,7 +375,7 @@ alloc_export_memory(TreeWalk * tw)
     tw->ExportTable_thread = ta_malloc2("localexports", data_index *, tw->NThread);
     int i;
     for(i = 0; i < tw->NThread; i++)
-        tw->ExportTable_thread[i] = mymalloc("DataIndexTable", sizeof(data_index) * tw->BunchSize);
+        tw->ExportTable_thread[i] = (data_index*) mymalloc("DataIndexTable", sizeof(data_index) * tw->BunchSize);
     tw->QueueChunkEnd = ta_malloc2("queueend", int64_t, tw->NThread);
     for(i = 0; i < tw->NThread; i++)
         tw->QueueChunkEnd[i] = -1;
@@ -701,7 +709,7 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     exports->databuf = (char *) mymalloc("ExportQuery", counts->Nexport * tw->query_type_elsize);
 
     alloc_commbuffer(imports, counts->NTask, 0);
-    imports->databuf = mymalloc("ImportQuery", counts->Nimport * tw->query_type_elsize);
+    imports->databuf = (char *) mymalloc("ImportQuery", counts->Nimport * tw->query_type_elsize);
 
     MPI_Datatype type;
     MPI_Type_contiguous(tw->query_type_elsize, MPI_BYTE, &type);
@@ -738,21 +746,21 @@ static void ev_send_recv_export_import(struct ImpExpCounts * counts, TreeWalk * 
     return;
 }
 
-static void ev_recv_export_result(struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
+static void ev_recv_export_result(struct CommBuffer * exportbuf, struct ImpExpCounts * counts, TreeWalk * tw)
 {
-    alloc_commbuffer(export, counts->NTask, 1);
+    alloc_commbuffer(exportbuf, counts->NTask, 1);
     MPI_Datatype type;
     MPI_Type_contiguous(tw->result_type_elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
-    export->databuf = (char*) mymalloc2("ExportResult", counts->Nexport * tw->result_type_elsize);
+    exportbuf->databuf = (char*) mymalloc2("ExportResult", counts->Nexport * tw->result_type_elsize);
     /* Post the receives first so we can hit a zero-copy fastpath.*/
-    MPI_fill_commbuffer(export, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
+    MPI_fill_commbuffer(exportbuf, counts->Export_count, counts->Export_offset, type, COMM_RECV, 101923, counts->comm);
     // alloc_commbuffer(&res_imports, counts.NTask, 0);
     // MPI_fill_commbuffer(import, counts->Import_count, counts->Import_offset, type, COMM_SEND, 101923, counts->comm);
     MPI_Type_free(&type);
 }
 
-static void ev_reduce_export_result(struct CommBuffer * export, struct ImpExpCounts * counts, TreeWalk * tw)
+static void ev_reduce_export_result(struct CommBuffer * exportbuf, struct ImpExpCounts * counts, TreeWalk * tw)
 {
     int64_t i;
     /* Notice that we build the dataindex table individually
@@ -768,7 +776,7 @@ static void ev_reduce_export_result(struct CommBuffer * export, struct ImpExpCou
                 const int task = tw->ExportTable_thread[i][k].Task;
                 const int64_t bufpos = real_recv_count[task] + counts->Export_offset[task];
                 real_recv_count[task]++;
-                TreeWalkResultBase * output = (TreeWalkResultBase*) (export->databuf + tw->result_type_elsize * bufpos);
+                TreeWalkResultBase * output = (TreeWalkResultBase*) (exportbuf->databuf + tw->result_type_elsize * bufpos);
                 treewalk_reduce_result(tw, output, place, TREEWALK_GHOSTS);
 #ifdef DEBUG
                 if(output->ID != P[place].ID)

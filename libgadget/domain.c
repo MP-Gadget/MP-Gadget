@@ -89,6 +89,8 @@ void set_domain_params(ParameterSet * ps)
         /* Create one domain per thread. This helps the balance and makes the treebuild merge faster*/
         if(domain_params.DomainOverDecompositionFactor < 0)
             domain_params.DomainOverDecompositionFactor = omp_get_max_threads();
+        if(domain_params.DomainOverDecompositionFactor == 0)
+            domain_params.DomainOverDecompositionFactor = floor(omp_get_max_threads()/2);                
         if(domain_params.DomainOverDecompositionFactor < 4)
             domain_params.DomainOverDecompositionFactor = 4;
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
@@ -1093,7 +1095,7 @@ domain_check_for_local_refine_subsample(
      * the node has been finished. We either refine the last leaf node
      * or create a new leaf because of the peano/morton sorting.
      * */
-    peano_t last_key = -1;
+    peano_t last_key = PEANOT_MAX;
     int last_leaf = -1;
     i = 0;
     while(i < Nsample) {

@@ -6,7 +6,6 @@
 #include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <gsl/gsl_math.h>
 #include <inttypes.h>
 #include <omp.h>
 
@@ -63,6 +62,20 @@ void set_fof_params(ParameterSet * ps)
         fof_params.ExcursionSetReionOn = param_get_int(ps, "ExcursionSetReionOn");
     }
     MPI_Bcast(&fof_params, sizeof(struct FOFParams), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
+
+/* Set parameters for the tests*/
+void set_fof_testpar(int FOFSaveParticles, double FOFHaloLinkingLength, int FOFHaloMinLength)
+{
+    fof_params.FOFSaveParticles = FOFSaveParticles;
+    fof_params.FOFPrimaryLinkTypes = 2;
+    fof_params.FOFSecondaryLinkTypes = 1+16+32;
+    fof_params.FOFHaloLinkingLength = FOFHaloLinkingLength;
+    fof_params.FOFHaloMinLength = FOFHaloMinLength;
+    /* For seeding (not yet tested)*/
+    fof_params.MinFoFMassForNewSeed = 2;
+    fof_params.MinMStarForNewSeed = 5e-4;
+
 }
 
 void fof_init(double DMMeanSeparation)
@@ -326,7 +339,7 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
      * secondary treewalk, so fill up garbage for the primary treewalk.
      * The copy is a technical race otherwise. */
     if(I->base.NodeList[0] == tw->tree->firstnode) {
-        I->MinID = -1;
+        I->MinID = IDTYPE_MAX;
         I->MinIDTask = -1;
         return;
     }

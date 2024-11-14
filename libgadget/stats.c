@@ -62,7 +62,7 @@ set_stats_params(ParameterSet * ps)
         param_get_string2(ps, "CpuFile", StatsParams.CpuFile, sizeof(StatsParams.CpuFile));
         StatsParams.OutputEnergyDebug = param_get_int(ps, "OutputEnergyDebug");
         StatsParams.WriteBlackHoleDetails = param_get_int(ps,"WriteBlackHoleDetails");
-        StatsParams.MaxBlackHoleDetails = 1024*1024*1024*param_get_int(ps, "MaxBlackHoleDetails");
+        StatsParams.MaxBlackHoleDetails = 1024L*1024L*1024L*param_get_int(ps, "MaxBlackHoleDetails");
     }
     MPI_Bcast(&StatsParams, sizeof(struct stats_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -175,6 +175,7 @@ rotate_bhdetails_file(struct OutputFD * fds, const char * OutputDir, const int R
     myfree(postfix);
     fds->TotalBHDetailsBytesWritten = 0;
     fds->BHDetailNumber++;
+    message(0, "Rotating BH Details file to %d with %lu bytes written\n", fds->BHDetailNumber, StatsParams.MaxBlackHoleDetails);
 }
 
 /*!  This function closes the global log-files.

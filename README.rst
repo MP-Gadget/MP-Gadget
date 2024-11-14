@@ -189,13 +189,10 @@ For usage of the code, here is a DOI for this repository that you can cite
 .. image:: https://zenodo.org/badge/24486904.svg
    :target: https://zenodo.org/badge/latestdoi/24486904
 
-Licence Issue
--------------
+Licence
+-------
 
-Most files are licensed under GPLv2+.
-
-Please refer to the source files for details.
-
+MP-Gadget is distributed under the terms of a 3-clause BSD license or the GNU General Public License v2 or later, at the option of the user. The use of PFFT and GSL libraries usually forces distribution under the terms of the GNU General Public License v3.
 
 Status
 ------

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 typedef uint64_t peano_t;
+#define PEANOT_MAX UINT64_MAX
 
 #define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 21 to fit in 64-bit integer ! */
 #define  PEANOCELLS (((peano_t)1)<<(3*BITS_PER_DIMENSION))

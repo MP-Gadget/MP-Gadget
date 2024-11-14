@@ -2,7 +2,6 @@
 #include <string.h>
 #include <math.h>
 #include <mpi.h>
-#include <gsl/gsl_sf_gamma.h>
 
 #include "init.h"
 #include "utils.h"
@@ -203,8 +202,9 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
 {
     double mass = 0, masstot, omega;
     int64_t i, totbad, badmass = 0;
+    double omegas[6] = {0};
 
-    #pragma omp parallel for reduction(+: mass) reduction(+: badmass)
+    #pragma omp parallel for reduction(+: mass) reduction(+: badmass) reduction(+: omegas[:6])
     for(i = 0; i < PartManager->NumPart; i++) {
         /* In case zeros have been written to the saved mass array,
          * recover the true masses*/
@@ -212,25 +212,32 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
             P[i].Mass = MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
             badmass++;
         }
+        if(P[i].Type >= 0 && P[i].Type < 6)
+            omegas[P[i].Type] += P[i].Mass;
         mass += P[i].Mass;
     }
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &omegas, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
     MPI_Allreduce(&badmass, &totbad, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     if(totbad)
         message(0, "Warning: recovering from %ld Mass entries corrupted on disc\n",totbad);
 
-    omega =
-        masstot / (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) / CP->RhoCrit;
+    double massnorm = (PartManager->BoxSize * PartManager->BoxSize * PartManager->BoxSize) * CP->RhoCrit;
+    omega = masstot / massnorm;
+    for(i = 0; i<6; i++)
+        omegas[i] /= massnorm;
 
+    double omeganu = get_omega_nu_nopart(&CP->ONu, 1);
     /*Add the density for analytically follows massive neutrinos*/
     if(CP->MassiveNuLinRespOn)
-        omega += get_omega_nu_nopart(&CP->ONu, 1);
+        omega += omeganu;
+    message(0, "Matter content: OmegaB = %g OmegaCDM = %g OmegaNu (LRA) = %g OmegaNu (particle) = %g Omega* = %g OmegaBH = %g\n",
+            omegas[0], omegas[1], omeganu, omegas[2], omegas[4], omegas[5]);
+
     if(fabs(omega - CP->Omega0) > 1.0e-3)
-    {
-        endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
-                omega, CP->Omega0);
-    }
+        endrun(0, "The mass content is Omega0 = %g,but you specified Omega0 = %g in the parameterfile.\n", omega, CP->Omega0);
 }
 
 /* Allocate the memory for particles and slots. First the total amount of particles are counted, then allocations are made*/

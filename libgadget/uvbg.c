@@ -131,16 +131,17 @@ void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
     //TODO: think about the cartesian communicator in the PetaPM struct
     //and the mapping between ranks, indices and positions
 
+    size_t dims[2] = {grid_n, 1};
     //J21 block
     BigArray arr = {0};
-    big_array_init(&arr, UVBGgrids.J21, "=f4", 2, (size_t[]){grid_n,1}, NULL);
+    big_array_init(&arr, UVBGgrids.J21, "=f4", 2, dims, NULL);
     petaio_save_block(&fout,"J21",&arr,1);
 
     message(0,"saved J21\n");
 
     //xHI block
     BigArray arr2 = {0};
-    big_array_init(&arr2, UVBGgrids.xHI, "=f4", 2, (size_t[]){grid_n,1}, NULL);
+    big_array_init(&arr2, UVBGgrids.xHI, "=f4", 2, dims, NULL);
     petaio_save_block(&fout,"XHI",&arr2,1);
 
     message(0,"saved XHI\n");
