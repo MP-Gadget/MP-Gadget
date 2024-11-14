@@ -212,7 +212,7 @@ void check_omega(struct part_manager_type * PartManager, Cosmology * CP, int gen
             P[i].Mass = MassTable[P[i].Type] * ( 1. - (double)P[i].Generation/generations);
             badmass++;
         }
-        if(P[i].Type >= 0 && P[i].Type < 6)
+        if(P[i].Type < 6)
             omegas[P[i].Type] += P[i].Mass;
         mass += P[i].Mass;
     }
