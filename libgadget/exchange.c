@@ -47,8 +47,6 @@ typedef struct {
 } ExchangePlanEntry;
 
 static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
-static MPI_Datatype MPI_TYPE_PARTICLE = 0;
-static MPI_Datatype MPI_TYPE_SLOT[6] = {0};
 
 typedef struct {
     ExchangePlanEntry * toGo;
