@@ -34,6 +34,13 @@ setup_particles(int NumPart, double BoxSize)
     particle_alloc_memory(PartManager, BoxSize, 1.5 * NumPart);
     PartManager->NumPart = NumPart;
 
+    slots_init(0.01 * PartManager->MaxPart, SlotsManager);
+    slots_set_enabled(0, sizeof(struct sph_particle_data), SlotsManager);
+    slots_set_enabled(4, sizeof(struct star_particle_data), SlotsManager);
+    slots_set_enabled(5, sizeof(struct bh_particle_data), SlotsManager);
+
+    int64_t newSlots[6] = {128, 0, 0, 0, 128, 128};
+    slots_reserve(1, newSlots, SlotsManager);
     int i;
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++) {
@@ -89,7 +96,7 @@ test_fof(void **state)
 
     fof_finish(&fof);
     domain_free(&ddecomp);
-    myfree(SlotsManager->Base);
+    slots_free(SlotsManager);
     myfree(P);
     return;
 }
