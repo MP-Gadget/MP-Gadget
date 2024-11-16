@@ -315,7 +315,7 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
-    // message(4, "after pack for task %d ngarbage %ld %ld %ld\n", task, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+    // message(4, "after pack for task %d sent %ld of %ld ngarbage %ld %ld %ld\n", task, n, plan->toGo[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
     *endpart = n;
     return exchptr - exch;
 }
