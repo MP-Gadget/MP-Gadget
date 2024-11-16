@@ -320,7 +320,10 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
 
 /* Take a received buffer and move the particle data back into the particle table.
  * If possible a garbage particle of the same type will be used for the new memory,
- * This routine is not parallel.
+ * This routine is not parallel. We could avoid doing this by calling
+ * MPI_Type_create_indexed() on the target_lists. If we do that
+ * we would need to mark the particles as garbage so the recvd data can be placed into
+ * them only after the send completes.
 */
 static size_t
 exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
