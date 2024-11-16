@@ -637,7 +637,7 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
     size_t recvd = 0;
     int * complete_array = ta_malloc("completes", int, 2 * plan->NTask);
     MPI_Status * stats = ta_malloc("stats", MPI_Status, 2 * plan->NTask);;
-    // message(3, "reqs: %d\n", all->Recvs.nrequest_all + all->Sends.nrequest_all);
+    // message(3, "send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
     /* We wait in a loop until we have either all the sends or all the recvs. Once we have those we can post more.*/
     while(all->Recvs.totcomplete < all->Recvs.nrequest_all || all->Sends.totcomplete < all->Sends.nrequest_all) {
         int recvd_bytes = 0;
@@ -666,7 +666,8 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
             recvd += exchange_unpack_buffer(all->Recvs.databuf+all->Recvs.displs[i], all->Recvs.rqst_task[i], plan, pman, sman, recvd_bytes);
             all->Recvs.totcomplete++;
         }
-        /* We have completed either all the Sends or all the Recvs, see if we can post more*/
+        /* We have completed either all the Sends or all the Recvs, see if we can post more.
+         * Note this is NOT the same as the condition at the top of the while, which simply checks for some work to be done.*/
         if(all->Recvs.totcomplete == all->Recvs.nrequest_all || all->Sends.totcomplete == all->Sends.nrequest_all)
             break;
     };
