@@ -575,10 +575,10 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
 
 /* Post a single receive for the current iteration task when there is not enough buffer space for one task. */
 static void
-domain_post_single_recv(struct CommBuffer * recvs, struct ExchangeIter *thisiter, int tag, MPI_Comm Comm)
+domain_post_single_recv(const ExchangePlan * plan, struct CommBuffer * recvs, struct ExchangeIter *thisiter, int tag, MPI_Comm Comm)
 {
     /* Note that IRecv will happily accept less bytes than are requested.*/
-    MPI_Irecv(recvs->databuf, thisiter->transferbytes, MPI_BYTE, thisiter->StartTask, tag, Comm, recvs->rdata_all);
+    MPI_Irecv(recvs->databuf, thisiter->transferbytes, MPI_BYTE, thisiter->StartTask, tag, Comm, recvs->rdata_all + plan->NTask - 1);
     // message(1, "Partial recv task %d bytes %ld, startpart %lu\n", thisiter->StartTask, thisiter->transferbytes, thisiter->StartPart);
 
     recvs->rqst_task[0] = thisiter->StartTask;
@@ -606,7 +606,7 @@ domain_post_recvs(const ExchangePlan * plan, struct CommBuffer * recvs, struct E
         /* Skip zero-size receives*/
         if(plan->toGet[recvtask].totalbytes == 0)
             continue;
-        MPI_Irecv(recvs->databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs->rdata_all[recvs->nrequest_all]);
+        MPI_Irecv(recvs->databuf + displs, plan->toGet[recvtask].totalbytes, MPI_BYTE, recvtask, tag, Comm, &recvs->rdata_all[plan->NTask - 1 - recvs->nrequest_all]);
         recvs->rqst_task[recvs->nrequest_all] = recvtask;
         recvs->displs[recvs->nrequest_all] = displs;
         displs += plan->toGet[recvtask].totalbytes;
@@ -678,30 +678,37 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
     int flag = 0;
     size_t recvd = 0;
     int * complete_array = ta_malloc("completes", int, 2 * plan->NTask);
-    MPI_Status * stats = ta_malloc("stats", MPI_Status, 2 * plan->NTask);;
+    MPI_Status * stats = ta_malloc("stats", MPI_Status, 2 * plan->NTask);
     // message(3, "send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
+    MPI_Request * startreq =  all->rdata_all + plan->NTask - all->Recvs.nrequest_all;
     /* We wait in a loop until we have either all the sends or all the recvs. Once we have those we can post more.*/
     while(all->Recvs.totcomplete < all->Recvs.nrequest_all || all->Sends.totcomplete < all->Sends.nrequest_all) {
         int recvd_bytes = 0;
         int complete_cnt = MPI_UNDEFINED;
         /* Check for some completed requests: note that cleanup is performed if the requests are complete.
          * There may be only 1 completed request, and we need to wait again until we have more.*/
-        MPI_Waitsome(plan->NTask + all->Sends.nrequest_all, all->rdata_all, &complete_cnt, complete_array, stats);
+        MPI_Waitsome(all->Recvs.nrequest_all + all->Sends.nrequest_all, startreq, &complete_cnt, complete_array, stats);
+        /* Now complete_array will contain an index into the memory starting at startreq and finishing at startreq + nrequest_all.
+         * The first half of this array is Recvs, the second half is Sends*/
         /* This happens if all requests are MPI_REQUEST_NULL. It should never be hit*/
         if (complete_cnt == MPI_UNDEFINED) {
             endrun(5, "Waited for no data! This should never happen.\n");
         }
         int j;
         for(j = 0; j < complete_cnt; j++) {
-            const int i = complete_array[j];
             /* This is a Send and we don't need to do anything. Cleanup is done by MPI in Waitsome.*/
-            if(i >= plan->NTask) {
+            if(complete_array[j] >= all->Recvs.nrequest_all) {
                 all->Sends.totcomplete++;
+                // message(4, "send complete %d i %d j %d cc %d\n", all->Sends.totcomplete, complete_array[j], j, complete_cnt);
                 continue;
             }
             /* Note the index here is j because it is in the array of completed requests not the array of requests!*/
             MPI_Get_count(&stats[j], MPI_BYTE, &recvd_bytes);
-            if(i >= all->Recvs.nrequest_all)
+            /* Convert back to the index in the recv array, which grows upwards, see domain_post_recvs.
+             * Note the index in complete_array goes from 0 to all->Recvs.nrequest_all - 1. */
+            const int i = all->Recvs.nrequest_all - 1 - complete_array[j];
+            // message(4, "recv i %d j %d cc %d\n", i, j, complete_cnt);
+            if(i < 0 || i >= all->Recvs.nrequest_all)
                 endrun(5, "Bad task %d nreq %d rdata_all %p\n", i, all->Recvs.nrequest_all, all->Recvs.rdata_all);
             if(recvd_bytes == 0)
                 endrun(4, "Received zero bytes, should not happen! flag %d rqst %d complete %d nrequest %d\n", flag, i, all->Recvs.totcomplete, all->Recvs.nrequest_all);
@@ -755,7 +762,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
                 all.Recvs.databuf = mymalloc("recvbuffer",all.Recvs.databufsize * sizeof(char));
                 /* Receiving less than one task!*/
                 if(recviter.estat == SUBTASK) {
-                    domain_post_single_recv(&all.Recvs, &recviter, tag, Comm);
+                    domain_post_single_recv(plan, &all.Recvs, &recviter, tag, Comm);
                 } else if(recviter.estat == TASK)
                     domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
                 else if (recviter.estat == WAITFORSEND){
