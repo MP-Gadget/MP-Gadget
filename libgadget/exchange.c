@@ -688,8 +688,9 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
          * There may be only 1 completed request, and we need to wait again until we have more.*/
         MPI_Waitsome(plan->NTask + all->Sends.nrequest_all, all->rdata_all, &complete_cnt, complete_array, stats);
         /* This happens if all requests are MPI_REQUEST_NULL. It should never be hit*/
-        if (complete_cnt == MPI_UNDEFINED)
-            break;
+        if (complete_cnt == MPI_UNDEFINED) {
+            endrun(5, "Waited for no data! This should never happen.\n");
+        }
         int j;
         for(j = 0; j < complete_cnt; j++) {
             const int i = complete_array[j];
