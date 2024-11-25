@@ -480,7 +480,7 @@ freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[])
     for(n = 0; n < 6; n++) {
         /* If we overflow the slots available in garbage, we use the global particle table.*/
         if(expected_freeslots[n] < getslots[n])
-            freepart += expected_freeslots[n] - getslots[n];
+            freepart += getslots[n] - expected_freeslots[n];
     }
     return freepart;
 }
