@@ -141,6 +141,21 @@ void free_combinedbuffer(struct CombinedBuffer *all)
     free_comms(&all->Sends);
 }
 
+/* Allocate the memory for a commbuffer and initialise the counters to zero*/
+static void init_empty_commbuffer(const int64_t transferbytes, int alloc_high, struct CommBuffer * buff)
+{
+    buff->databufsize = transferbytes;
+    /* Free any earlier buffer. If not called will be freed in free_combinedbuffer after loop end.*/
+    if(buff->databuf)
+        myfree(buff->databuf);
+    if(alloc_high)
+        buff->databuf = mymalloc2("recvbuffer",buff->databufsize * sizeof(char));
+    else
+        buff->databuf = mymalloc("recvbuffer",buff->databufsize * sizeof(char));
+    buff->totcomplete = 0;
+    buff->nrequest_all = 0;
+}
+
 /*
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
@@ -432,6 +447,7 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
         message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     senditer->StartTask = senditer->EndTask;
     if(senditer->StartTask == plan->ThisTask) {
+        senditer->transferbytes = 0;
         senditer->estat = DONE;
         return;
     }
@@ -520,6 +536,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
     recviter->StartTask = recviter->EndTask;
     if(recviter->StartTask == plan->ThisTask) {
+        recviter->transferbytes = 0;
         recviter->estat = DONE;
         return;
     }
@@ -588,7 +605,6 @@ domain_post_single_recv(const ExchangePlan * plan, struct CommBuffer * recvs, st
     recvs->rqst_task[0] = thisiter->StartTask;
     recvs->displs[0] = 0;
     recvs->nrequest_all=1;
-    recvs->totcomplete = 0;
     return;
 }
 
@@ -600,8 +616,6 @@ domain_post_recvs(const ExchangePlan * plan, struct CommBuffer * recvs, struct E
 {
     /* First post receives*/
     size_t displs = 0;
-    recvs->nrequest_all = 0;
-    recvs->totcomplete = 0;
     int task;
     for(task=0; task < plan->NTask; task++) {
         const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
@@ -635,7 +649,6 @@ domain_pack_single_send(ExchangePlan * const plan, struct CommBuffer * sends, st
     sends->rqst_task[0] = senditer->StartTask;
     sends->displs[0] = 0;
     sends->nrequest_all = 1;
-    sends->totcomplete = 0;
     return;
 }
 
@@ -644,8 +657,6 @@ static void
 domain_pack_sends(ExchangePlan * const plan, struct CommBuffer * sends, struct ExchangeIter *senditer, struct part_manager_type * pman, struct slots_manager_type * sman, int tag, MPI_Comm Comm)
 {
     size_t displs = 0;
-    sends->nrequest_all = 0;
-    sends->totcomplete = 0;
     int task;
     for(task=0; task < plan->NTask; task++) {
         /* Move the data into the buffer*/
@@ -752,18 +763,18 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     /* Loop. We wait inside domain_check_unpack for either all sends or all recvs to complete. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
-        if(no_sends_pending && senditer.estat != DONE)
+        if(no_sends_pending && senditer.estat != DONE) {
             domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
+            /* Allocate memory for transfer and reset counters.*/
+            init_empty_commbuffer(senditer.transferbytes, 1, &all.Sends);
+        }
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
+            /* Allocate memory for transfer and reset counters.*/
+            init_empty_commbuffer(recviter.transferbytes, 0, &all.Recvs);
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
-                all.Recvs.databufsize = recviter.transferbytes;
-                /* Free any earlier buffer. If not called will be freed in free_combinedbuffer after loop end.*/
-                if(all.Recvs.databuf)
-                    myfree(all.Recvs.databuf);
-                all.Recvs.databuf = mymalloc("recvbuffer",all.Recvs.databufsize * sizeof(char));
                 /* Receiving less than one task!*/
                 if(recviter.estat == SUBTASK) {
                     domain_post_single_recv(plan, &all.Recvs, &recviter, tag, Comm);
@@ -781,10 +792,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now post sends: note that the sends are done in reverse order to the receives.
          * This ensures that partial sends and receives can complete early.*/
         if(no_sends_pending && senditer.estat != DONE) {
-            all.Sends.databufsize = senditer.transferbytes;
-            if(all.Sends.databuf)
-                myfree(all.Sends.databuf);
-            all.Sends.databuf = mymalloc2("sendbuffer",all.Sends.databufsize * sizeof(char));
             double tstart = second();
             if(senditer.estat == SUBTASK) {
                 domain_pack_single_send(plan, &all.Sends, &senditer, pman, sman, tag, Comm);
