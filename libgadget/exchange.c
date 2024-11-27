@@ -88,6 +88,9 @@ struct ExchangeIter
     /* If we only have one task this iteration, which particles do we send/recv?*/
     int64_t StartPart;
     int64_t EndPart;
+    /* Types of particles already sent/received.
+     * This is for keeping track of the amount of garbage we need and only used for receives.*/
+    int64_t nslotstransferred[6];
     /* Total transfer this time*/
     size_t transferbytes;
 };
@@ -218,6 +221,7 @@ domain_init_exchange_iter(struct ExchangeIter * iter, const int offset, const Ex
     iter->EndTask = (plan->ThisTask + offset + plan->NTask) % plan->NTask;
     iter->StartPart = 0;
     iter->EndPart = 0;
+    memset(iter->nslotstransferred, 0, sizeof(int64_t) * 6);
 }
 
 /* Find the amount of space available for the domain exchange.
@@ -347,7 +351,7 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
  * them only after the send completes.
 */
 static size_t
-exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes)
+exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct part_manager_type * pman, struct slots_manager_type * sman, const int64_t recvd_bytes, int64_t * nslotsrecvd)
 {
     char * exchptr = exch;
     int64_t copybase = 0;
@@ -406,6 +410,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct 
 
         exchptr += sizeof(struct particle_data);
         copybase++;
+        nslotsrecvd[type]++;
         /* Copy the slot if needed*/
         if(sman->info[type].enabled) {
             /* Enforce that we have enough slots*/
@@ -492,15 +497,15 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
 
 /* Works out the number of free slots in the particle table that will be used by this receive*/
 static int64_t
-freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[])
+freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[], const int64_t recvdslots[])
 {
     int64_t freepart = 0;
     /*This checks we have enough space in the particle table for each slot*/
     int n;
     for(n = 0; n < 6; n++) {
         /* If we overflow the slots available in garbage, we use the global particle table.*/
-        if(expected_freeslots[n] < getslots[n])
-            freepart += getslots[n] - expected_freeslots[n];
+        if(expected_freeslots[n] < getslots[n] - recvdslots[n])
+            freepart += getslots[n] - recvdslots[n] - expected_freeslots[n];
     }
     return freepart;
 }
@@ -511,7 +516,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
 {
     /* Last loop was a subtask*/
     if(recviter->estat == WAITFORSEND) {
-        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots);
+        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
         /* Still need more slots, wait for sends to finish.*/
         if(freeneeded > freepart)
             return;
@@ -526,7 +531,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
     }
     if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
-        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots);
+        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
         if(freeneeded > freepart)
             recviter->estat = WAITFORSEND;
         message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld togo %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
@@ -586,6 +591,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         recviter->EndTask = (recviter->StartTask - 1) % plan->NTask;
         /* Start at 0 particle: endpart is set at send time.*/
         recviter->StartPart = 0;
+        memset(recviter->nslotstransferred, 0, sizeof(int64_t) * 6);
     }
 #ifdef DEBUG
     message(1, "estat %d Using %ld bytes to recv from %d to %d part start %ld end %ld\n", recviter->estat, recviter->transferbytes, recviter->StartTask, recviter->EndTask, recviter->StartPart, recviter->EndPart);
@@ -687,7 +693,7 @@ domain_pack_sends(ExchangePlan * const plan, struct CommBuffer * sends, struct E
 /* Wait for some sends and receives. Unpack received data into a buffer.
  * We busy-loop until either sends or receives are done and then we try to get more.*/
 static size_t
-domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CombinedBuffer * all)
+domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct slots_manager_type * sman, struct CombinedBuffer * all, int64_t * nslotsrecvd)
 {
     /* Now wait for and unpack the receives as they arrive.*/
     int flag = 0;
@@ -728,7 +734,7 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
             if(recvd_bytes == 0)
                 endrun(4, "Received zero bytes, should not happen! flag %d rqst %d complete %d nrequest %d\n", flag, i, all->Recvs.totcomplete, all->Recvs.nrequest_all);
             /* task number index is not the index in the request array. The Recvs come first, then the Sends. This lets us avoid an offset to the index*/
-            recvd += exchange_unpack_buffer(all->Recvs.databuf+all->Recvs.displs[i], all->Recvs.rqst_task[i], plan, pman, sman, recvd_bytes);
+            recvd += exchange_unpack_buffer(all->Recvs.databuf+all->Recvs.displs[i], all->Recvs.rqst_task[i], plan, pman, sman, recvd_bytes, nslotsrecvd);
             all->Recvs.totcomplete++;
         }
         /* We have completed either all the Sends or all the Recvs, see if we can post more.
@@ -810,7 +816,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now wait for and unpack the receives as they arrive.*/
         if(!no_recvs_pending || !no_sends_pending) {
             double tstart = second();
-            size_t recvd = domain_check_unpack(plan, pman, sman, &all);
+            size_t recvd = domain_check_unpack(plan, pman, sman, &all, recviter.nslotstransferred);
             if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
                 if(recviter.estat == SUBTASK) {
