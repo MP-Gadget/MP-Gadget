@@ -23,8 +23,8 @@ typedef struct Region {
 
 struct Layout {
     MPI_Comm comm;
-    int NpExport;
-    int NpImport;
+    int64_t NpExport;
+    int64_t NpImport;
     int * NpSend;
     int * NpRecv;
     int * DpSend;
@@ -32,8 +32,8 @@ struct Layout {
     struct Pencil * PencilSend;
     struct Pencil * PencilRecv;
 
-    int NcExport;
-    int NcImport;
+    int64_t NcExport;
+    int64_t NcImport;
     int * NcSend;
     int * NcRecv;
     int * DcSend;

@@ -611,7 +611,7 @@ layout_prepare (PetaPM * pm,
     L->NpImport = 0;
     L->NcImport = 0;
 
-    int NpAlloc = 0;
+    int64_t NpAlloc = 0;
     /* count pencils until buffer would run out */
     for (r = 0; r < Nregions; r ++) {
         NpAlloc += regions[r].size[0] * regions[r].size[1];
@@ -632,7 +632,7 @@ layout_prepare (PetaPM * pm,
     }
 
     /* count total number of cells to be exported */
-    int NcExport = 0;
+    int64_t NcExport = 0;
     for(i = 0; i < L->NpExport; i++) {
         int task = L->PencilSend[i].task;
         L->NcSend[task] += L->PencilSend[i].len;
@@ -658,10 +658,10 @@ layout_prepare (PetaPM * pm,
 
     /* some checks */
     if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) {
-        endrun(1, "NpExport = %d NpSend=%d DpSend=%d\n", L->NpExport, L->NpSend[NTask -1], L->DpSend[NTask - 1]);
+        endrun(1, "NpExport = %ld NpSend=%d DpSend=%d\n", L->NpExport, L->NpSend[NTask -1], L->DpSend[NTask - 1]);
     }
     if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) {
-        endrun(1, "NcExport = %d NcSend=%d DcSend=%d\n", L->NcExport, L->NcSend[NTask -1], L->DcSend[NTask - 1]);
+        endrun(1, "NcExport = %ld NcSend=%d DcSend=%d\n", L->NcExport, L->NcSend[NTask -1], L->DcSend[NTask - 1]);
     }
     int64_t totNpAlloc = reduce_int64(NpAlloc, L->comm);
     int64_t totNpExport = reduce_int64(L->NpExport, L->comm);
@@ -797,8 +797,8 @@ layout_build_and_exchange_cells_to_pfft(
     L->BufSend = (double *) mymalloc("PMBufSend", L->NcExport * sizeof(double));
     L->BufRecv = (double *) mymalloc("PMBufRecv", L->NcImport * sizeof(double));
 
-    int i;
-    int offset;
+    int64_t i;
+    int64_t offset;
 
     /* collect all cells into the send buffer */
     offset = 0;
@@ -851,8 +851,8 @@ layout_build_and_exchange_cells_to_local(
         double * real)
 {
     L->BufRecv = (double *) mymalloc("PMBufRecv", L->NcImport * sizeof(double));
-    int i;
-    int offset;
+    int64_t i;
+    int64_t offset;
 
     /*layout_iterate_cells transfers real to L->BufRecv*/
     layout_iterate_cells(pm, L, to_region, real);
@@ -892,7 +892,7 @@ layout_iterate_cells(PetaPM * pm,
                      cell_iterator iter,
                      double * real)
 {
-    int i;
+    int64_t i;
 #pragma omp parallel for
     for(i = 0; i < L->NpImport; i ++) {
         struct Pencil * p = &L->PencilRecv[i];
