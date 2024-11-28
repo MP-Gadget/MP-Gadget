@@ -66,14 +66,22 @@ double DeltaSpec(double k, enum TransferType Type)
 
 /* Internal helper function that performs interpolation for a row of the
  * tabulated transfer/mater power table*/
-static double get_Tabulated(double k, enum TransferType Type, double oobval)
+static double get_Tabulated(double k, enum TransferType Type)
 {
     /*Convert k to Mpc/h*/
     const double scale = (CM_PER_MPC / UnitLength_in_cm);
-    const double logk = log10(k*scale);
+    double logk = log10(k*scale);
 
-    if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
-      return oobval;
+    if(logk < power_table.logk[0]-0.1 || logk > power_table.logk[power_table.Nentry - 1]+0.25)
+        endrun(6, "Requested k = %g h/Mpc for type %d but power table is from %g to %g h/Mpc\n",
+               pow(10, logk), Type, pow(10, power_table.logk[0]), pow(10, power_table.logk[power_table.Nentry - 1]));
+    if(logk > power_table.logk[power_table.Nentry - 1])
+        logk = power_table.logk[power_table.Nentry - 1];
+
+    if(logk < power_table.logk[0])
+        logk = power_table.logk[0];
+    if(logk > power_table.logk[power_table.Nentry - 1])
+        logk = power_table.logk[power_table.Nentry - 1];
 
     double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, NULL);
     double trans = 1;
@@ -95,7 +103,7 @@ double Delta_Tabulated(double k, enum TransferType Type)
     if(Type >= VEL_BAR && Type <= VEL_TOT)
         endrun(1, "Velocity Type %d passed to Delta_Tabulated\n", Type);
 
-    return get_Tabulated(k, Type, 0);
+    return get_Tabulated(k, Type);
 }
 
 double dlogGrowth(double kmag, enum TransferType Type)
@@ -106,7 +114,7 @@ double dlogGrowth(double kmag, enum TransferType Type)
     else
         /*Type should be an offset from the first velocity*/
         Type = (enum TransferType) ((int) VEL_BAR + ((int) Type - (int) DELTA_BAR));
-    return get_Tabulated(kmag, Type, 1);
+    return get_Tabulated(kmag, Type);
 }
 
 /*Save a transfer function table to the IC file*/
