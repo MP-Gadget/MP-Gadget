@@ -210,7 +210,7 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     do
     {
         /* Allocate memory. */
-        tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father, 0);
+        tree = force_treeallocate(maxnodes, PartManager->NumPart + 1, ddecomp, alloc_father, 0);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
         force_tree_create_nodes(&tree, act, mask, ddecomp);
