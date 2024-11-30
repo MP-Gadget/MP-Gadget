@@ -720,7 +720,7 @@ set_init_hsml(ForceTree * tree, DomainDecomp * ddecomp, const double MeanGasSepa
 
             /* Check that we didn't somehow get a bad set of nodes*/
             if(p > tree->numnodes + tree->firstnode)
-                endrun(5, "Bad init father: i=%d, mass = %g type %d hsml %g no %d len %g father %d, numnodes %d firstnode %d\n",
+                endrun(5, "Bad init father: i=%d, mass = %g type %d hsml %g no %d len %g father %d, numnodes %ld firstnode %ld\n",
                     i, P[i].Mass, P[i].Type, P[i].Hsml, no, tree->Nodes[no].len, p, tree->numnodes, tree->firstnode);
             no = p;
         } while(10 * DesNumNgb * P[i].Mass > tree->Nodes[no].mom.mass);

@@ -82,11 +82,11 @@ typedef struct ForceTree {
     /* Flags that the tree contains all active particles*/
     int full_particle_tree_flag;
     /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
-    int firstnode;
+    int64_t firstnode;
     /*Index of first pseudo-particle node*/
-    int lastnode;
+    int64_t lastnode;
     /* Number of actually allocated nodes*/
-    int numnodes;
+    int64_t numnodes;
     /* Types which are included have their bits set to 1*/
     int mask;
     /* Number of particles stored in this tree*/
@@ -106,7 +106,7 @@ typedef struct ForceTree {
     struct NODE * Nodes_base;
     /*!< gives parent node in tree for every particle */
     int *Father;
-    int nfather;
+    int64_t nfather;
     /*!< Store the size of the box used to build the tree, for periodic walking.*/
     double BoxSize;
 } ForceTree;
