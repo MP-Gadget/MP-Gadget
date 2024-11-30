@@ -1383,7 +1383,7 @@ ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, cons
 #endif
     tb.firstnode = maxpart;
     tb.lastnode = maxpart + maxnodes;
-    if(maxpart + maxnodes >= 1L<<30)
+    if(maxpart + maxnodes >= (1L<<30) + (1L<<29))
         endrun(5, "Size of tree overflowed for maxpart = %ld, maxnodes = %ld!\n", maxpart, maxnodes);
     tb.numnodes = 0;
     tb.Nodes = tb.Nodes_base - maxpart;
