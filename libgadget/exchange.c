@@ -389,13 +389,24 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct 
                 dest = pman->NumPart;
                 pman->NumPart++;
             }
-            /* Try to find a garbage particle of a different type.
+            /* Try to find a garbage particle of a different type. First try garbage particles without a slot (ie, DM).
+             * Then try particles with a slot.
              * This is the last resort because it means the slot will not be aligned with the particle.*/
             else {
                 int tt;
                 for(tt = 0; tt < 6; tt++)
                 {
-                    if(plan->ngarbage[tt] >= 1) {
+                    if(!sman->info[tt].enabled && plan->ngarbage[tt] >= 1) {
+                        dest = plan->garbage_list[tt][plan->ngarbage[tt]-1];
+                        /* No longer garbage!*/
+                        plan->ngarbage[tt]--;
+                        break;
+                    }
+                }
+
+                for(tt = 0; tt < 6; tt++)
+                {
+                    if(sman->info[tt].enabled && plan->ngarbage[tt] >= 1) {
                         dest = plan->garbage_list[tt][plan->ngarbage[tt]-1];
                         /* No longer garbage!*/
                         plan->ngarbage[tt]--;
