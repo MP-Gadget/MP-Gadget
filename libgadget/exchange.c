@@ -791,9 +791,11 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
             /* Allocate memory for transfer and reset counters.*/
             init_empty_commbuffer(recviter.transferbytes, 0, &all.Recvs);
-            if(recviter.estat == WAITFORSEND && senditer.estat == DONE)
-                endrun(6, "Waiting for send but all sends completed! recv start task %d end task %d sp %ld ep %ld\n",
+            if(recviter.estat == WAITFORSEND && senditer.estat == DONE) {
+                message(6, "Waiting for send but all sends completed! Trying a SUBTASK receive in case it works. recv start task %d end task %d sp %ld ep %ld\n",
                        recviter.StartTask, recviter.EndTask, recviter.StartPart, recviter.EndPart);
+                recviter.estat = SUBTASK;
+            }
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
                 /* Receiving less than one task!*/
