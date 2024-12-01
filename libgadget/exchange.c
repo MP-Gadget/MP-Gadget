@@ -449,7 +449,7 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
         return;
     }
     if(senditer->estat == LASTSUBTASK)
-        message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+        message(5, "senditer Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     senditer->StartTask = senditer->EndTask;
     if(senditer->StartTask == plan->ThisTask) {
         senditer->transferbytes = 0;
@@ -534,11 +534,11 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
         if(freeneeded > freepart)
             recviter->estat = WAITFORSEND;
-        message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld togo %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
+        message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld toget %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
         return;
     }
     if(recviter->estat == LASTSUBTASK)
-        message(5, "Lastsubtask: startpart is now %ld end %ld togo %ld\n", recviter->StartPart, recviter->EndPart, plan->toGo[recviter->StartTask].base);
+        message(5, "recviter Lastsubtask: startpart is now %ld end %ld toget %ld\n", recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
     recviter->StartTask = recviter->EndTask;
     if(recviter->StartTask == plan->ThisTask) {
         recviter->transferbytes = 0;
