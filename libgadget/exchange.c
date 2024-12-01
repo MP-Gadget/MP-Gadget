@@ -514,9 +514,8 @@ freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[], c
     /*This checks we have enough space in the particle table for each slot*/
     int n;
     for(n = 0; n < 6; n++) {
-        /* If we overflow the slots available in garbage, we use the global particle table.*/
-        if(expected_freeslots[n] < getslots[n] - recvdslots[n])
-            freepart += getslots[n] - recvdslots[n] - expected_freeslots[n];
+        /* If we overflow the slots available in garbage, we use the global particle table or other particle types.*/
+        freepart += getslots[n] - recvdslots[n] - expected_freeslots[n];
     }
     return freepart;
 }
@@ -571,7 +570,9 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         int n;
         for(n = 0; n < 6; n++) {
             expected_freeslots[n] -= plan->toGet[recvtask].slots[n];
-            /* If we overflow the slots available in garbage, we use the global particle table.*/
+            /* If we overflow the slots available in garbage, we use the global particle table.
+             * This is not the same logic as freeparts_needed, on purpose, because we would
+             * prefer to keep the particles in type order if we can.*/
             if(expected_freeslots[n] < 0) {
                 freepart += expected_freeslots[n];
                 expected_freeslots[n] = 0;
