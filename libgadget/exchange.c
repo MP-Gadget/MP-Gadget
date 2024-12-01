@@ -72,8 +72,6 @@ enum ExchangeIterStatus
     SUBTASK = 1, /* We didn't have enough space for a whole task, so we are just sending small amounts of particles.*/
     LASTSUBTASK = 2,/* This is the last set of particles in this task!*/
     DONE = 3, /*We have finished all transfers*/
-    WAITFORSEND = 4, /* This is a receive-only status which is entered when we need to start a
-                        new send task to have free space in the particle table.*/
 };
 
 /* Structure to store the tasks that need to be exchanged this iteration*/
@@ -451,7 +449,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct 
 /*Find how many tasks we can send in current exchange iteration.
  If the current task does not fit in the buffer, work out how many particles can be sent. */
 static void
-domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * senditer,  int64_t * expected_freeslots, const size_t maxsendexch)
+domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * senditer, const size_t maxsendexch)
 {
     /* Last loop was a subtask*/
     if(senditer->estat == SUBTASK) {
@@ -475,9 +473,6 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
     senditer->transferbytes = 0;
     /* Note LASTSUBTASK will not hit the conditions above and will just hit here*/
     senditer->estat = TASK;
-    int n;
-    for(n = 0 ; n < 6; n++)
-        expected_freeslots[n] = plan->ngarbage[n];
     /* First find some data to send. This gives us space in the particle table.*/
     int task;
     for(task = 0; task < plan->NTask; task++) {
@@ -487,8 +482,6 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
             break;
         senditer->transferbytes += plan->toGo[sendtask].totalbytes;
         // message(1, "togo %ld tot %ld send %d\n", plan->toGo[sendtask].totalbytes, senditer->transferbytes, sendtask);
-        for(n = 0; n < 6; n++)
-            expected_freeslots[n] += plan->toGo[sendtask].slots[n];
     }
     if(senditer->StartTask == senditer->EndTask) {
         senditer->estat = SUBTASK;
@@ -506,16 +499,27 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
     return;
 }
 
-/* Works out the number of free slots in the particle table that will be used by this receive*/
+/* Works out the number of free slots in the particle table that are needed the receives in recviter,
+ *including the space that will be made available by the pending sends in senditer*/
 static int64_t
-freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[], const int64_t recvdslots[])
+freeparts_needed(const ExchangePlan * plan, const struct ExchangeIter * const recviter)
 {
     int64_t freepart = 0;
-    /*This checks we have enough space in the particle table for each slot*/
-    int n;
-    for(n = 0; n < 6; n++) {
-        /* If we overflow the slots available in garbage, we use the global particle table or other particle types.*/
-        freepart += getslots[n] - recvdslots[n] - expected_freeslots[n];
+    /*We use the garbage lists first.*/
+    int n, task;
+    for(n = 0; n < 6; n++)
+        freepart -= plan->ngarbage[n];
+    /*Now recvs.*/
+    for(task = 0; task < plan->NTask; task++) {
+        const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
+        if(recvtask == recviter->EndTask)
+            break;
+        for(n = 0; n < 6; n++) {
+            /* If we overflow the slots available in garbage, we use the global particle table or other particle types.*/
+            freepart += plan->toGet[task].slots[n];
+            if(recvtask == recviter->StartTask)
+                freepart -= recviter->nslotstransferred[n];
+        }
     }
     return freepart;
 }
@@ -526,9 +530,6 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
 {
     if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
-        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
-        if(freeneeded > freepart)
-            recviter->estat = WAITFORSEND;
         message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld toget %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
         return;
     }
@@ -541,12 +542,13 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         return;
     }
 #ifdef DEBUG
-    if(recviter->estat != LASTSUBTASK && recviter->estat != TASK && recviter->estat != DONE && recviter->estat != WAITFORSEND)
+    if(recviter->estat != LASTSUBTASK && recviter->estat != TASK && recviter->estat != DONE)
         endrun(6, "estat = %d, invalid!\n", recviter->estat);
 #endif
 
     recviter->transferbytes = 0;
     recviter->estat = TASK;
+    memset(recviter->nslotstransferred, 0, sizeof(int64_t) * 6);
     int task;
     for(task = 0; task < plan->NTask; task++) {
         const int recvtask = (recviter->StartTask - task + plan->NTask) % plan->NTask;
@@ -555,8 +557,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         int n;
         for(n = 0; n < 6; n++) {
             expected_freeslots[n] -= plan->toGet[recvtask].slots[n];
-            /* If we overflow the slots available in garbage, we use the global particle table.
-             * This is not the same logic as freeparts_needed, on purpose, because we would
+            /* This is not the same logic as freeparts_needed, on purpose, because we would
              * prefer to keep the particles in type order if we can.*/
             if(expected_freeslots[n] < 0) {
                 freepart += expected_freeslots[n];
@@ -574,21 +575,11 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         // message(1, "toget %ld tot %ld recv %d\n", plan->toGet[recvtask].totalbytes, recviter->transferbytes, recvtask);
     }
     if(recviter->StartTask == recviter->EndTask) {
-        /* Check we have enough free slots for this receive task*/
-        if(freepart < 0) {
-            /* This is stricter than it needs to be because
-               we only really need enough free slots for 1 subtask iteration.
-               However, it doesn't really gain us much to do a subtask
-               receive early, and we might even gain by keeping the
-               particle order intact. */
-            recviter->estat = WAITFORSEND;
-        } else
-            recviter->estat = SUBTASK;
+        recviter->estat = SUBTASK;
         recviter->transferbytes = maxrecvexch;
         recviter->EndTask = (recviter->StartTask - 1) % plan->NTask;
         /* Start at 0 particle: endpart is set at send time.*/
         recviter->StartPart = 0;
-        memset(recviter->nslotstransferred, 0, sizeof(int64_t) * 6);
     }
 #ifdef DEBUG
     message(1, "estat %d Using %ld bytes to recv from %d to %d part start %ld end %ld\n", recviter->estat, recviter->transferbytes, recviter->StartTask, recviter->EndTask, recviter->StartPart, recviter->EndPart);
@@ -777,9 +768,6 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     double tpack = 0, tunpack = 0;
     /* Flags when any pending sends or recvs are finished, so we can do more*/
     int no_sends_pending = 1, no_recvs_pending = 1;
-    /* How many slots will we have available for new particles due to sends?*/
-    int64_t expected_freeslots[6];
-    memcpy(expected_freeslots, plan->ngarbage, 6 * sizeof(plan->ngarbage[0]));
     /* determine for each rank how many particles have to be shifted to other ranks */
     struct ExchangeIter senditer = {0}, recviter = {0};
     /* CommBuffers. init zero ensures no requests stored*/
@@ -789,40 +777,36 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
     domain_init_exchange_iter(&senditer, 1, plan);
     domain_init_exchange_iter(&recviter, -1, plan);
     walltime_measure("/Domain/exchange/misc");
-
     /* Loop. We wait inside domain_check_unpack for either all sends or all recvs to complete. We keep track of the completion status
      * of the send and receives so we can do more the moment a buffer is free*/
     do {
         if(no_sends_pending && senditer.estat != DONE) {
-            domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
+            domain_find_send_iter(plan, &senditer,  maxexch/2);
             /* Allocate memory for transfer and reset counters.*/
             init_empty_commbuffer(senditer.transferbytes, 1, &all.Sends);
-            /* Are we in WAITFORSEND, and can we exit it? */
-            if(recviter.estat == WAITFORSEND) {
-                int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter.StartTask].slots, recviter.nslotstransferred);
-                /* Have enough slots to do at least one recv. Do it, see how many particles come.
-                 * This might be LASTSUBTASK but we figure that out on receive.*/
-                if(freeneeded <= pman->MaxPart - pman->NumPart)
-                    recviter.estat = SUBTASK;
-            }
-            if(senditer.estat == DONE) {
-                message(6, "Waiting for send but all sends completed! Trying a SUBTASK receive in case it works. recv start task %d end task %d sp %ld ep %ld\n",
-                       recviter.StartTask, recviter.EndTask, recviter.StartPart, recviter.EndPart);
-                recviter.estat = SUBTASK;
-            }
         }
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
+            /* How many slots will we have available for new particles due to sends?*/
+            int64_t expected_freeslots[6];
+            memcpy(expected_freeslots, plan->ngarbage, 6 * sizeof(plan->ngarbage[0]));
+            if(no_sends_pending && senditer.estat != DONE) {
+                int task;
+                for(task = 0; task < plan->NTask; task++) {
+                    const int sendtask = (senditer.StartTask + task) % plan->NTask;
+                    if(sendtask == senditer.EndTask)
+                        break;
+                    for(int n = 0; n < 6; n++)
+                        expected_freeslots[n] += plan->toGo[sendtask].slots[n];
+                }
+            }
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
             /* Allocate memory for transfer and reset counters.*/
             init_empty_commbuffer(recviter.transferbytes, 0, &all.Recvs);
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
                 /* Receiving less than one task!*/
-                if(recviter.estat == SUBTASK || recviter.estat == WAITFORSEND) {
-                    /* If we are in the WAITFORSEND state we still need to post the irecv so that the isend does not time out.
-                     * However we do not unpack until after completion of a send task.
-                     Then find_send_iter will run and more free slots will open up.*/
+                if(recviter.estat == SUBTASK) {
                     domain_post_single_recv(plan, &all.Recvs, &recviter, tag, Comm);
                 } else if(recviter.estat == TASK)
                     domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
@@ -849,7 +833,15 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         if(!no_recvs_pending || !no_sends_pending) {
             double tstart = second();
             size_t recvd = 0;
-            if(recviter.estat == WAITFORSEND)
+            /* Check if we have enough free particle slots to complete this recv.
+             * If we do not, wait for sends to complete, post more, then try again.*/
+            int64_t freeneeded = freeparts_needed(plan, &recviter);
+            /* Debug message if we think we are out of slots, but it is the last iteration*/
+            if(freeneeded >= pman->MaxPart - pman->NumPart && senditer.estat == DONE)
+                message(6, "Waiting for send but all sends completed! Trying a SUBTASK receive in case it works. recv start task %d end task %d sp %ld ep %ld\n",
+                    recviter.StartTask, recviter.EndTask, recviter.StartPart, recviter.EndPart);
+            /* If we do not have enough slots to fit these particles, we need to wait to unpack.*/
+            if(freeneeded >= pman->MaxPart - pman->NumPart && senditer.estat != DONE)
                 domain_wait_for_sends(plan, &all);
             else
                 recvd = domain_check_unpack(plan, pman, sman, &all, recviter.nslotstransferred);
