@@ -524,21 +524,6 @@ freeparts_needed(const int64_t expected_freeslots[], const int64_t getslots[], c
 static void
 domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * recviter, int64_t freepart, int64_t * expected_freeslots, const size_t maxrecvexch)
 {
-    /* Last loop was a subtask*/
-    if(recviter->estat == WAITFORSEND) {
-        int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
-        /* Still need more slots, wait for sends to finish.*/
-        if(freeneeded > freepart)
-            return;
-        /* Change back to SUBTASK if there are now enough slots
-         * but not enough bytes to transfer all of them.*/
-        if(plan->toGet[recviter->StartTask].totalbytes > maxrecvexch) {
-            recviter->estat = SUBTASK;
-            return;
-        }
-        /* Otherwise just continue.
-         * We will set estat==TASK and calculate the number of recvs allowed.*/
-    }
     if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
         int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter->StartTask].slots, recviter->nslotstransferred);
@@ -702,6 +687,33 @@ domain_pack_sends(ExchangePlan * const plan, struct CommBuffer * sends, struct E
     return;
 }
 
+
+/* Wait for at least one send to complete. Then we try to get more. This happens if we are in the WAITFORSEND state.*/
+static size_t
+domain_wait_for_sends(ExchangePlan * plan, struct CombinedBuffer * all)
+{
+    /* Now wait for and unpack the receives as they arrive.*/
+    int * complete_array = ta_malloc("completes", int, plan->NTask);
+    MPI_Status * stats = ta_malloc("stats", MPI_Status, plan->NTask);
+    message(3, "waiting for sends. send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
+    MPI_Request * startreq =  all->rdata_all + plan->NTask;
+    /* We wait in a loop until we have all the sends. Once we have those we can post more, maybe exit WAITFORSEND.*/
+    while(all->Sends.totcomplete < all->Sends.nrequest_all) {
+        int complete_cnt = MPI_UNDEFINED;
+        /* Check for some completed requests: note that cleanup is performed if the requests are complete.
+         * There may be only 1 completed request, and we need to wait again until we have more.*/
+        MPI_Waitsome(all->Sends.nrequest_all, startreq, &complete_cnt, complete_array, stats);
+        /* This happens if all requests are MPI_REQUEST_NULL. It should never be hit*/
+        if (complete_cnt == MPI_UNDEFINED) {
+            endrun(5, "Waited for no data! This should never happen.\n");
+        }
+        all->Sends.totcomplete += complete_cnt;
+    };
+    ta_free(stats);
+    ta_free(complete_array);
+    return 0;
+}
+
 /* Wait for some sends and receives. Unpack received data into a buffer.
  * We busy-loop until either sends or receives are done and then we try to get more.*/
 static size_t
@@ -785,29 +797,35 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             domain_find_send_iter(plan, &senditer,  expected_freeslots, maxexch/2);
             /* Allocate memory for transfer and reset counters.*/
             init_empty_commbuffer(senditer.transferbytes, 1, &all.Sends);
+            /* Are we in WAITFORSEND, and can we exit it? */
+            if(recviter.estat == WAITFORSEND) {
+                int64_t freeneeded = freeparts_needed(expected_freeslots, plan->toGet[recviter.StartTask].slots, recviter.nslotstransferred);
+                /* Have enough slots to do at least one recv. Do it, see how many particles come.
+                 * This might be LASTSUBTASK but we figure that out on receive.*/
+                if(freeneeded <= pman->MaxPart - pman->NumPart)
+                    recviter.estat = SUBTASK;
+            }
+            if(senditer.estat == DONE) {
+                message(6, "Waiting for send but all sends completed! Trying a SUBTASK receive in case it works. recv start task %d end task %d sp %ld ep %ld\n",
+                       recviter.StartTask, recviter.EndTask, recviter.StartPart, recviter.EndPart);
+                recviter.estat = SUBTASK;
+            }
         }
         if(no_recvs_pending && recviter.estat != DONE) {
             /* No recvs are pending, try to get more*/
             domain_find_recv_iter(plan, &recviter, pman->MaxPart - pman->NumPart, expected_freeslots, maxexch/2);
             /* Allocate memory for transfer and reset counters.*/
             init_empty_commbuffer(recviter.transferbytes, 0, &all.Recvs);
-            if(recviter.estat == WAITFORSEND && senditer.estat == DONE) {
-                message(6, "Waiting for send but all sends completed! Trying a SUBTASK receive in case it works. recv start task %d end task %d sp %ld ep %ld\n",
-                       recviter.StartTask, recviter.EndTask, recviter.StartPart, recviter.EndPart);
-                recviter.estat = SUBTASK;
-            }
             /* Need check in case receives finished but still sends to do*/
             if(recviter.estat != DONE) {
                 /* Receiving less than one task!*/
-                if(recviter.estat == SUBTASK) {
+                if(recviter.estat == SUBTASK || recviter.estat == WAITFORSEND) {
+                    /* If we are in the WAITFORSEND state we still need to post the irecv so that the isend does not time out.
+                     * However we do not unpack until after completion of a send task.
+                     Then find_send_iter will run and more free slots will open up.*/
                     domain_post_single_recv(plan, &all.Recvs, &recviter, tag, Comm);
                 } else if(recviter.estat == TASK)
                     domain_post_recvs(plan, &all.Recvs, &recviter, tag, Comm);
-                else if (recviter.estat == WAITFORSEND){
-                    /* Do nothing here! We await the completion of a send task to post more sends.
-                     Waitsome in check_unpack will wait until all sends complete.
-                     Then find_send_iter will run and more free slots will open up.*/
-                }
                 if(all.Recvs.nrequest_all > 0)
                     no_recvs_pending = 0;
             }
@@ -830,7 +848,11 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
         /* Now wait for and unpack the receives as they arrive.*/
         if(!no_recvs_pending || !no_sends_pending) {
             double tstart = second();
-            size_t recvd = domain_check_unpack(plan, pman, sman, &all, recviter.nslotstransferred);
+            size_t recvd = 0;
+            if(recviter.estat == WAITFORSEND)
+                domain_wait_for_sends(plan, &all);
+            else
+                recvd = domain_check_unpack(plan, pman, sman, &all, recviter.nslotstransferred);
             if(!no_recvs_pending && all.Recvs.totcomplete == all.Recvs.nrequest_all ) {
                 no_recvs_pending = 1;
                 if(recviter.estat == SUBTASK) {
