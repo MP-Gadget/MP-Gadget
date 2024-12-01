@@ -81,7 +81,7 @@ typedef struct ForceTree {
     int moments_computed_flag;
     /* Flags that the tree contains all active particles*/
     int full_particle_tree_flag;
-    /*Index of first internal node. Difference between Nodes and Nodes_base. == MaxPart*/
+    /*Index of first internal node. Difference between Nodes and Nodes_base. == NumPart + 1*/
     int64_t firstnode;
     /*Index of first pseudo-particle node*/
     int64_t lastnode;

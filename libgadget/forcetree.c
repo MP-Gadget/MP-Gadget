@@ -1382,11 +1382,11 @@ ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, cons
     memset(tb.Nodes_base, -1, (maxnodes + 1) * sizeof(struct NODE));
 #endif
     tb.firstnode = maxpart;
-    tb.lastnode = maxpart + maxnodes;
-    if(maxpart + maxnodes >= (1L<<30) + (1L<<29))
+    tb.lastnode = tb.firstnode + maxnodes;
+    if(tb.lastnode >= (1L<<30) + (1L<<29))
         endrun(5, "Size of tree overflowed for maxpart = %ld, maxnodes = %ld!\n", maxpart, maxnodes);
     tb.numnodes = 0;
-    tb.Nodes = tb.Nodes_base - maxpart;
+    tb.Nodes = tb.Nodes_base - tb.firstnode;
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
     tb.TopLeaves = ddecomp->TopLeaves;
