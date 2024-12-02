@@ -24,18 +24,17 @@
     - Busy-loop while there is data to send or receive or a pending ISend/IRecv.
         - Pack up sends in half the exchange space and ISend. This makes extra space in the particle table.
         - Irecv for receives into the other half.
-        - If there is not enough space for all data to a single task (either packing space or free slots in the particle table),
-          just do part of a single task. This decision is usually collective because packing space is collective. However, it is not
-          important because IRecv will happily accept less data than expected. As long as we are expecting something, it doesn't matter if less is sent.
-        - Check the completion of IRecvs and unpack. The send buffer goes directly into a garbage slot for the right particle type, ensuring
-          that the particles are still ordered by type.
-        - Check the completion of sends.
+        - If there is not enough packing space for all data to a single task, just do part of a single task. IRecv will happily accept
+          less data than expected. As long as we are expecting something, it doesn't matter if less is sent.
+        - Check the completion of ISends/IRecvs and unpack. The recv buffer goes directly into a garbage slot, ideally for the right particle type, so
+          that most particles are still ordered by type.
     This does not block because the sends cannot block the recvs (and vice versa). Also the sends and recvs are ordered:
     sends are done 'forwards' to the task 1 in front of the current task and receives are done 'backwards' to the task 1 before the current task.
     Because each send is paired with a receive no deadlock is possible.
 
     If we are blocked on a recv, we just do more sends (always allowed as we have separate space allocations).
-    If we are blocked on a send, and we have space in the particle table (should always be the case as we made space for the blocked send), we do a recv.
+    If we are blocked on a send, we do a recv.
+    If we don't have particle table space for the recv buffer, we post irecv but wait for more sends to complete before we unpack.
  */
 
 
