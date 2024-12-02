@@ -202,7 +202,7 @@ domain_free_exchangeplan(ExchangePlan * plan)
 
 /* We want to avoid doing an MPI_ISend/Recv with more thank 2^31 bytes of material so we don't overflow an int.
  * We do ISend/IRecv with half of this.*/
-static size_t MaxExch = 3072L*1024L*1024L;
+static size_t MaxExch = 1024L*1024L*1024L;
 /* For tests*/
 void
 domain_set_max_exchange(const size_t maxexch)
