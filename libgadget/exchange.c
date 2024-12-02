@@ -262,16 +262,9 @@ int domain_exchange(ExchangeLayoutFunc layoutfunc, const void * layout_userdata,
     walltime_measure("/Domain/exchange/plan");
     /* Do this after domain_build_plan so the target lists are already allocated*/
     size_t maxexch = domain_get_exchange_space(plan.NTask, Comm);
-#ifdef DEBUG
-    MPI_Barrier(Comm);
-    message(0, "Plan build, failure %d\n", failure);
-#endif
     /* Now to do an exchange if it will succeed*/
     if(!failure)
         failure = domain_exchange_once(&plan, pman, sman, 123000, maxexch, Comm);
-#ifdef DEBUG
-    message(0, "Finished exchange. %d\n", failure);
-#endif
     domain_free_exchangeplan(&plan);
 
 #ifdef DEBUG
@@ -335,7 +328,7 @@ exchange_pack_buffer(char * exch, const size_t databufsize, const int task, cons
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i, pman, sman);
     }
-    message(4, "after pack for task %d sent %ld of %ld ngarbage %ld %ld %ld\n", task, n, plan->toGo[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
+    // message(4, "after pack for task %d sent %ld of %ld ngarbage %ld %ld %ld\n", task, n, plan->toGo[task].base, plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[2]);
     *endpart = n;
     return exchptr - exch;
 }
@@ -440,7 +433,7 @@ exchange_unpack_buffer(char * exch, int task, ExchangePlan * const plan, struct 
 #endif
         }
     }
-    message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4]);
+    // message(4, "after unpack ngarbage %ld %ld %ld\n", plan->ngarbage[0], plan->ngarbage[1], plan->ngarbage[4]);
     return copybase;
 }
 
@@ -453,11 +446,11 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
     /* Last loop was a subtask*/
     if(senditer->estat == SUBTASK) {
         senditer->StartPart = senditer->EndPart;
-        message(5, "SendIter subtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+        // message(5, "SendIter subtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
         return;
     }
-    if(senditer->estat == LASTSUBTASK)
-        message(5, "senditer Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+    // if(senditer->estat == LASTSUBTASK)
+        // message(5, "senditer Lastsubtask: startpart is now %ld end %ld togo %ld\n", senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     senditer->StartTask = senditer->EndTask;
     if(senditer->StartTask == plan->ThisTask) {
         senditer->transferbytes = 0;
@@ -492,7 +485,7 @@ domain_find_send_iter(const ExchangePlan * const plan, struct ExchangeIter * sen
     }
 
 #ifdef DEBUG
-    message(1, "estat %d Using %ld bytes to send from %d to %d part start %ld end %ld\n", senditer->estat, senditer->transferbytes, senditer->StartTask, senditer->EndTask, senditer->StartPart, senditer->EndPart);
+    // message(1, "estat %d Using %ld bytes to send from %d to %d part start %ld end %ld\n", senditer->estat, senditer->transferbytes, senditer->StartTask, senditer->EndTask, senditer->StartPart, senditer->EndPart);
 #endif
 
     return;
@@ -529,11 +522,11 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
 {
     if(recviter->estat == SUBTASK) {
         recviter->StartPart = recviter->EndPart;
-        message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld toget %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
+        // message(5, "RecvIter subtask: estat %d startpart is now %ld end %ld toget %ld\n", recviter->estat, recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
         return;
     }
-    if(recviter->estat == LASTSUBTASK)
-        message(5, "recviter Lastsubtask: startpart is now %ld end %ld toget %ld\n", recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
+    // if(recviter->estat == LASTSUBTASK)
+        // message(5, "recviter Lastsubtask: startpart is now %ld end %ld toget %ld\n", recviter->StartPart, recviter->EndPart, plan->toGet[recviter->StartTask].base);
     recviter->StartTask = recviter->EndTask;
     if(recviter->StartTask == plan->ThisTask) {
         recviter->transferbytes = 0;
@@ -565,7 +558,7 @@ domain_find_recv_iter(const ExchangePlan * const plan, struct ExchangeIter * rec
         recviter->StartPart = 0;
     }
 #ifdef DEBUG
-    message(1, "estat %d Using %ld bytes to recv from %d to %d part start %ld end %ld\n", recviter->estat, recviter->transferbytes, recviter->StartTask, recviter->EndTask, recviter->StartPart, recviter->EndPart);
+    // message(1, "estat %d Using %ld bytes to recv from %d to %d part start %ld end %ld\n", recviter->estat, recviter->transferbytes, recviter->StartTask, recviter->EndTask, recviter->StartPart, recviter->EndPart);
 #endif
 
     return;
@@ -577,7 +570,7 @@ domain_post_single_recv(const ExchangePlan * plan, struct CommBuffer * recvs, st
 {
     /* Note that IRecv will happily accept less bytes than are requested.*/
     MPI_Irecv(recvs->databuf, thisiter->transferbytes, MPI_BYTE, thisiter->StartTask, tag, Comm, recvs->rdata_all + plan->NTask - 1);
-    message(1, "Partial recv task %d bytes %ld, startpart %lu\n", thisiter->StartTask, thisiter->transferbytes, thisiter->StartPart);
+    // message(1, "Partial recv task %d bytes %ld, startpart %lu\n", thisiter->StartTask, thisiter->transferbytes, thisiter->StartPart);
 
     recvs->rqst_task[0] = thisiter->StartTask;
     recvs->displs[0] = 0;
@@ -607,7 +600,7 @@ domain_post_recvs(const ExchangePlan * plan, struct CommBuffer * recvs, struct E
         displs += plan->toGet[recvtask].totalbytes;
         if(displs > recvs->databufsize)
             endrun(4, "Recv buffer overflow with %ld bytes > %ld allocated for task %d end %d\n", displs, recvs->databufsize, task, recviter->EndTask);
-        message(1, "Receive task %d toget %ld tot %ld\n", recvtask, plan->toGet[recvtask].totalbytes, recviter->transferbytes);
+        // message(1, "Receive task %d toget %ld tot %ld\n", recvtask, plan->toGet[recvtask].totalbytes, recviter->transferbytes);
         recvs->nrequest_all ++;
     }
     if(displs != recviter->transferbytes)
@@ -622,7 +615,7 @@ domain_pack_single_send(ExchangePlan * const plan, struct CommBuffer * sends, st
     /* Move the data into the buffer*/
     size_t packed_bytes = exchange_pack_buffer(sends->databuf, sends->databufsize, senditer->StartTask, senditer->StartPart, plan, pman, sman, senditer->transferbytes, &senditer->EndPart);
     MPI_Isend(sends->databuf, packed_bytes, MPI_BYTE, senditer->StartTask, tag, Comm, sends->rdata_all);
-    message(1, "Partial send task %d bytes %ld, startpart %lu endpart %lu total %ld\n", senditer->StartTask, senditer->transferbytes, senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
+    // message(1, "Partial send task %d bytes %ld, startpart %lu endpart %lu total %ld\n", senditer->StartTask, senditer->transferbytes, senditer->StartPart, senditer->EndPart, plan->toGo[senditer->StartTask].base);
     sends->rqst_task[0] = senditer->StartTask;
     sends->displs[0] = 0;
     sends->nrequest_all = 1;
@@ -655,7 +648,7 @@ domain_pack_sends(ExchangePlan * const plan, struct CommBuffer * sends, struct E
             endrun(4, "Send buffer overflow with %ld bytes > %ld allocated for task %d end %d\n", displs, sends->databufsize, task, senditer->EndTask);
         sends->nrequest_all ++;
     }
-    message(3, "Packed sends for task %d to %d nrequest %d\n", senditer->StartTask, senditer->EndTask, sends->nrequest_all);
+    // message(3, "Packed sends for task %d to %d nrequest %d\n", senditer->StartTask, senditer->EndTask, sends->nrequest_all);
     if(displs != senditer->transferbytes)
         endrun(3, "Packed %lu bytes for sending but expected %lu bytes.\n", displs, senditer->transferbytes);
     return;
@@ -669,7 +662,7 @@ domain_wait_for_sends(ExchangePlan * plan, struct CombinedBuffer * all)
     /* Now wait for and unpack the receives as they arrive.*/
     int * complete_array = ta_malloc("completes", int, plan->NTask);
     MPI_Status * stats = ta_malloc("stats", MPI_Status, plan->NTask);
-    message(3, "waiting for sends. send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
+    // message(3, "waiting for sends. send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
     MPI_Request * startreq =  all->rdata_all + plan->NTask;
     /* We wait in a loop until we have all the sends. Once we have those we can post more, maybe exit WAITFORSEND.*/
     while(all->Sends.totcomplete < all->Sends.nrequest_all) {
@@ -698,7 +691,7 @@ domain_check_unpack(ExchangePlan * plan, struct part_manager_type * pman, struct
     size_t recvd = 0;
     int * complete_array = ta_malloc("completes", int, 2 * plan->NTask);
     MPI_Status * stats = ta_malloc("stats", MPI_Status, 2 * plan->NTask);
-    message(3, "send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
+    // message(3, "send reqs: %d recvs reqs %d\n", all->Sends.nrequest_all, all->Recvs.nrequest_all);
     MPI_Request * startreq =  all->rdata_all + plan->NTask - all->Recvs.nrequest_all;
     /* We wait in a loop until we have either all the sends or all the recvs. Once we have those we can post more.*/
     while(all->Recvs.totcomplete < all->Recvs.nrequest_all || all->Sends.totcomplete < all->Sends.nrequest_all) {
@@ -819,11 +812,11 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
                 no_recvs_pending = 1;
                 if(recviter.estat == SUBTASK) {
                     recviter.EndPart = recviter.StartPart + recvd;
-                    message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
+                    // message(2, "Done Partial Received %ld task %d sp %ld ep %ld end task %d\n", recvd, recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     /* Check whether this was the final part of a task, in which case move to next task.*/
                     if(recviter.EndPart == plan->toGet[recviter.StartTask].base) {
                         recviter.estat = LASTSUBTASK;
-                        message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
+                        // message(2, "Finished recv task %d sp %ld ep %ld end task %d\n", recviter.StartTask, recviter.StartPart, recviter.EndPart, recviter.EndTask);
                     }
                     if(recviter.EndPart > plan->toGet[recviter.StartTask].base)
                         endrun(5, "Received %ld particles from task %d more than %ld expected\n", recviter.EndPart, recviter.StartTask, plan->toGet[recviter.StartTask].base);
@@ -832,7 +825,7 @@ domain_exchange_once(ExchangePlan * plan, struct part_manager_type * pman, struc
             /* Done with sends, let's get more! */
             if(!no_sends_pending && all.Sends.totcomplete == all.Sends.nrequest_all) {
                 no_sends_pending = 1;
-                message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
+                // message(2, "Finished send task %d sp %ld ep %ld end task %d\n", senditer.StartTask, senditer.StartPart, senditer.EndPart, senditer.EndTask);
             }
             double tend = second();
             tunpack += timediff(tstart, tend);
