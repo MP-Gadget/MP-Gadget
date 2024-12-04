@@ -866,8 +866,10 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
 
     /*We reached the leaf of the toptree*/
     const int curdaughter = ddecomp->TopNodes[topnode].Daughter;
-    if(curdaughter < 0)
+    if(curdaughter < 0) {
+        ddecomp->TopLeaves[topnode].treenode = no;
         return;
+    }
 
     for(i = 0; i < 2; i++)
         for(j = 0; j < 2; j++)
