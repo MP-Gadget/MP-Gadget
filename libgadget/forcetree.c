@@ -677,6 +677,8 @@ force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
     nfreep->mom.mass = 0;
     nfreep->mom.hmax = 0;
     nnext++;
+    /* Set the treenode for this node*/
+    ddecomp->TopLeaves[0].treenode = tree->firstnode;
     /* create a set of empty nodes corresponding to the top-level ddecomp
         * grid. We need to generate these nodes first to make sure that we have a
         * complete top-level tree which allows the easy insertion of the

@@ -312,8 +312,8 @@ static void test_rebuild_flat(void ** state) {
     /*Base pointer*/
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    ddecomp.TopLeaves[0].treenode = numpart;
     ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
+    ddecomp.TopLeaves[0].treenode = tb.firstnode;
     /* So unused memory has Father < 0*/
     for(i = tb.firstnode; i < tb.lastnode; i++)
         tb.Nodes[i].father = -10;
@@ -345,8 +345,8 @@ static void test_rebuild_close(void ** state) {
     PartManager->NumPart = numpart;
     struct forcetree_testdata * data = * (struct forcetree_testdata **) state;
     DomainDecomp ddecomp = data->ddecomp;
-    ddecomp.TopLeaves[0].treenode = numpart;
     ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
+    ddecomp.TopLeaves[0].treenode = tb.firstnode;
     do_tree_test(numpart, tb, &ddecomp);
     force_tree_free(&tb);
     tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
@@ -392,8 +392,8 @@ static void test_rebuild_random(void ** state) {
     particle_alloc_memory(PartManager, 8, numpart);
     /*Allocate tree*/
     /*Base pointer*/
-    ddecomp.TopLeaves[0].treenode = numpart;
     ForceTree tb = force_treeallocate(0.7*numpart, numpart, &ddecomp, 1, 0);
+    ddecomp.TopLeaves[0].treenode = tb.firstnode;
     assert_true(tb.Nodes != NULL);
     int i;
     for(i=0; i<2; i++) {
@@ -420,7 +420,6 @@ void trivial_domain(DomainDecomp * ddecomp)
     ddecomp->TopNodes[0].Leaf = 0;
     ddecomp->TopLeaves = malloc(sizeof(struct topleaf_data));
     ddecomp->TopLeaves[0].Task = 0;
-    ddecomp->TopLeaves[0].treenode = 0;
     /*These are not used*/
     ddecomp->TopNodes[0].StartKey = 0;
     ddecomp->TopNodes[0].Shift = BITS_PER_DIMENSION * 3;
