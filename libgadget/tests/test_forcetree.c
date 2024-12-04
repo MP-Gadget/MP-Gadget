@@ -81,7 +81,7 @@ static int check_moments(const ForceTree * tb, const int numpart, const int nrea
             sibcntr++;
 
         if(!(tb->Nodes[node].mom.mass < 0.5 && tb->Nodes[node].mom.mass > -0.5)) {
-            printf("node %d (%d) mass %g / %g TL %d DLM %d ITL %d\n",
+            printf("node %d (%ld) mass %g / %g TL %d DLM %d ITL %d\n",
                 node, node - tb->firstnode, tb->Nodes[node].mom.mass, oldmass[node - tb->firstnode],
                 tb->Nodes[node].f.TopLevel,
                 tb->Nodes[node].f.DependsOnLocalMass,
@@ -197,7 +197,7 @@ static void do_tree_test(const int numpart, ForceTree tb, DomainDecomp * ddecomp
     assert_true(tb.numnodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
-    printf("Number of nodes used: %d. Built tree in %.3g ms\n", tb.numnodes,ms);
+    printf("Number of nodes used: %ld. Built tree in %.3g ms\n", tb.numnodes,ms);
     int nrealnode = check_tree(&tb, tb.numnodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
