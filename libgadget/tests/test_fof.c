@@ -90,7 +90,7 @@ test_fof(void **state)
 
     /* Example assertion: this checks that the groups were allocated. */
     assert_all_true(fof.Group);
-    assert_true(fof.TotNgroups == 1);
+    assert_true(fof.TotNgroups == 4);
     /* Assert some more things about the particles,
      * maybe checking the halo properties*/
 
