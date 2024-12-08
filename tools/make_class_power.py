@@ -154,13 +154,14 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     outputs = redshift
     if extraz is not None:
         outputs = [outputs,]+ extraz
+        strout = ", ".join([str(o) for o in outputs])
     #Pass options for the power spectrum
     MPC_in_cm = 3.085678e24
     boxmpc = config['BoxSize'] / MPC_in_cm * config['UnitLength_in_cm']
     maxk = max(10, 2*math.pi/boxmpc*config['Ngrid']*4)
     #CLASS needs the first redshift to be relatively high for some internal interpolation reasons
     maxz = max(1 + np.max(outputs), 99)
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : maxz,'z_pk': outputs, 'extra metric transfer functions': 'y'}
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : maxz,'z_pk': strout, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
 
     if verbose:
@@ -221,11 +222,11 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
                 raise IOError("Refusing to write to existing file: ",tfile)
             save_transfer(trans, tfile)
             #Get and save the matter power spectrum
-            pk_lin = np.array([powspec.pk_lin(k=kk, z=redshift) for kk in kmpc])
-            pkfile = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
-            if os.path.exists(pkfile):
-                raise IOError("Refusing to write to existing file: ",pkfile)
-            np.savetxt(pkfile, np.vstack([khmpc, pk_lin]).T)
+            pk_lin_z = np.array([powspec.pk_lin(k=kk, z=red) for kk in kmpc])*pre_params['h']**3
+            pkfile_z = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
+            if os.path.exists(pkfile_z):
+                raise IOError("Refusing to write to existing file: ",pkfile_z)
+            np.savetxt(pkfile_z, np.vstack([khmpc, pk_lin_z]).T)
 
 def save_transfer(transfer, transferfile):
     """Save a transfer function. Note we save the CLASS FORMATTED transfer functions.
