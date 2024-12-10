@@ -155,6 +155,8 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     if extraz is not None:
         outputs = [outputs,]+ extraz
         strout = ", ".join([str(o) for o in outputs])
+    else:
+        strout = str(outputs)
     #Pass options for the power spectrum
     MPC_in_cm = 3.085678e24
     boxmpc = config['BoxSize'] / MPC_in_cm * config['UnitLength_in_cm']
