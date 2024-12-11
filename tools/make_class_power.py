@@ -81,6 +81,8 @@ def _build_cosmology_params(config):
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
 
     omegak = 1-config['OmegaLambda']-config['Omega0']
+    if np.abs(omegak) > 1e-5:
+        print("Curvature present: Omega_K = %g" % omegak)
     # avoid numerical issue due to very small OmegaK
     if np.abs(omegak) < 1e-9:
         omegak = 0
@@ -167,7 +169,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     pre_params.update(powerparams)
 
     if verbose:
-        verb_params = {'input_verbose': 1, 'background_verbose': 1, 'thermodynamics_verbose': 1, 'perturbations_verbose': 1, 'transfer_verbose': 1, 'primordial_verbose': 1, 'spectra_verbose': 1, 'nonlinear_verbose': 1, 'lensing_verbose': 1, 'output_verbose': 1}
+        verb_params = {'input_verbose': 1, 'background_verbose': 1, 'thermodynamics_verbose': 1, 'perturbations_verbose': 1, 'transfer_verbose': 1, 'primordial_verbose': 1, 'lensing_verbose': 1, 'output_verbose': 1}
         pre_params.update(verb_params)
 
     #Specify an external primordial power spectrum
@@ -207,9 +209,9 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
         save_transfer(trans, tfile)
     #fp-roundoff
     khmpc = trans['k (h/Mpc)']
+    khmpc[-1] *= 0.9999
     #Note pk lin has no h unit! But the file we want to save should have it.
     kmpc = khmpc * pre_params['h']
-    #khmpc[-1] *= 0.9999
     #Get and save the matter power spectrum. We want (Mpc/h)^3 units but the default is Mpc^3.
     pk_lin = np.array([powspec.pk_lin(k=kk, z=redshift) for kk in kmpc])*pre_params['h']**3
     pkfile = os.path.join(sdir, config['FileWithInputSpectrum'])
