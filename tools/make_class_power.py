@@ -1,8 +1,7 @@
-"""This module creates a matter power spectrum using Classylss,
+"""This module creates a matter power spectrum using classy,
 a python interface to the CLASS Boltzmann code.
 
 See:
-http://classylss.readthedocs.io/en/stable/
 http://class-code.net/
 It parses an MP-GenIC parameter file and generates a matter power spectrum
 and transfer function at the initial redshift. It generates a second transfer
@@ -22,8 +21,7 @@ import math
 import os.path
 import argparse
 import numpy as np
-import classylss
-import classylss.binding as CLASS
+from classy import Class
 import configobj
 import validate
 
@@ -83,6 +81,8 @@ def _build_cosmology_params(config):
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
 
     omegak = 1-config['OmegaLambda']-config['Omega0']
+    if np.abs(omegak) > 1e-5:
+        print("Curvature present: Omega_K = %g" % omegak)
     # avoid numerical issue due to very small OmegaK
     if np.abs(omegak) < 1e-9:
         omegak = 0
@@ -115,9 +115,9 @@ def _build_cosmology_params(config):
         gparams['ncdm_fluid_trigger_tau_over_tau_k'] = 10000.
     else:
         gparams['N_ur'] = 3.046
-    #Power spectrum amplitude: sigma8 is ignored by classylss.
+    #Power spectrum amplitude: sigma8 is ignored by classy.
     if config['Sigma8'] > 0:
-        print("Warning: classylss does not read sigma8. GenIC must rescale P(k).")
+        print("Warning: classy does not read sigma8. GenIC must rescale P(k).")
     gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
@@ -143,7 +143,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     _check_genic_config(config)
 
     #Precision
-    pre_params = {'tol_background_integration': 1e-9, 'tol_perturb_integration' : 1.e-7, 'tol_thermo_integration':1.e-5, 'k_per_decade_for_pk': 50, 'k_bao_width': 8, 'k_per_decade_for_bao':  200, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150}
+    pre_params = {'k_per_decade_for_pk': 50, 'k_bao_width': 8, 'k_per_decade_for_bao':  200, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150}
 
     #Important! Densities are in synchronous gauge!
     pre_params['gauge'] = 'synchronous'
@@ -156,17 +156,20 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     outputs = redshift
     if extraz is not None:
         outputs = [outputs,]+ extraz
+        strout = ", ".join([str(o) for o in outputs])
+    else:
+        strout = str(outputs)
     #Pass options for the power spectrum
     MPC_in_cm = 3.085678e24
     boxmpc = config['BoxSize'] / MPC_in_cm * config['UnitLength_in_cm']
     maxk = max(10, 2*math.pi/boxmpc*config['Ngrid']*4)
     #CLASS needs the first redshift to be relatively high for some internal interpolation reasons
     maxz = max(1 + np.max(outputs), 99)
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : maxz,'z_pk': outputs, 'extra metric transfer functions': 'y'}
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : maxz,'z_pk': strout, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
 
     if verbose:
-        verb_params = {'input_verbose': 1, 'background_verbose': 1, 'thermodynamics_verbose': 1, 'perturbations_verbose': 1, 'transfer_verbose': 1, 'primordial_verbose': 1, 'spectra_verbose': 1, 'nonlinear_verbose': 1, 'lensing_verbose': 1, 'output_verbose': 1}
+        verb_params = {'input_verbose': 1, 'background_verbose': 1, 'thermodynamics_verbose': 1, 'perturbations_verbose': 1, 'transfer_verbose': 1, 'primordial_verbose': 1, 'lensing_verbose': 1, 'output_verbose': 1}
         pre_params.update(verb_params)
 
     #Specify an external primordial power spectrum
@@ -182,12 +185,21 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     if 'ncdm_fluid_approximation' in pre_params:
         print('Starting CLASS power spectrum with accurate P(k) for massive neutrinos.')
         print('Computation may take several minutes')
-    #Make the power spectra module
-    engine = CLASS.ClassEngine(pre_params)
-    powspec = CLASS.Spectra(engine)
-    print("sigma_8(z=0) = ", powspec.sigma8, "A_s = ",powspec.A_s)
     #Save directory
     sdir = os.path.split(paramfile)[0]
+    if config['DifferentTransferFunctions'] == 1.:
+        tfile = os.path.join(sdir, config['FileWithTransferFunction'])
+        if os.path.exists(tfile):
+            raise IOError("Refusing to write to existing file: ",tfile)
+    pkfile = os.path.join(sdir, config['FileWithInputSpectrum'])
+    if os.path.exists(pkfile):
+        raise IOError("Refusing to write to existing file: ",pkfile)
+
+    #Make the power spectra module
+    powspec = Class()
+    powspec.set(pre_params)
+    powspec.compute()
+    print("sigma_8(z=0) = ", powspec.sigma8(), "A_s = ",pre_params["A_s"])
     #Get and save the transfer functions if needed
     trans = powspec.get_transfer(z=redshift)
     if config['DifferentTransferFunctions'] == 1.:
@@ -196,13 +208,16 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
             raise IOError("Refusing to write to existing file: ",tfile)
         save_transfer(trans, tfile)
     #fp-roundoff
-    trans['k'][-1] *= 0.9999
-    #Get and save the matter power spectrum
-    pk_lin = powspec.get_pklin(k=trans['k'], z=redshift)
+    khmpc = trans['k (h/Mpc)']
+    khmpc[-1] *= 0.9999
+    #Note pk lin has no h unit! But the file we want to save should have it.
+    kmpc = khmpc * pre_params['h']
+    #Get and save the matter power spectrum. We want (Mpc/h)^3 units but the default is Mpc^3.
+    pk_lin = np.array([powspec.pk_lin(k=kk, z=redshift) for kk in kmpc])*pre_params['h']**3
     pkfile = os.path.join(sdir, config['FileWithInputSpectrum'])
     if os.path.exists(pkfile):
         raise IOError("Refusing to write to existing file: ",pkfile)
-    np.savetxt(pkfile, np.vstack([trans['k'], pk_lin]).T)
+    np.savetxt(pkfile, np.vstack([khmpc, pk_lin]).T)
     if extraz is not None:
         for red in extraz:
             trans = powspec.get_transfer(z=red)
@@ -210,13 +225,12 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
             if os.path.exists(tfile):
                 raise IOError("Refusing to write to existing file: ",tfile)
             save_transfer(trans, tfile)
-            trans['k'][-1] *= 0.9999
             #Get and save the matter power spectrum
-            pk_lin = powspec.get_pklin(k=trans['k'], z=red)
-            pkfile = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
-            if os.path.exists(pkfile):
-                raise IOError("Refusing to write to existing file: ",pkfile)
-            np.savetxt(pkfile, np.vstack([trans['k'], pk_lin]).T)
+            pk_lin_z = np.array([powspec.pk_lin(k=kk, z=red) for kk in kmpc])*pre_params['h']**3
+            pkfile_z = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
+            if os.path.exists(pkfile_z):
+                raise IOError("Refusing to write to existing file: ",pkfile_z)
+            np.savetxt(pkfile_z, np.vstack([khmpc, pk_lin_z]).T)
 
 def save_transfer(transfer, transferfile):
     """Save a transfer function. Note we save the CLASS FORMATTED transfer functions.
@@ -232,7 +246,12 @@ t_tot stands for (sum_i [rho_i+p_i] theta_i)/(sum_i [rho_i+p_i]))(k,z)
 If some neutrino species are massless, or degenerate, the d_ncdm and t_ncdm columns may be missing below.
 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur        6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi     11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime     16:t_g                   17:t_b                   18:t_ur        19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot"""
     #This format matches the default output by CLASS command line.
-    np.savetxt(transferfile, transfer, header=header)
+    if "d_ncdm[0]" in transfer.keys():
+        wanted_trans_keys = ['k (h/Mpc)', 'd_g', 'd_b', 'd_cdm', 'd_ur', "d_ncdm[0]", "d_ncdm[1]", "d_ncdm[2]", 'd_tot', 'phi', 'psi', 'h', 'h_prime', 'eta', 'eta_prime', 't_g', 't_b', 't_ur', 't_ncdm[0]', 't_ncdm[1]', 't_ncdm[2]', 't_tot']
+    else:
+        wanted_trans_keys = ['k (h/Mpc)', 'd_g', 'd_b', 'd_cdm', 'd_ur', 'd_tot', 'phi', 'psi', 'h', 'h_prime', 'eta', 'eta_prime', 't_g', 't_b', 't_ur', 't_tot']
+    transferarr = np.vstack([transfer[kk] for kk in wanted_trans_keys]).T
+    np.savetxt(transferfile, transferarr, header=header)
 
 if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
