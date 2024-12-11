@@ -494,9 +494,13 @@ double TopHatSigma2(double R)
   F.function = &sigma2_int;
   F.params = &R;
 
-  /* note: 500/R is here chosen as integration boundary (infinity) */
-  gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
-/*   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size); */
+  /* Integral is oscillatory but almost zero kr = (n +1/2) pi for odd n. With P(k) ~ n^-3 the integrand is close to zero kr = 20.5 pi */
+  double maxk = M_PI * (20 + 0.5) / R;
+  double maxtabk = pow(10, 0.24 + power_table.logk[power_table.Nentry - 1]);
+  if(maxk > maxtabk)
+      endrun(3, "Trying to do sigma8 integral for rescaling, but need k = %g and largest k in power table is %g\n", maxk, pow(10, power_table.logk[power_table.Nentry - 1]));
+  gsl_integration_qags (&F, 0, M_PI * (20 + 0.5) / R, 0, 1e-4,1000,w,&result, &abserr);
+  // printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
   gsl_integration_workspace_free (w);
   return result;
 }
