@@ -71,24 +71,27 @@ static double get_Tabulated(double k, enum TransferType Type)
     /*Convert k to Mpc/h*/
     const double scale = (CM_PER_MPC / UnitLength_in_cm);
     double logk = log10(k*scale);
+    double maxlogk = power_table.logk[power_table.Nentry - 1];
+    /* For interpolation*/
+    double intlogk = logk;
 
-    if(logk < power_table.logk[0]-0.1 || logk > power_table.logk[power_table.Nentry - 1]+0.25)
+    if(logk < power_table.logk[0]-0.1 || logk > maxlogk + 0.25)
         endrun(6, "Requested k = %g h/Mpc for type %d but power table is from %g to %g h/Mpc\n",
-               pow(10, logk), Type, pow(10, power_table.logk[0]), pow(10, power_table.logk[power_table.Nentry - 1]));
-    if(logk > power_table.logk[power_table.Nentry - 1])
-        logk = power_table.logk[power_table.Nentry - 1];
-
+               pow(10, logk), Type, pow(10, power_table.logk[0]), pow(10, maxlogk));
     if(logk < power_table.logk[0])
-        logk = power_table.logk[0];
-    if(logk > power_table.logk[power_table.Nentry - 1])
-        logk = power_table.logk[power_table.Nentry - 1];
+        intlogk = power_table.logk[0];
+    if(logk > maxlogk)
+        intlogk = maxlogk;
 
-    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, NULL);
+    double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], intlogk, NULL);
+    /* If we are past the end of the table, assume the power scales like k^-3 log (k) and the transfer function is constant*/
+    if(logk > maxlogk)
+        logD += -3 * (logk - intlogk) + log(logk / intlogk);
     double trans = 1;
     /*Transfer table stores (T_type(k) / T_tot(k))*/
     if(transfer_table.Nentry > 0)
        if(Type >= DELTA_BAR && Type < DELTA_TOT)
-          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, NULL);
+          trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], intlogk, NULL);
 
     /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
     logD += 1.5 * log10(scale);
