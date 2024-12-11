@@ -1173,6 +1173,8 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             * so if we get back to a top-level node again we are done.*/
             if(lv->mode == TREEWALK_GHOSTS) {
                 /* The first node is always top-level*/
+                if(no > tree->lastnode)
+                    endrun(7, "Node is after lastnode. no %d lastnode %ld start %d first %ld\n", no, tree->lastnode, I->NodeList[inode], tree->firstnode);
                 if(current->f.TopLevel && no != I->NodeList[inode]) {
                     /* we reached a top-level node again, which means that we are done with the branch */
                     break;

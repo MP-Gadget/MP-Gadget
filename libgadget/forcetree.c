@@ -209,7 +209,8 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     do
     {
-        /* Allocate memory. */
+        /* Allocate memory: note that because node numbers are passed around between ranks,
+         * this has to be something which is the same on all ranks. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father, 0);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
