@@ -63,14 +63,14 @@ int main(int argc, char **argv)
   const double meanspacing = All2.BoxSize / DMAX(All2.Ngrid, All2.NgridGas);
   double shift_gas = -All2.ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   double shift_dm = All2.ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
-  
+
   double shift_nu = 0;
   if(!All2.ProduceGas && All2.NGridNu > 0) {
       double OmegaNu = get_omega_nu(&CP.ONu, 1);
       shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
   }
-    
+
   if(All2.PrePosGridCenter){
       shift_dm += 0.5 * meanspacing;
       shift_gas += 0.5 * meanspacing;
@@ -246,13 +246,13 @@ int main(int argc, char **argv)
   message(0, "IC's generated.\n");
   message(0, "Initial scale factor = %g\n", All2.TimeIC);
 
-  print_spec(ThisTask, All2.Ngrid, All2, &CP);
+  print_spec(ThisTask, All2.Nmesh, All2, &CP);
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
 }
 
-void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmology * CP)
+void print_spec(int ThisTask, const int Nmesh, struct genic_config All2, Cosmology * CP)
 {
   if(ThisTask == 0)
     {
@@ -272,7 +272,7 @@ void print_spec(int ThisTask, const int Ngrid, struct genic_config All2, Cosmolo
       fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
       kstart = 2 * M_PI / (2*All2.BoxSize * (CM_PER_MPC / All2.units.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All2.BoxSize/(8*Ngrid) * (CM_PER_MPC / All2.units.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kend = 2 * M_PI / (All2.BoxSize/(sqrt(3)*Nmesh) * (CM_PER_MPC / All2.units.UnitLength_in_cm));	/* smallest power mode in sim*/
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 
