@@ -328,7 +328,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no)
     if(!lv->DataIndexTable)
         endrun(1, "DataIndexTable not allocated, treewalk_export_particle called in the wrong way\n");
     if(no - lv->tw->tree->lastnode > lv->tw->tree->NTopLeaves)
-        endrun(1, "Bad export leaf: no = %d lastnode %d ntop %d target %d\n", no, lv->tw->tree->lastnode, lv->tw->tree->NTopLeaves, lv->target);
+        endrun(1, "Bad export leaf: no = %d lastnode %ld ntop %d target %d\n", no, lv->tw->tree->lastnode, lv->tw->tree->NTopLeaves, lv->target);
     const int target = lv->target;
     TreeWalk * tw = lv->tw;
     const int task = tw->tree->TopLeaves[no - tw->tree->lastnode].Task;
@@ -1173,6 +1173,8 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             * so if we get back to a top-level node again we are done.*/
             if(lv->mode == TREEWALK_GHOSTS) {
                 /* The first node is always top-level*/
+                if(no > tree->lastnode)
+                    endrun(7, "Node is after lastnode. no %d lastnode %ld start %d first %ld\n", no, tree->lastnode, I->NodeList[inode], tree->firstnode);
                 if(current->f.TopLevel && no != I->NodeList[inode]) {
                     /* we reached a top-level node again, which means that we are done with the branch */
                     break;

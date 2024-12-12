@@ -70,17 +70,17 @@ static void force_validate_nextlist(const ForceTree * tree)
     {
         struct NODE * current = &tree->Nodes[no];
         if(current->sibling != -1 && !node_is_node(current->sibling, tree))
-            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %d final %d last %d ntop %d\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+            endrun(5, "Node %d (type %d) has sibling %d next %d father %d first %ld final %ld last %ld ntop %d\n", no, current->f.ChildType, current->sibling, current->s.suns[0], current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
 
         if(current->f.ChildType == PSEUDO_NODE_TYPE) {
             /* pseudo particle: nextnode should be a pseudo particle, sibling should be a node. */
             if(!node_is_pseudo_particle(current->s.suns[0], tree))
-                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+                endrun(5, "Pseudo Node %d has next node %d sibling %d father %d first %ld final %ld last %ld ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
         }
         else if(current->f.ChildType == NODE_NODE_TYPE) {
             /* Next node should be another node */
             if(!node_is_node(current->s.suns[0], tree))
-                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %d final %d last %d ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
+                endrun(5, "Node Node %d has next node which is particle %d sibling %d father %d first %ld final %ld last %ld ntop %d\n", no, current->s.suns[0], current->sibling, current->father, tree->firstnode, tree->firstnode + tree->numnodes, tree->lastnode, tree->NTopLeaves);
             no = current->s.suns[0];
             continue;
         }
@@ -209,14 +209,15 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
 
     do
     {
-        /* Allocate memory. */
+        /* Allocate memory: note that because node numbers are passed around between ranks,
+         * this has to be something which is the same on all ranks. */
         tree = force_treeallocate(maxnodes, PartManager->MaxPart, ddecomp, alloc_father, 0);
         tree.mask = mask;
         tree.BoxSize = PartManager->BoxSize;
         force_tree_create_nodes(&tree, act, mask, ddecomp);
         if(tree.numnodes >= tree.lastnode - tree.firstnode)
         {
-            message(1, "Not enough tree nodes (%ld) for %ld particles. Created %d\n", maxnodes, act->NumActiveParticle, tree.numnodes);
+            message(1, "Not enough tree nodes (%ld) for %ld particles. Created %ld\n", maxnodes, act->NumActiveParticle, tree.numnodes);
             force_tree_free(&tree);
             ForceTreeParams.TreeAllocFactor *= 1.15;
             if(ForceTreeParams.TreeAllocFactor > 3.0) {
@@ -260,13 +261,13 @@ force_tree_build(int mask, DomainDecomp * ddecomp, const ActiveParticles *act, c
     }
 
     int64_t allact = tree.NumParticles;
-    int maxnumnodes = tree.numnodes;
+    int64_t maxnumnodes = tree.numnodes;
 #ifdef DEBUG
     force_validate_nextlist(&tree);
     MPI_Reduce(&tree.NumParticles, &allact, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&tree.numnodes, &maxnumnodes, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tree.numnodes, &maxnumnodes, 1, MPI_INT64, MPI_MAX, 0, MPI_COMM_WORLD);
 #endif
-    message(0, "Tree constructed (type mask: %d moments: %d) with %ld particles. First node %d, num nodes %d, first pseudo %d. NTopLeaves %d\n",
+    message(0, "Tree constructed (type mask: %d moments: %d) with %ld particles. First node %ld, num nodes %ld, first pseudo %ld. NTopLeaves %d\n",
             mask, tree.moments_computed_flag, allact, tree.firstnode, maxnumnodes, tree.lastnode, tree.NTopLeaves);
     return tree;
 }
@@ -499,7 +500,7 @@ int add_particle_to_tree(int i, int cur_start, const ForceTree tb, struct NodeCa
         child = tb.Nodes[cur].s.suns[subnode];
 
         if(child > tb.lastnode || child < tb.firstnode)
-            endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",cur, subnode, child, tb.lastnode);
+            endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%ld)\n",cur, subnode, child, tb.lastnode);
         cur = child;
     }
     while(child >= tb.firstnode);
@@ -535,7 +536,7 @@ merge_partial_force_trees(int left, int right, struct NodeCache * nc, int * nnex
     while(this_left != left_end && this_right != right_end)
     {
         if(this_left < tb.firstnode || this_right < tb.firstnode)
-            endrun(10, "Encountered invalid node: %d %d < first %d\n", this_left, this_right, tb.firstnode);
+            endrun(10, "Encountered invalid node: %d %d < first %ld\n", this_left, this_right, tb.firstnode);
         struct NODE * nleft = &tb.Nodes[this_left];
         struct NODE * nright = &tb.Nodes[this_right];
         if(nc->nnext_thread >= tb.lastnode)
@@ -677,6 +678,8 @@ force_tree_create_topnodes(ForceTree * tree, DomainDecomp * ddecomp)
     nfreep->mom.mass = 0;
     nfreep->mom.hmax = 0;
     nnext++;
+    /* Set the treenode for this node*/
+    ddecomp->TopLeaves[0].treenode = tree->firstnode;
     /* create a set of empty nodes corresponding to the top-level ddecomp
         * grid. We need to generate these nodes first to make sure that we have a
         * complete top-level tree which allows the easy insertion of the
@@ -716,7 +719,7 @@ force_tree_find_topnode(const double * const pos, const ForceTree * const tree)
     }
 #ifdef DEBUG
     if(!tree->Nodes[no].f.TopLevel || tree->Nodes[no].f.InternalTopLevel || no < tree->firstnode)
-        endrun(7, "Topnode %d not topleaf, tl = %d itl = %d fn %d\n", no, tree->Nodes[no].f.TopLevel, tree->Nodes[no].f.InternalTopLevel, tree->firstnode);
+        endrun(7, "Topnode %d not topleaf, tl = %d itl = %d fn %ld\n", no, tree->Nodes[no].f.TopLevel, tree->Nodes[no].f.InternalTopLevel, tree->firstnode);
 #endif
     return no;
 }
@@ -1223,7 +1226,7 @@ force_treeupdate_pseudos(const int no, const int level, const ForceTree * const 
 
         /*This may not happen as we are an internal top level node*/
         if(p < tree->firstnode || p >= tree->lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d\n",no, p, tree->firstnode, tree->lastnode);
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %ld and %ld\n",no, p, tree->firstnode, tree->lastnode);
 #ifdef DEBUG
         /* Check we don't move to another part of the tree*/
         if(tree->Nodes[p].father != no)
@@ -1382,11 +1385,11 @@ ForceTree force_treeallocate(const int64_t maxnodes, const int64_t maxpart, cons
     memset(tb.Nodes_base, -1, (maxnodes + 1) * sizeof(struct NODE));
 #endif
     tb.firstnode = maxpart;
-    tb.lastnode = maxpart + maxnodes;
-    if(maxpart + maxnodes >= 1L<<30)
+    tb.lastnode = tb.firstnode + maxnodes;
+    if(tb.lastnode >= (1L<<30) + (1L<<29))
         endrun(5, "Size of tree overflowed for maxpart = %ld, maxnodes = %ld!\n", maxpart, maxnodes);
     tb.numnodes = 0;
-    tb.Nodes = tb.Nodes_base - maxpart;
+    tb.Nodes = tb.Nodes_base - tb.firstnode;
     tb.tree_allocated_flag = 1;
     tb.NTopLeaves = ddecomp->NTopLeaves;
     tb.TopLeaves = ddecomp->TopLeaves;
