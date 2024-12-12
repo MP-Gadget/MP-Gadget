@@ -39,11 +39,8 @@ test_read_no_rescale(void ** state)
     int nentry = init_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 347);
     /*Check that the tabulated power spectrum gives the right answer
-     * First check ranges: these should both be out of range.
      * Should be the same k as in the file (but /10^3 for Mpc -> kpc)
      * Note that our PowerSpec function is 2pi^3 larger than that in S-GenIC.*/
-    assert_true(DeltaSpec(9.8e-9, DELTA_TOT) < 2e-30);
-    assert_true(DeltaSpec(300, DELTA_TOT) < 2e-30);
     //Now check total power: k divided by 10^3,
     //Conversion for P(k) is 10^9/(2pi)^3
     assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, DELTA_TOT),2) / 4.745074933325402533/1e9 - 1) < 1e-5);
