@@ -1009,14 +1009,14 @@ force_update_particle_node(int no, const ForceTree * tree)
  *
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
+force_update_node_recursive(const int no, const int sib, const int level, const ForceTree * const tree)
 {
 #ifdef DEBUG
     if(tree->Nodes[no].f.ChildType != NODE_NODE_TYPE)
         endrun(3, "force_update_node_recursive called on node %d of type %d != %d!\n", no, tree->Nodes[no].f.ChildType, NODE_NODE_TYPE);
 #endif
     int j;
-    int * suns = tree->Nodes[no].s.suns;
+    int * const suns = tree->Nodes[no].s.suns;
 
     int childcnt = 0;
     /* Remove any empty children, moving the suns array around
@@ -1045,7 +1045,7 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
     /*First do the children*/
     for(j = 0; j < 8; j++)
     {
-        int p = suns[j];
+        const int p = suns[j];
         /*Empty slot*/
         if(p < 0)
             continue;
@@ -1058,8 +1058,10 @@ force_update_node_recursive(int no, int sib, int level, const ForceTree * tree)
         if(tree->Nodes[p].f.ChildType == NODE_NODE_TYPE) {
             /* Don't spawn a new task if we are deep enough that we already spawned a lot.*/
             if(childcnt > 1 && level < 512) {
-                #pragma omp task default(none) shared(level, childcnt, tree) firstprivate(nextsib, p)
-                force_update_node_recursive(p, nextsib, level*childcnt, tree);
+                const int newlevel = level * childcnt;
+                /* Firstprivate for const variables should be optimised out*/
+                #pragma omp task default(none) firstprivate(nextsib, p, newlevel, tree)
+                force_update_node_recursive(p, nextsib, newlevel, tree);
             }
             else
                 force_update_node_recursive(p, nextsib, level, tree);
