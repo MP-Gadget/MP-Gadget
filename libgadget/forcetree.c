@@ -1110,7 +1110,7 @@ force_update_node_recursive(const int no, const int sib, const int level, const 
  * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
  * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
-void force_update_node_parallel(const ForceTree * tree, const DomainDecomp * ddecomp)
+void force_update_node_parallel(const ForceTree * const tree, const DomainDecomp * const ddecomp)
 {
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -1125,7 +1125,7 @@ void force_update_node_parallel(const ForceTree * tree, const DomainDecomp * dde
             tree->Nodes[no].f.DependsOnLocalMass = 1;
             /* Nodes containing other nodes: the overwhelmingly likely case.*/
             if(tree->Nodes[no].f.ChildType == NODE_NODE_TYPE) {
-                #pragma omp task default(none) shared(tree) firstprivate(no)
+                #pragma omp task default(none) firstprivate(no, tree)
                 force_update_node_recursive(no, tree->Nodes[no].sibling, 1, tree);
             }
             else if(tree->Nodes[no].f.ChildType == PARTICLE_NODE_TYPE)
@@ -1234,7 +1234,7 @@ force_treeupdate_pseudos(const int no, const int level, const ForceTree * const 
 
         if(tree->Nodes[p].f.InternalTopLevel) {
             if(level < 512) {
-                #pragma omp task default(none) shared(level, tree) firstprivate(p)
+                #pragma omp task default(none) firstprivate(p, level, tree)
                 force_treeupdate_pseudos(p, level*8, tree);
             }
             else {
