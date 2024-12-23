@@ -151,12 +151,13 @@ sidm_copy(int place, TreeWalkQuerySIDM * input, TreeWalk * tw)
 static void
 sidm_reduce(int place, TreeWalkResultSIDM * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    /* Need to add this to partmanager.h*/
+#ifdef SIDM
     int k;
     for(k = 0; k < 3; k++)
     {
         TREEWALK_REDUCE(P[place].SIDMAccel[k], result->Acc[k]);
     }
+#endif
 }
 
 
