@@ -42,6 +42,7 @@ UnitLength_in_cm  = float(default=3.085678e21)
 Omega_fld = float(0,1,default=0)
 w0_fld = float(default=-1)
 wa_fld = float(default=0)
+Omega_ur = float(default=0)
 MNue = float(min=0, default=0)
 MNum = float(min=0, default=0)
 MNut = float(min=0, default=0)
@@ -50,6 +51,8 @@ PrimordialIndex = float(default=0.971)
 PrimordialAmp = float(default=2.215e-9)
 PrimordialRunning = float(default=0)
 CMBTemperature = float(default=2.7255)""".split('\n')
+
+# note: Omega_ur should be set to a non-zero value if both massive and massless neutrinos are present, e.g., if N_nu_massive  = 3 (N_ur_massive = 3.0396) and the default value N_eff is desired, then N_ur_massless = 3.044 - 3.0396 = 0.0044 (Omega_ur = Omega_g * 0.22710731766023898 * (3.044 - 3.0396))
 
 def _check_genic_config(config):
     """Check that the MP-GenIC config file is sensible for running CLASS on."""
@@ -71,7 +74,7 @@ def _check_genic_config(config):
         if config['InputPowerRedshift'] >= 0:
             raise ValueError("Rescaling with different transfer functions not supported.")
 
-def _build_cosmology_params(config):
+def _build_cosmology_params(config, convention='CLASS'):
     """Build a correctly-named-for-class set of cosmology parameters from the MP-GenIC config file."""
     #Class takes omega_m h^2 as parameters
     h0 = config['HubbleParam']
@@ -80,7 +83,14 @@ def _build_cosmology_params(config):
         config['OmegaBaryon'] = 0.0486
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
 
-    omegak = 1-config['OmegaLambda']-config['Omega0']
+    T_CMB = config["CMBTemperature"]  # default cmb temperature
+    Omega_g = 4.480075654158969e-07 * T_CMB**4 / config['HubbleParam']**2
+
+    if convention == 'CLASS':
+        omegak = 1-config['OmegaLambda']-config['Omega_fld']-config['Omega0'] - Omega_g - config['Omega_ur']
+    elif convention == 'CAMB':
+        omegak = 1-config['OmegaLambda']-config['Omega_fld']-config['Omega0']
+
     if np.abs(omegak) > 1e-5:
         print("Curvature present: Omega_K = %g" % omegak)
     # avoid numerical issue due to very small OmegaK
@@ -96,10 +106,25 @@ def _build_cosmology_params(config):
         gparams['w0_fld'] = config['w0_fld']
         gparams['wa_fld'] = config['wa_fld']
     #Set up massive neutrinos
+    N_ncdm = 0
+    m_ncdm = ''
     if omeganu > 0:
-        gparams['m_ncdm'] = '%.8f,%.8f,%.8f' % (config['MNue'], config['MNum'], config['MNut'])
-        gparams['N_ncdm'] = 3
-        gparams['N_ur'] = 0.00641
+        # gparams['m_ncdm'] = '%.8f,%.8f,%.8f' % (config['MNue'], config['MNum'], config['MNut'])
+        # gparams['N_ncdm'] = 3  # this is not consistent with CAMB when some of the neutrinos are massless
+        # loop over neutrinos to avoid the above inconsistency
+        for mnu in [config['MNue'], config['MNum'], config['MNut']]:
+            if mnu == 0:
+                continue
+            if N_ncdm == 0:
+                m_ncdm += '%.8f' % mnu
+            else:
+                m_ncdm += ',%.8f' % mnu 
+            N_ncdm += 1 
+        gparams['m_ncdm'] = m_ncdm
+        gparams['N_ncdm'] = N_ncdm 
+
+        N_ur = config['Omega_ur'] / Omega_g / 0.22710731766023898 + 1.013198221453432* (3 - N_ncdm)
+        gparams['N_ur'] = N_ur # the part beyond massive neutrinos
         #Neutrino accuracy: Default pk_ref.pre has tol_ncdm_* = 1e-10,
         #which takes 45 minutes (!) on my laptop.
         #tol_ncdm_* = 1e-8 takes 20 minutes and is machine-accurate.
@@ -114,14 +139,14 @@ def _build_cosmology_params(config):
         gparams['ncdm_fluid_approximation'] = 2
         gparams['ncdm_fluid_trigger_tau_over_tau_k'] = 10000.
     else:
-        gparams['N_ur'] = 3.046
+        gparams['N_ur'] = 3.044
     #Power spectrum amplitude: sigma8 is ignored by classy.
     if config['Sigma8'] > 0:
         print("Warning: classy does not read sigma8. GenIC must rescale P(k).")
     gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
-def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
+def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False, convention='CLASS'):
     """Main routine: parses a parameter file and makes a matter power spectrum.
     Will not over-write power spectra if already present.
     Options are loaded from the MP-GenIC parameter file.
@@ -148,7 +173,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     #Important! Densities are in synchronous gauge!
     pre_params['gauge'] = 'synchronous'
 
-    gparams = _build_cosmology_params(config)
+    gparams = _build_cosmology_params(config, convention)
     pre_params.update(gparams)
     redshift = config['Redshift']
     if config['InputPowerRedshift'] >= 0:
@@ -259,5 +284,6 @@ if __name__ ==  "__main__":
     parser.add_argument('--extpk', type=str, help='optional external primordial power spectrum',required=False)
     parser.add_argument('--extraz', type=float,nargs='*', help='Space separated list of other redshifts at which to output power spectra',required=False)
     parser.add_argument('--verbose', action='store_true', help='print class runtime information',required=False)
+    parser.add_argument('--convention', type=str, default='CLASS', help='CLASS or CAMB convention of densities (Friedmann)',required=False)
     args = parser.parse_args()
-    make_class_power(args.paramfile, args.extpk, args.extraz,args.verbose)
+    make_class_power(args.paramfile, args.extpk, args.extraz,args.verbose, args.convention)
