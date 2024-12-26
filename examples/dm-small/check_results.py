@@ -9,7 +9,6 @@ import bigfile
 def check_hmf(pig):
     """Check we have the mass functions."""
     bff = bigfile.BigFile(pig)
-    lbox = float(bff["Header"].attrs["BoxSize"])
     hh = bff["Header"].attrs["HubbleParam"]
     fofmasses = bff['FOFGroups/Mass'][:]*10**10/hh
     assert np.max(fofmasses > 9e12)
@@ -63,17 +62,21 @@ def get_power(matpow, rebin=True):
         return modecount_rebin(kk, pk, modes)
     return (kk,pk)
 
-def check_power(scalefactor):
+def check_power(scalefactor, rtol=0.18):
     """Check power spectrum is right"""
     matpow = "output/powerspectrum-%.4f.txt" % scalefactor
     kk_sim, pk_sim = get_power(matpow)
     zz = 1/scalefactor - 1
-    pk_camb = np.loadtxt("class_pk_9.dat-%.1f" % zz)
+    if zz > 8.5:
+        pk_camb = np.loadtxt("class_pk_9.dat")
+    else:
+        pk_camb = np.loadtxt("class_pk_9.dat-%.1f" % zz)
     pk_camb_int = scipy.interpolate.interp1d(pk_camb[:,0], pk_camb[:,1])
-    assert_allclose(pk_sim[:6], pk_camb_int(kk_sim)[:6], rtol=0.18, atol=0.)
+    assert_allclose(pk_sim[:6], pk_camb_int(kk_sim)[:6], rtol=rtol, atol=0.)
 
 # Check that the power spectrum output is sensible and that the mass functions are right.
-# asserting the initial power spectrum is 1% accurate
+# asserting the initial power spectrum is 7% accurate
+check_power(0.1, rtol=0.07)
 check_power(0.2)
 check_power(0.25)
 check_hmf('output/PIG_002')
