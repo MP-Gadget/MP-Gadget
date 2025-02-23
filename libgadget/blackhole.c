@@ -213,7 +213,7 @@ blackholes_active(const ActiveParticles * act, int ** ActiveBlackHoles, int64_t 
 }
 
 void
-blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails, size_t * bhdetailswritten)
+blackhole(const ActiveParticles * act, double atime, double time, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails, size_t * bhdetailswritten)
 {
     /* Do nothing if no black holes*/
     int64_t totbh;
@@ -243,7 +243,10 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     /*************************************************************************/
     /*  Dynamical Friction Treewalk */
     /*************************************************************************/
+    // Non-ComovingIntegration Note: atime=afac=1 when passed into this function
     struct BHDynFricPriv dynpriv[1] = {0};
+    dynpriv->atime = atime;
+    dynpriv->CP = CP;
     dynpriv->kf = &kf;
     dynpriv->Ti_Current = times->Ti_Current;
     /* Update the kernel quantities for dynamic friction, if required.
@@ -261,7 +264,8 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
     priv->units = units;
     priv->rnd = rnd;
     /*************************************************************************/
-    priv->atime = atime;
+    priv->atime = atime; // this is afac=1 for non-cosmological runs
+    priv->time  = time; // this is loga for non-cosmological runs
     priv->a3inv = 1./(atime * atime * atime);
     priv->hubble = hubble_function(CP, atime);
     priv->CP = CP;
@@ -365,7 +369,7 @@ blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree *
 
     myfree(ActiveBlackHoles);
 
-    write_blackhole_txt(FdBlackHoles, units, atime);
+    write_blackhole_txt(FdBlackHoles, units, time);
     walltime_measure("/BH/Info");
 }
 
@@ -410,7 +414,8 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     BHP(i).Mdot = mdot;
 
     double dtime = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift) / BH_GET_PRIV(tw)->hubble;
-
+    message(1, "******** BHacc check hubble=%g, dtime=%g *******\n", BH_GET_PRIV(tw)->hubble, dtime);
+    message(1, "******** BHacc check mdot=%g, dtime=%g *******\n", mdot, dtime);
     BHP(i).Mass += BHP(i).Mdot * dtime;
 
     /*************************************************************************/
@@ -497,10 +502,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     /* Accretion / merger doesn't do self interaction */
     if(P[other].ID == I->ID) return;
 
+
     /* we have a black hole merger. Now we use 2 times GravitationalSoftening as merging criteria.
      * Note there is another condition: they must also be closer than the SPH smoothing length,
      * as enforced by the tree search above. */
-    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING()/2.8))
+    if(P[other].Type == 5 && r < (2*FORCE_SOFTENING(5)/2.8))
     {
         O->encounter = 1; // mark the event when two BHs encounter each other
 
@@ -618,8 +624,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* update the feedback weighting */
             double mass_j;
             if(HAS(blackhole_params.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-                double redshift = 1./BH_GET_PRIV(lv->tw)->atime - 1;
-                double nh0 = get_neutral_fraction_sfreff(redshift, BH_GET_PRIV(lv->tw)->hubble, &P[other], &SPHP(other));
+                double redshift;
+                if (BH_GET_PRIV(lv->tw)->CP->ComovingIntegrationOn)
+                    redshift = 1./BH_GET_PRIV(lv->tw)->atime - 1;
+                else
+                    redshift = BH_GET_PRIV(lv->tw)->CP->Redshift;
+
+                double nh0 = get_neutral_fraction_sfreff(redshift, BH_GET_PRIV(lv->tw)->hubble, BH_GET_PRIV(lv->tw)->CP->ComovingIntegrationOn, &P[other], &SPHP(other));
                 if(r2 > 0)
                     O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
             } else {
@@ -842,10 +853,15 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         /* thermal feedback */
         if(I->FeedbackWeightSum > 0 && I->FeedbackEnergy > 0 && I->FdbkChannel == 0 && P[other].Mass > 0){
             const double injected_BH = I->FeedbackEnergy * mass_j * wk / I->FeedbackWeightSum;
+            double redshift;
+            if (BH_GET_PRIV(lv->tw)->CP->ComovingIntegrationOn)
+                redshift = 1./BH_GET_PRIV(lv->tw)->atime - 1;
+            else
+                redshift = BH_GET_PRIV(lv->tw)->CP->Redshift;
             /* Set a flag for star-forming particles:
                 * we want these to cool to the EEQOS via
                 * tcool rather than trelax.*/
-            if(sfreff_on_eeqos(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv)) {
+            if(sfreff_on_eeqos(&SPHP(other), BH_GET_PRIV(lv->tw)->a3inv, redshift)) {
                 /* We cannot atomically set a bitfield.
                  * This flag is never read in this thread loop, and we are careful not to
                  * do this with a swallowed particle (as this can race with IsGarbage being set).

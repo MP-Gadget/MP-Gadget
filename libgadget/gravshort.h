@@ -13,6 +13,7 @@ typedef struct
 {
     TreeWalkQueryBase base;
     MyFloat OldAcc;
+    MyFloat Soft;
 } TreeWalkQueryGravShort;
 
 typedef struct {
@@ -39,6 +40,8 @@ struct GravShortPriv {
     double cbrtrho0;
     /* Pointer to the place to store accelerations*/
     MyFloat (*Accel)[3];
+    /* whether we use periodic wrapping for gravity*/
+    int NonPeriodic;
 };
 
 #define GRAV_GET_PRIV(tw) ((struct GravShortPriv *) ((tw)->priv))
@@ -58,9 +61,10 @@ grav_short_postprocess(int i, TreeWalk * tw)
         P[i].FullTreeGravAccel[1] = GRAV_GET_PRIV(tw)->Accel[i][1];
         P[i].FullTreeGravAccel[2] = GRAV_GET_PRIV(tw)->Accel[i][2];
         /* calculate the potential */
-        P[i].Potential += P[i].Mass / (FORCE_SOFTENING() / 2.8);
+        P[i].Potential += P[i].Mass / (FORCE_SOFTENING(P[i].Type) / 2.8);
         /* remove self-potential */
-        P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
+        if (!GRAV_GET_PRIV(tw)->NonPeriodic)
+            P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) * GRAV_GET_PRIV(tw)->cbrtrho0;
         P[i].Potential *= G;
     }
 }
@@ -82,6 +86,7 @@ static void
 grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->OldAcc = grav_get_abs_accel(&P[place], GRAV_GET_PRIV(tw)->G);
+    input->Soft = FORCE_SOFTENING(P[place].Type);
 }
 
 static void

@@ -19,6 +19,13 @@ struct gravshort_tree_params
     double Rcut;
     /* Softening as a fraction of DM mean separation. */
     double FractionalGravitySoftening;
+    /* If 1, enables different softening length for different particle species */
+    int MultiSpeciesSoftening;
+    /* absolute softening length in kpc for particle types 0,1,4,5; use if MultiSpeciesSoftening enabled*/
+    double SofteningType0;
+    double SofteningType1;
+    double SofteningType4;
+    double SofteningType5;
 };
 
 enum ShortRangeForceWindowType {
@@ -31,13 +38,16 @@ void gravshort_fill_ntab(const enum ShortRangeForceWindowType ShortRangeForceWin
 
 /*! Sets the (comoving) softening length, converting from units of the mean DM separation to comoving internal units. */
 void gravshort_set_softenings(double MeanDMSeparation);
+void gravshort_set_max_softening(void);
 
 /* gravitational softening length
  * (given in terms of an `equivalent' Plummer softening length) */
-double FORCE_SOFTENING(void);
+double FORCE_SOFTENING(int type);
 
 /*Defined in gravpm.c*/
-void gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G);
+void gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, int NonPeriodic);
+void gravpm_init_nonperiodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, int NonPeriodic);
+double gravpm_set_lbox_nonperiodic(void);
 
 /* Apply the short-range window function, which includes the smoothing kernel.*/
 int grav_apply_short_range_window(double r, double * fac, double * pot, const double cellsize);

@@ -192,8 +192,18 @@ create_gadget_parameter_set()
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the long-range timestep. Default neutrinos.");
     param_declare_double(ps, "PairwiseActiveFraction", OPTIONAL, 0, "Pairwise gravity instead of tree gravity is used if N(active particles) / N(particles) is less than this. Currently unimplemented as slower.");
 
+    param_declare_int(ps, "PMGravOn", OPTIONAL, 1, "Enables PM gravity");
+    param_declare_int(ps, "NonPeriodic", OPTIONAL, 0, "Whether the simulation has periodic boundary condition");
+    param_declare_int(ps, "ComovingIntegrationOn", OPTIONAL, 1, "Whether the simulation is run on comoving coordinates");
+    param_declare_int(ps, "Redshift", OPTIONAL, 0, "Only used in non-cosmological scenarios");
+
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Gravitational Softening. Units of mean separation of DM. ForceSoftening is 2.8 times this.");
     param_declare_int(ps, "GravitySofteningGas", OPTIONAL, 1, "Unused. Previously was for adaptive softening.");
+    param_declare_int(ps, "MultiSpeciesSoftening", OPTIONAL, 0, "1 to use different softening length for different particle types");
+    param_declare_double(ps, "SofteningType0", OPTIONAL, 1.0, "Softening Length in for particle type 0 in kpc; only used if MultiSpeciesSoftening is on.");
+    param_declare_double(ps, "SofteningType1", OPTIONAL, 1.0, "Softening Length in for particle type 1 in kpc; only used if MultiSpeciesSoftening is on.");
+    param_declare_double(ps, "SofteningType4", OPTIONAL, 1.0, "Softening Length in for particle type 4 in kpc; only used if MultiSpeciesSoftening is on.");
+    param_declare_double(ps, "SofteningType5", OPTIONAL, 1.0, "Softening Length in for particle type 5 in kpc; only used if MultiSpeciesSoftening is on.");
 
     param_declare_double(ps, "ImportBufferBoost", OPTIONAL, 2., "Memory factor to allow for there being more particles imported during treewlk than exported. Increase this if code crashes during treewalk with out of memory.");
     param_declare_double(ps, "PartAllocFactor", OPTIONAL, 1.5, "Over-allocation factor of particles. The load can be imbalanced to allow for the work to be more balanced.");

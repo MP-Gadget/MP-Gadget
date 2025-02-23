@@ -71,7 +71,15 @@ void init_timeline(Cosmology * CP, int RestartSnapNum, double TimeMax, const str
         /* If TimeInit is not in a sensible place on the integer timeline
          * (can happen if the outputs changed since it was written)
          * start the integer timeline anew from TimeInit */
-        inttime_t ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
+                inttime_t ti_init;
+        if (CP->ComovingIntegrationOn) {
+            ti_init = ti_from_loga(log(header->TimeSnapshot)) % TIMEBASE;
+        }
+        else {
+            ti_init = ti_from_loga(header->TimeSnapshot) % TIMEBASE;
+        }
+
+        message(0,"****** Init Timeline check: header->TimeIC=%g, ti_init = %lx \n",header->TimeIC, ti_init);
         if(round_down_power_of_two(ti_init) != ti_init) {
             message(0,"Resetting integer timeline (as %lx != %lx) to current snapshot\n",ti_init, round_down_power_of_two(ti_init));
             setup_sync_points(CP, header->TimeSnapshot, TimeMax, header->TimeSnapshot, SnapshotWithFOF);
@@ -100,25 +108,41 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 
     domain_test_id_uniqueness(PartManager);
 
-    check_omega(PartManager, CP, get_generations(), header->MassTable);
-
-    check_positions(PartManager);
+    if (CP->ComovingIntegrationOn) {
+        check_omega(PartManager, CP, get_generations(), header->MassTable);
+        check_positions(PartManager);
+    }
 
     double MeanSeparation[6] = {0};
-
     get_mean_separation(MeanSeparation, PartManager->BoxSize, header->NTotalInit);
 
     if(RestartSnapNum >= 0)
         check_smoothing_length(PartManager, MeanSeparation);
-
+    message(0, "Finished checking smoothing length...\n");
     /* As the above will mostly take place
      * on Task 0, there will be a lot of imbalance*/
     MPIU_Barrier(MPI_COMM_WORLD);
+    message(0, "Setting softening length...\n");
+    if (CP->ComovingIntegrationOn) {
+        gravshort_set_softenings(MeanSeparation[1]);
+    }
+    else {
+    // sets the absolute softening length in kpc
+        gravshort_set_softenings(1.0);
+    }
 
-    gravshort_set_softenings(MeanSeparation[1]);
+    gravshort_set_max_softening();
+
     fof_init(MeanSeparation[1]);
 
-    inttime_t Ti_Current = init_timebins(header->TimeSnapshot);
+    inttime_t Ti_Current;
+    // NYC note: double checked this is correct
+    if (CP->ComovingIntegrationOn) {
+         Ti_Current = init_timebins(header->TimeSnapshot);
+    }
+    else {
+        Ti_Current = init_timebins(exp(header->TimeSnapshot));
+    }
 
     #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
@@ -144,6 +168,7 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
 
         if(P[i].Type == 5)
         {
+            message(1, "######### check BH initialization: %d \n", P[i].Swallowed);
             for(j = 0; j < 3; j++) {
                 BHP(i).DFAccel[j] = 0;
                 BHP(i).DragAccel[j] = 0;
@@ -167,7 +192,8 @@ inttime_t init(int RestartSnapNum, const char * OutputDir, struct header_data * 
             SPHP(i).Density = -1;
             SPHP(i).EgyWtDensity = -1;
             SPHP(i).DhsmlEgyDensityFactor = -1;
-            SPHP(i).Entropy = -1;
+            if (CP->ComovingIntegrationOn)
+                SPHP(i).Entropy = -1;
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
             SPHP(i).CurlVel = 0;
@@ -319,7 +345,7 @@ void check_positions(struct part_manager_type * PartManager)
     int i;
     int numzero = 0;
     int lastzero = -1;
-
+    message(0, "Checking positions...\n");
     #pragma omp parallel for reduction(+: numzero) reduction(max:lastzero)
     for(i=0; i< PartManager->NumPart; i++){
         int j;
@@ -336,6 +362,7 @@ void check_positions(struct part_manager_type * PartManager)
     if(numzero > 1)
         endrun(5, "Particle positions contain %d zeros at particle %d. Pos %g %g %g. Likely write corruption!\n",
                 numzero, lastzero, PartManager->Base[lastzero].Pos[0], PartManager->Base[lastzero].Pos[1], PartManager->Base[lastzero].Pos[2]);
+    message(0, "Finished checking positions...\n");
 }
 
 /*! This routine checks that the initial smoothing lengths of the particles
@@ -366,7 +393,13 @@ void check_smoothing_length(struct part_manager_type * PartManager, double * Mea
  * This also allows us to increase MinEgySpec on a restart if we choose.*/
 void check_density_entropy(Cosmology * CP, const double MinEgySpec, const double atime)
 {
-    const double a3 = pow(atime, 3);
+    double a3;
+    if (CP->ComovingIntegrationOn){
+        a3 = pow(atime, 3);
+    }
+    else {
+        a3 = 1.;
+    }
     int i;
     int bad = 0;
     double meanbar = CP->OmegaBaryon * 3 * HUBBLE * CP->HubbleParam * HUBBLE * CP->HubbleParam/ (8 * M_PI * GRAVITY);
@@ -417,14 +450,35 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
         SphP[j].EgyWtDensity = SphP[j].Density;
 
     MyFloat * olddensity = (MyFloat *)mymalloc("olddensity ", SlotsManager->info[0].size * sizeof(MyFloat));
+    MyFloat * oldu = (MyFloat *)mymalloc("oldu ", SlotsManager->info[0].size * sizeof(MyFloat));
+    if (CP->ComovingIntegrationOn) {
+        #pragma omp parallel for
+        for(j = 0; j < SlotsManager->info[0].size; j++)
+            oldu[j] = u_init;
+    }
+    else {
+        #pragma omp parallel for
+        for(j = 0; j < SlotsManager->info[0].size; j++)
+            oldu[j] = SphP[j].Entropy / GAMMA_MINUS1 * pow(SphP[j].EgyWtDensity / a3 , GAMMA_MINUS1);
+    }
     for(j = 0; j < 100; j++)
     {
         int i;
         /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-        #pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[0].size; i++) {
-            SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
-            olddensity[i] = SphP[i].EgyWtDensity;
+
+        if (CP->ComovingIntegrationOn) {
+            #pragma omp parallel for
+            for(i = 0; i < SlotsManager->info[0].size; i++) {
+                SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
+                olddensity[i] = SphP[i].EgyWtDensity;
+            }
+        }
+        else {
+            #pragma omp parallel for
+            for(i = 0; i < SlotsManager->info[0].size; i++) {
+                SphP[i].Entropy = GAMMA_MINUS1 * oldu[i] / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
+                olddensity[i] = SphP[i].EgyWtDensity;
+            }
         }
         /* Empty kick factors as we do not move*/
         DriftKickTimes times = init_driftkicktime(Ti_Current);
@@ -449,6 +503,7 @@ setup_density_indep_entropy(const ActiveParticles * act, ForceTree * Tree, Cosmo
             stop = 1;
 
     }
+    myfree(oldu);
     myfree(olddensity);
 }
 
@@ -463,13 +518,27 @@ void
 setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * CP, int BlackHoleOn, double MinEgySpec, double uu_in_cgs, const inttime_t Ti_Current, const double atime, const int64_t NTotGasInit)
 {
     int i;
-    const double a3 = pow(atime, 3);
-
-    if(RestartSnapNum >= 0)
+    double a3;
+    if (CP->ComovingIntegrationOn){
+        a3 = pow(atime, 3);
+    }
+    else {
+        a3 = 1.;
+    }
+    /* idealized IC is always snapshot 0 */
+    if ((RestartSnapNum >= 0) && (CP->ComovingIntegrationOn))
+        return;
+    if ((RestartSnapNum > 0) && (!CP->ComovingIntegrationOn))
         return;
 
-    if(InitParams.InitGasTemp < 0)
-        InitParams.InitGasTemp = CP->CMBTemperature / atime;
+    if(InitParams.InitGasTemp < 0) {
+        if (CP->ComovingIntegrationOn) {
+            InitParams.InitGasTemp = CP->CMBTemperature / atime;
+        }
+        else {
+            InitParams.InitGasTemp = 1e4;
+        }
+    }
 
     const double MeanGasSeparation = PartManager->BoxSize / pow(NTotGasInit, 1.0 / 3);
 
@@ -485,9 +554,12 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     /* Finds fathers for each gas and BH particle, so need BH*/
     force_tree_rebuild_mask(&Tree, ddecomp, GASMASK+BHMASK, NULL);
     /* Set the initial smoothing length for gas and DM, compute tree moments.*/
-    set_init_hsml(&Tree, ddecomp, MeanGasSeparation);
+    /* ComovingIntegration Note: skip init smoothing for idealized run*/
+    if (CP->ComovingIntegrationOn)
+        set_init_hsml(&Tree, ddecomp, MeanGasSeparation);
 
     /* for clean IC with U input only, we need to iterate to find entropy */
+    /* ComovingIntegration Note: u_init is not used for idealized runs */
     double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * InitParams.InitGasTemp;
     u_init /= uu_in_cgs; /* unit conversion */
 
@@ -515,11 +587,13 @@ setup_smoothinglengths(int RestartSnapNum, DomainDecomp * ddecomp, Cosmology * C
     if(DensityIndependentSphOn()) {
         setup_density_indep_entropy(&act, &Tree, CP, &sph_pred, u_init, a3, BlackHoleOn, Ti_Current);
     }
-    else {
+    else if (CP->ComovingIntegrationOn){
         /*Initialize to initial energy*/
+        /* No need to do anything when ComovingIntergation not on*/
         #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[0].size; i++)
             SphP[i].Entropy = GAMMA_MINUS1 * u_init / pow(SphP[i].Density / a3 , GAMMA_MINUS1);
     }
+
     force_tree_free(&Tree);
 }
