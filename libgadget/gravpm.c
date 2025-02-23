@@ -49,9 +49,17 @@ static struct gravpm_params
 } GravPM;
 
 void
-gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G) {
-    petapm_init(pm, BoxSize, Asmth, Nmesh, G, MPI_COMM_WORLD);
+gravpm_init_periodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, int NonPeriodic) {
+    petapm_init(pm, BoxSize, Asmth, Nmesh, G, NonPeriodic, MPI_COMM_WORLD);
 }
+
+void
+gravpm_init_nonperiodic(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, int NonPeriodic) {
+/* does not matter if we use any boxsize in initialization because it's only used to inform pm->BoxSize
+  we will be okay if we substitute pm->BoxSize to GravPM->BoxSize properly */
+  petapm_init(pm, 2*BoxSize, Asmth, 2*Nmesh, G, NonPeriodic, MPI_COMM_WORLD);
+}
+
 
 /* Computes the gravitational force on the PM grid
  * and saves the total matter power spectrum.
@@ -83,11 +91,29 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
     /* This removes neutrino particles when they are passive tracers*/
     if(hybrid_nu_tracer(CP, Time))
         pstruct.active = &hybrid_nu_gravpm_is_active;
-
+        
+/******************* For debugging OOB ***************************/
+    double Xmin[3] = {1.0e30, 1.0e30, 1.0e30};
+    double Xmax[3] = {-1.0e30, -1.0e30, -1.0e30};
     int i;
-    #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
+
+    for(i = 0; i < PartManager->NumPart; i++) {
+        for (int k=0; k < 3; k++) {
+            Xmin[k] = (Xmin[k] < P[i].Pos[k]) ? Xmin[k] : P[i].Pos[k];
+            Xmax[k] = (Xmax[k] > P[i].Pos[k]) ? Xmax[k] : P[i].Pos[k];
+        } 
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, Xmin, 3, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, Xmax, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    message(0, "**** check Xmin/Xmax inside gravpm_force \n****");
+    message(0, "***** Xmin=(%g, %g, %g)  **** \n", Xmin[0], Xmin[1], Xmin[2]); 
+    message(0, "***** Xmax=(%g, %g, %g)  **** \n", Xmax[0], Xmax[1], Xmax[2]); 
+/****************************************************/
+
+    for(i = 0; i < PartManager->NumPart; i++) {
         P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
     }
 
@@ -108,11 +134,13 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
      * */
     petapm_force(pm, _prepare, &global_functions, functions, &pstruct, &Tree);
     powerspectrum_sum(pm->ps);
-    /*Now save the power spectrum*/
-    powerspectrum_save(pm->ps, PowerOutputDir, "powerspectrum", Time, GrowthFactor(CP, Time, 1.0));
-    /* Save the neutrino power if it is allocated*/
-    if(pm->ps->logknu)
-        powerspectrum_nu_save(pm->ps, PowerOutputDir, "powerspectrum-nu", Time);
+    if (CP->ComovingIntegrationOn) {
+        /*Now save the power spectrum*/
+        powerspectrum_save(pm->ps, PowerOutputDir, "powerspectrum", Time, GrowthFactor(CP, Time, 1.0));
+        /* Save the neutrino power if it is allocated*/
+        if(pm->ps->logknu)
+            powerspectrum_nu_save(pm->ps, PowerOutputDir, "powerspectrum-nu", Time);
+    }
     /*We are done with the power spectrum, free it*/
     powerspectrum_free(pm->ps);
     walltime_measure("/PMgrav/PowerSpec");

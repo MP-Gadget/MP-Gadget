@@ -82,6 +82,11 @@ extern struct part_manager_type {
     double CurrentParticleOffset[3];
     /* Current box size so we can work out periodic boundaries*/
     double BoxSize;
+    double Xmin[3];
+    double Xmax[3];
+    /* Whether we are running a non-periodic sim */
+    /* put it here because it seems to be the only accessible global structure to treewark.c*/
+    int NonPeriodic;
 } PartManager[1];
 
 /*Compatibility define*/
@@ -94,6 +99,8 @@ void particle_alloc_memory(struct part_manager_type * PartManager, double BoxSiz
  * and stores the relative offset from the last random offset in rel_random_shift.
  * RandomParticleOffset is the max adjustment as a fraction of the box. */
 void update_random_offset(struct part_manager_type * PartManager, double * rel_random_shift, double RandomParticleOffset, const uint64_t seed);
+void update_offset (struct part_manager_type * PartManager, double * rel_random_shift);
+void   set_lbox_nonperiodic(struct part_manager_type * PartManager);
 
 /* Finds the correct relative position accounting for periodicity*/
 #define NEAREST(x, BoxSize) (((x)>0.5*BoxSize)?((x)-BoxSize):(((x)<-0.5*BoxSize)?((x)+BoxSize):(x)))

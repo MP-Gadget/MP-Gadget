@@ -30,15 +30,27 @@
 static struct gravshort_tree_params TreeParams;
 /*Softening length*/
 static double GravitySoftening;
+static double MaxSoftening;
 
 /* gravitational softening length
  * (given in terms of an `equivalent' Plummer softening length)
  */
-double FORCE_SOFTENING(void)
+double FORCE_SOFTENING(int type)
 {
+    if (TreeParams.MultiSpeciesSoftening == 1) {
+        if (type == 0)
+            return 2.8 * TreeParams.SofteningType0;
+        if (type == 1)
+            return 2.8 * TreeParams.SofteningType1;
+        if (type == 4)
+            return 2.8 * TreeParams.SofteningType4;
+        if (type == 5)
+            return 2.8 * TreeParams.SofteningType5;
+    }
     /* Force is Newtonian beyond this.*/
     return 2.8 * GravitySoftening;
 }
+
 
 /*! Sets the (comoving) softening length, converting from units of the mean separation to comoving internal units. */
 void
@@ -48,6 +60,29 @@ gravshort_set_softenings(double MeanSeparation)
     /* 0: Gas is collisional */
     message(0, "GravitySoftening = %g\n", GravitySoftening);
 }
+
+void gravshort_set_max_softening(void)
+{
+    if (TreeParams.MultiSpeciesSoftening == 0) {
+        MaxSoftening = GravitySoftening;
+        message(0, "Maximum Softening = %g\n", MaxSoftening);
+        return;
+    }
+
+    double maxsoft = 0;
+
+    if (TreeParams.SofteningType0 > maxsoft)
+        maxsoft = TreeParams.SofteningType0;
+    if (TreeParams.SofteningType1 > maxsoft)
+        maxsoft = TreeParams.SofteningType1;
+    if (TreeParams.SofteningType4 > maxsoft)
+        maxsoft = TreeParams.SofteningType4;
+    if (TreeParams.SofteningType5 > maxsoft)
+        maxsoft = TreeParams.SofteningType5;
+    MaxSoftening = 2.8 * maxsoft;
+    message(0, "Maximum Softening = %g\n", MaxSoftening);
+}
+
 
 /*This is a helper for the tests*/
 void set_gravshort_treepar(struct gravshort_tree_params tree_params)
@@ -73,6 +108,11 @@ set_gravshort_tree_params(ParameterSet * ps)
         TreeParams.Rcut = param_get_double(ps, "TreeRcut");
         TreeParams.FractionalGravitySoftening = param_get_double(ps, "GravitySoftening");
         TreeParams.MaxBHOpeningAngle = param_get_double(ps, "MaxBHOpeningAngle");
+        TreeParams.MultiSpeciesSoftening = param_get_int(ps, "MultiSpeciesSoftening");
+        TreeParams.SofteningType0 = param_get_double(ps, "SofteningType0");
+        TreeParams.SofteningType1 = param_get_double(ps, "SofteningType1");
+        TreeParams.SofteningType4 = param_get_double(ps, "SofteningType4");
+        TreeParams.SofteningType5 = param_get_double(ps, "SofteningType5");
     }
     MPI_Bcast(&TreeParams, sizeof(struct gravshort_tree_params), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
@@ -103,6 +143,7 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
     priv.G = pm->G;
     priv.cbrtrho0 = pow(rho0, 1.0 / 3);
     priv.Ti_Current = Ti_Current;
+    priv.NonPeriodic = pm->NonPeriodic;
     priv.Accel = AccelStore;
     int accelstorealloc = 0;
     if(!AccelStore) {
@@ -156,11 +197,9 @@ grav_short_tree(const ActiveParticles * act, PetaPM * pm, ForceTree * tree, MyFl
 /* Add the acceleration from a node or particle to the output structure,
  * computing the short-range kernel and softening.*/
 static void
-apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double mass, const double cellsize)
+apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const double r2, const double mass, const double cellsize, const double h)
 {
     const double r = sqrt(r2);
-
-    const double h = FORCE_SOFTENING();
     double fac = mass / (r2 * r);
     double facpot = -mass / r;
 
@@ -196,7 +235,7 @@ apply_accn_to_output(TreeWalkResultGravShort * output, const double dx[3], const
  * to the acceleration. This happens if the node is further away than the short-range force cutoff.
  * Return 1 if the node should be discarded, 0 otherwise. */
 static int
-shall_we_discard_node(const double len, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double rcut, const double rcut2)
+shall_we_discard_node(const double len, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double rcut, const double rcut2, const int NonPeriodic)
 {
     /* This checks the distance from the node center of mass
      * is greater than the cutoff. */
@@ -207,9 +246,14 @@ shall_we_discard_node(const double len, const double r2, const double center[3],
         int i;
         /*This checks whether we are also outside this region of the oct-tree*/
         /* As long as one dimension is outside, we are fine*/
-        for(i=0; i < 3; i++)
-            if(fabs(NEAREST(center[i] - inpos[i], BoxSize)) > eff_dist)
+        for(i=0; i < 3; i++) {
+            if ((NonPeriodic) && (fabs(center[i] - inpos[i]) > eff_dist)) {
                 return 1;
+            }
+            else if (fabs(NEAREST(center[i] - inpos[i], BoxSize)) > eff_dist) {
+                return 1;
+            }
+        }
     }
     return 0;
 }
@@ -218,7 +262,7 @@ shall_we_discard_node(const double len, const double r2, const double center[3],
  * If it should be discarded, 0 is returned.
  * If it should be used, 1 is returned, otherwise zero is returned. */
 static int
-shall_we_open_node(const double len, const double mass, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double aold, const int TreeUseBH, const double BHOpeningAngle2)
+shall_we_open_node(const double len, const double mass, const double r2, const double center[3], const double inpos[3], const double BoxSize, const double aold, const int TreeUseBH, const double BHOpeningAngle2, const int NonPeriodic)
 {
     /* Check the relative acceleration opening condition*/
     if((TreeUseBH == 0) && (mass * len * len > r2 * r2 * aold))
@@ -231,7 +275,13 @@ shall_we_open_node(const double len, const double mass, const double r2, const d
 
     const double inside = 0.6 * len;
     /* Open the cell if we are inside it, even if the opening criterion is not satisfied.*/
-    if(fabs(NEAREST(center[0] - inpos[0], BoxSize)) < inside &&
+    if (NonPeriodic) {
+        if (fabs(center[0] - inpos[0]) < inside &&
+            fabs(center[1] - inpos[1]) < inside &&
+            fabs(center[2] - inpos[2]) < inside)
+            return 1;
+    }
+    else if (fabs(NEAREST(center[0] - inpos[0], BoxSize)) < inside &&
         fabs(NEAREST(center[1] - inpos[1], BoxSize)) < inside &&
         fabs(NEAREST(center[2] - inpos[2], BoxSize)) < inside)
         return 1;
@@ -268,6 +318,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
      * pathological cases. Default value is 0.9, from Volker Springel.*/
     if(TreeUseBH == 0)
         BHOpeningAngle2 = TreeParams.MaxBHOpeningAngle * TreeParams.MaxBHOpeningAngle;
+    const int NonPeriodic = GRAV_GET_PRIV(lv->tw)->NonPeriodic;
 
     /*Input particle data*/
     const double * inpos = input->base.Pos;
@@ -296,12 +347,18 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             int i;
             double dx[3];
-            for(i = 0; i < 3; i++)
-                dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
+            for(i = 0; i < 3; i++) {
+                if (NonPeriodic) {
+                        dx[i] = nop->mom.cofm[i] - inpos[i];
+                    }
+                else {
+                    dx[i] = NEAREST(nop->mom.cofm[i] - inpos[i], BoxSize);
+                }
+            }
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
 
             /* Discard this node, move to sibling*/
-            if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2))
+            if(shall_we_discard_node(nop->len, r2, nop->center, inpos, BoxSize, rcut, rcut2, NonPeriodic))
             {
                 no = nop->sibling;
                 /* Don't add this node*/
@@ -309,15 +366,23 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
 
             /* This node accelerates the particle directly, and is not opened.*/
-            int open_node = shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2);
+            int open_node = shall_we_open_node(nop->len, nop->mom.mass, r2, nop->center, inpos, BoxSize, aold, TreeUseBH, BHOpeningAngle2, NonPeriodic);
+
+            if ((TreeParams.MultiSpeciesSoftening == 1) && (input->Soft < MaxSoftening)) {
+                if (r2 < MaxSoftening * MaxSoftening)
+                        open_node = 1;
+            }
 
             if(!open_node)
             {
+                double h = input->Soft;
+                if (TreeParams.MultiSpeciesSoftening)
+                    h = DMAX(input->Soft, MaxSoftening);
                 /* ok, node can be used */
                 no = nop->sibling;
                 if(lv->mode != TREEWALK_TOPTREE) {
                     /* Compute the acceleration and apply it to the output structure*/
-                    apply_accn_to_output(output, dx, r2, nop->mom.mass, cellsize);
+                    apply_accn_to_output(output, dx, r2, nop->mom.mass, cellsize, h);
                 }
                 continue;
             }
@@ -366,11 +431,23 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             int pp = lv->ngblist[i];
             double dx[3];
             int j;
-            for(j = 0; j < 3; j++)
-                dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
+            for(j = 0; j < 3; j++) {
+                if (NonPeriodic) {
+                    dx[j] = P[pp].Pos[j] - inpos[j];
+                }
+                else {
+                    dx[j] = NEAREST(P[pp].Pos[j] - inpos[j], BoxSize);
+                }
+            }
             const double r2 = dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2];
+            /* This is always the Newtonian softening,
+             * match the default from FORCE_SOFTENING. */
+            double h = 2.8 * GravitySoftening;
+            if( TreeParams.MultiSpeciesSoftening == 1)  {
+                h = DMAX(input->Soft, FORCE_SOFTENING(P[pp].Type));
+            }
             /* Compute the acceleration and apply it to the output structure*/
-            apply_accn_to_output(output, dx, r2, P[pp].Mass, cellsize);
+            apply_accn_to_output(output, dx, r2, P[pp].Mass, cellsize, h);
         }
         ninteractions = numcand;
     }

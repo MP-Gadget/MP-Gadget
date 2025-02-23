@@ -327,8 +327,12 @@ static void reion_loop_pm(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr,
 
     double R = pm_mass->G; //radius is stored here
 
-    const double redshift = 1.0 / (uvbg_params.Time) - 1.;
-
+//    const double redshift = 1.0 / (uvbg_params.Time) - 1.;
+    double redshift; 
+    if (uvbg_params.CP->ComovingIntegrationOn)
+        redshift = 1.0 / (uvbg_params.Time) - 1.;
+    else
+        redshift = uvbg_params.CP->Redshift;
     // Loop through filter radii
     //(jdavies): get the parameters
     //double ReionGammaHaloBias = uvbg_params.ReionGammaHaloBias;

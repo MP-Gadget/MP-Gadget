@@ -305,7 +305,7 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     #pragma omp for schedule(static, gthread.schedsz) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++) {
         if(drift) {
-            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift, drift->CP->NonPeriodic);
             PartManager->Base[i].Ti_drift = drift->ti1;
         }
         /* Garbage is not in the tree*/

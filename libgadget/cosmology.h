@@ -34,6 +34,9 @@ typedef struct {
                            and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
     double GravInternal;/*!< Gravity-constant in internal units */
+    int ComovingIntegrationOn; /* If on then use comoving integration (default 1)*/
+    int NonPeriodic; /*If on then remove the periodic boundary condition (default 0)*/
+    double Redshift; /* Only use if ComovingIntegrationOn=0 !*/
 } Cosmology;
 
 typedef struct {

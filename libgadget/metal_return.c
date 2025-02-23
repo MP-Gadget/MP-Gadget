@@ -153,10 +153,15 @@ static double chabrier_imf(double mass)
     }
 }
 
+// NYC TODO: this needs to be changed
 double atime_integ(double atime, void * params)
 {
     Cosmology * CP = (Cosmology *) params;
-    return 1/(hubble_function(CP, atime) * atime);
+    if (CP->ComovingIntegrationOn)
+        return 1/(hubble_function(CP, atime) * atime);
+    else // Note: atime is not used in hubble_function 
+        // when CP->ComovingIntegrationOn == 0, this is just constant 10
+        return 1/(hubble_function(CP, 1.0));
 }
 
 /* Compute the difference in internal time units between two scale factors.*/
@@ -167,6 +172,7 @@ static double atime_to_myr(Cosmology *CP, double atime1, double atime2, gsl_inte
      * about metal return over a single timestep*/
     gsl_function ff = {atime_integ, CP};
     double tmyr, abserr;
+    // tmyr in internal units
     gsl_integration_qag(&ff, atime1, atime2, 1e-4, 0, GSL_WORKSPACE, GSL_INTEG_GAUSS61, gsl_work, &tmyr, &abserr);
     return tmyr * CP->UnitTime_in_s / SEC_PER_MEGAYEAR;
 }
@@ -469,6 +475,8 @@ metal_return_init(const ActiveParticles * act, Cosmology * CP, struct MetalRetur
             continue;
         int tid = omp_get_thread_num();
         const int slot = P[p_i].PI;
+        // NYC: atime is passed in run.c as loga, so this age computation is good as long as Formationtime
+        // is properly initialized
         priv->StellarAges[slot] = atime_to_myr(CP, STARP(p_i).FormationTime, atime, priv->gsl_work[tid]);
         /* Note this takes care of units*/
         double initialmass = P[p_i].Mass + STARP(p_i).TotalMassReturned;

@@ -12,6 +12,8 @@ struct BHDynFricPriv {
     inttime_t Ti_Current; /* current time*/
     size_t ZeroDF; // Counter for zero density BHs
     double ZeroDFMass; /* Total mass of BHs with zero DF density*/
+    double atime;
+    Cosmology * CP;
 };
 
 /* Do the dynamic friction treewalk if BH_DynFrictionMethod > 0.

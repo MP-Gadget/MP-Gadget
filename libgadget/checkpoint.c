@@ -23,7 +23,7 @@ write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, 
 {
     /* write snapshot of particles */
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn);
+    register_io_blocks(&IOTable, WriteGroupID, MetalReturnOn, CP->ComovingIntegrationOn);
     if(OutputDebugFields)
         register_debug_io_blocks(&IOTable);
     char * fname = petaio_get_snapshot_fname(snapnum, OutputDir);
@@ -48,7 +48,7 @@ void
 dump_snapshot(const char * dump, const double Time, const Cosmology * CP, const char * OutputDir)
 {
     struct IOTable IOTable = {0};
-    register_io_blocks(&IOTable, 0, 1);
+    register_io_blocks(&IOTable, 0, 1, CP->ComovingIntegrationOn);
     register_debug_io_blocks(&IOTable);
     char * fname = fastpm_strdup_printf("%s/%s", OutputDir, dump);
     petaio_save_snapshot(fname, &IOTable, 1, Time, CP);
