@@ -607,7 +607,7 @@ void set_bh_first_timestep(int mTimeBin)
     for(pa = 0; pa < PartManager->NumPart; pa++)
         if(P[pa].Type == 5)
             P[pa].TimeBinHydro = mTimeBin;
-        message(1, "******  Setting BH Timestep ***********: %d \n", mTimeBin);
+    // message(1, "******  Setting BH Timestep ***********: %d \n", mTimeBin);
 }
 
 /* This function assigns new short-range timesteps to particles.

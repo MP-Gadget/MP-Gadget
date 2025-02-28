@@ -111,8 +111,7 @@ petapm_init(PetaPM * pm, double BoxSize, double Asmth, int Nmesh, double G, int 
     pm->comm = comm;
     pm->NonPeriodic = NonPeriodic;
 
-    message(0, "**** inside petapm init , BoxSize=%g,  Nmesh=%d, CellSize=%g*****", 
-            BoxSize, pm->Nmesh, pm->CellSize);   
+    message(0, "Inside petapm init , BoxSize=%g,  Nmesh=%d, CellSize=%g\n",BoxSize, pm->Nmesh, pm->CellSize);
 
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
     ptrdiff_t np[2];
