@@ -596,6 +596,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                     const double rho0 = All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal);
                     force_tree_full(&Tree, ddecomp, HybridNuTracer, All.OutputDir);
                     grav_short_tree(&Act, &pm, &Tree, NULL, rho0, times.Ti_Current);
+                    force_tree_free(&Tree);
             }
         }
         message(0, "Forces computed.\n");
