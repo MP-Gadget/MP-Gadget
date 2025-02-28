@@ -608,7 +608,7 @@ void set_bh_first_timestep(int mTimeBin)
     for(pa = 0; pa < PartManager->NumPart; pa++)
         if(P[pa].Type == 5)
             P[pa].TimeBinHydro = mTimeBin;
-        message(1, "******  Setting BH Timestep ***********: %d \n", mTimeBin);
+    // message(1, "******  Setting BH Timestep ***********: %d \n", mTimeBin);
 }
 
 /* This function assigns new short-range timesteps to particles.
@@ -865,10 +865,8 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
      * Note we can leave the gravitational timestep as set by the acceleration: repositioning may take care of it.*/
     if(isFirstTimeStep) {
         set_bh_first_timestep(mTimeBin);
-        message(0, "first time step, set BH timestep\n");
+        message(0, "First time step, set BH timesteps\n");
     }
-    else
-        message(0, "not first time step");
 
     walltime_measure("/Timeline");
     times->mintimebin = mTimeBin;

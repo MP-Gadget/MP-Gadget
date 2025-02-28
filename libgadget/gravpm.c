@@ -91,7 +91,7 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
     /* This removes neutrino particles when they are passive tracers*/
     if(hybrid_nu_tracer(CP, Time))
         pstruct.active = &hybrid_nu_gravpm_is_active;
-        
+
 /******************* For debugging OOB ***************************/
     double Xmin[3] = {1.0e30, 1.0e30, 1.0e30};
     double Xmax[3] = {-1.0e30, -1.0e30, -1.0e30};
@@ -101,16 +101,16 @@ gravpm_force(PetaPM * pm, DomainDecomp * ddecomp, Cosmology * CP, double Time, d
         for (int k=0; k < 3; k++) {
             Xmin[k] = (Xmin[k] < P[i].Pos[k]) ? Xmin[k] : P[i].Pos[k];
             Xmax[k] = (Xmax[k] > P[i].Pos[k]) ? Xmax[k] : P[i].Pos[k];
-        } 
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, Xmin, 3, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, Xmax, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
-    message(0, "**** check Xmin/Xmax inside gravpm_force \n****");
-    message(0, "***** Xmin=(%g, %g, %g)  **** \n", Xmin[0], Xmin[1], Xmin[2]); 
-    message(0, "***** Xmax=(%g, %g, %g)  **** \n", Xmax[0], Xmax[1], Xmax[2]); 
+    message(0, "**** check Xmin/Xmax inside gravpm_force ****\n");
+    message(0, "***** Xmin=(%g, %g, %g)  **** \n", Xmin[0], Xmin[1], Xmin[2]);
+    message(0, "***** Xmax=(%g, %g, %g)  **** \n", Xmax[0], Xmax[1], Xmax[2]);
 /****************************************************/
 
     for(i = 0; i < PartManager->NumPart; i++) {

@@ -464,7 +464,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(extradomain || is_PM) {
             /* Sync positions of all particles */
             drift_all_particles(Ti_Last, times.Ti_Current, &All.CP, rel_random_shift);
-            message(0, "*** Pass drift_all_particles ***");
+            message(0, "*** Pass drift_all_particles ***\n");
             /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp, MPI_COMM_WORLD);
         } else {
@@ -836,8 +836,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * and advance the PM timestep.*/
         int badtimestep=0;
         if(!All.HierarchicalGravity) {
-            message(0, "**** Inside Non-HierarchicalGravity **** \n");
-            message(0, "NumCurrentTiStep = %d \n", NumCurrentTiStep);
+            message(0, "**** Inside Non-HierarchicalGravity: NumCurrentTiStep = %d\n", NumCurrentTiStep);
             const double asmth = pm.Asmth * PartManager->BoxSize / pm.Nmesh; // TODO_NYC: asmth should not change with boxsize
             badtimestep = find_timesteps(&Act, &times, afac, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
             /* Update velocity and ti_kick to the new step, with the newly computed step size. Unsyncs ti_kick and ti_drift.
