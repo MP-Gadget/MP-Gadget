@@ -40,6 +40,7 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
     CP->wa_fld = 0; /*Dark energy equation of state evolution parameter*/
     CP->Omega_ur = 0;
     CP->MNu[0] = CP->MNu[1] = CP->MNu[2] = 0;
+    CP->ComovingIntegrationOn = 1;
     struct UnitSystem units = get_unitsystem(3.085678e21, 1.989e43, 1e5);
     /*Do the main cosmology initialisation*/
     init_cosmology(CP,0.01, units);

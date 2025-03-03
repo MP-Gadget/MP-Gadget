@@ -1,4 +1,5 @@
 #include <string.h>
+#include <math.h>
 
 #include "partmanager.h"
 #include "utils/mymalloc.h"
@@ -20,6 +21,8 @@ particle_alloc_memory(struct part_manager_type * PartManager, double BoxSize, in
     if(MaxPart >= 1L<<31 || MaxPart < 0)
         endrun(5, "Trying to store %ld particles on a single node, more than fit in an int32, not supported\n", MaxPart);
     memset(PartManager->CurrentParticleOffset, 0, 3*sizeof(double));
+    memset(PartManager->Xmin, 0, 3*sizeof(double));
+    memset(PartManager->Xmax, 0, 3*sizeof(double));
 
     PartManager->BoxSize = BoxSize;
     /* clear the memory to avoid valgrind errors;
@@ -68,4 +71,81 @@ update_random_offset(struct part_manager_type * PartManager, double * rel_random
         if(test_random_shift[i] != PartManager->CurrentParticleOffset[i])
             endrun(44, "Random shift %d is %g != %g on task 0!\n", i, test_random_shift[i], PartManager->CurrentParticleOffset[i]);
 #endif
+}
+
+void
+update_offset(struct part_manager_type * PartManager, double * rel_random_shift)
+{
+    int i;
+    message(0, " *** particle offset before update *** %g %g %g\n", PartManager->CurrentParticleOffset[0], PartManager->CurrentParticleOffset[1], PartManager->CurrentParticleOffset[2]);
+    for (i = 0; i < 3; i++) {
+        /* Note: -Xmin should be the rellative random_shift */
+        rel_random_shift[i] = - PartManager->Xmin[i] + 200.; /* TODO: update this ad hoc 50kpc padding*/    
+        PartManager->CurrentParticleOffset[i] = rel_random_shift[i] + PartManager->CurrentParticleOffset[i];
+    }
+    message(0, "*** relative particle offset *** %g %g %g\n", rel_random_shift[0], rel_random_shift[1], rel_random_shift[2]);
+    message(0, "Internal particle offset is now %g %g %g\n", PartManager->CurrentParticleOffset[0], PartManager->CurrentParticleOffset[1], PartManager->CurrentParticleOffset[2]);
+}
+
+/* Calculate the box size based on particle positions*/
+void  
+set_lbox_nonperiodic(struct part_manager_type * PartManager) {
+
+    int i;
+    double xmin = 1.0e30; 
+    double ymin = 1.0e30; 
+    double zmin = 1.0e30; 
+
+    double xmax = -1.0e30; 
+    double ymax = -1.0e30; 
+    double zmax = -1.0e30; 
+
+
+    #pragma omp parallel for reduction(min: xmin,ymin,zmin) reduction(max: xmax,ymax,zmax)
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        if(P[i].IsGarbage || P[i].Swallowed)
+            continue;
+        // const struct particle_data * pp = &PartManager->Base[i];
+        xmin = (xmin < P[i].Pos[0]) ? xmin:P[i].Pos[0]; 
+        ymin = (ymin < P[i].Pos[1]) ? ymin:P[i].Pos[1]; 
+        zmin = (zmin < P[i].Pos[2]) ? zmin:P[i].Pos[2]; 
+        xmax = (xmax > P[i].Pos[0]) ? xmax:P[i].Pos[0]; 
+        ymax = (ymax > P[i].Pos[1]) ? ymax:P[i].Pos[1]; 
+        zmax = (zmax > P[i].Pos[2]) ? zmax:P[i].Pos[2]; 
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &xmin, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ymin, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &zmin, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+
+    MPI_Allreduce(MPI_IN_PLACE, &xmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ymax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &zmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    PartManager->Xmin[0] = xmin;
+    PartManager->Xmin[1] = ymin;
+    PartManager->Xmin[2] = zmin;
+
+    PartManager->Xmax[0] = xmax;
+    PartManager->Xmax[1] = ymax;
+    PartManager->Xmax[2] = zmax;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for(i = 0; i < 3; i ++) {
+        if ((PartManager->Xmax[i] - PartManager->Xmin[i]) + 400 > PartManager->BoxSize)
+            PartManager->BoxSize = (PartManager->Xmax[i] - PartManager->Xmin[i])  + 400;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    message(0, "***** Inside PartManager set_lbox_nonperiodic ****\n");
+    message(0, "***** Xmin=(%g, %g, %g)  **** \n", PartManager->Xmin[0], PartManager->Xmin[1], PartManager->Xmin[2]);
+    message(0, "***** Xmax=(%g, %g, %g)  **** \n", PartManager->Xmax[0], PartManager->Xmax[1], PartManager->Xmax[2]);
+    message(0, "***** Box=%g  **** \n", PartManager->BoxSize);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+
+
 }

@@ -90,7 +90,7 @@ void set_domain_params(ParameterSet * ps)
         if(domain_params.DomainOverDecompositionFactor < 0)
             domain_params.DomainOverDecompositionFactor = omp_get_max_threads();
         if(domain_params.DomainOverDecompositionFactor == 0)
-            domain_params.DomainOverDecompositionFactor = floor(omp_get_max_threads()/2);                
+            domain_params.DomainOverDecompositionFactor = floor(omp_get_max_threads()/2);
         if(domain_params.DomainOverDecompositionFactor < 4)
             domain_params.DomainOverDecompositionFactor = 4;
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
@@ -286,7 +286,7 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
     #pragma omp for schedule(static, gthread.schedsz) reduction(+: ngarbage)
     for(i=0; i < PartManager->NumPart; i++) {
         if(drift) {
-            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift);
+            real_drift_particle(&PartManager->Base[i], SlotsManager, ddrift, PartManager->BoxSize, rel_random_shift, drift->CP->NonPeriodic);
             PartManager->Base[i].Ti_drift = drift->ti1;
         }
         /* Garbage is not in the tree*/

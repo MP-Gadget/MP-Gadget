@@ -336,7 +336,7 @@ allocator_realloc_int(Allocator * alloc, void * ptr, const size_t new_size, cons
 
     if(0 != allocator_dealloc(alloc, ptr)) {
         allocator_print(header->alloc);
-        endrun(1, "Mismatched Free: %s : %s\n", header->name, header->annotation);
+        endrun(1, "Mismatched Realloc: %s : %s\n", header->name, header->annotation);
     }
 
     /*If we are shrinking memory, move the existing data block up and then write a new header.*/

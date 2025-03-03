@@ -49,7 +49,7 @@ grav_force(const int this, const int other, const double * offset, double * accn
 
     const double r = sqrt(r2);
 
-    const double h = FORCE_SOFTENING();
+    const double h = FORCE_SOFTENING(P[this].Type);
 
     double fac = 1 / (r2 * r);
     if(r < h) {
@@ -177,7 +177,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     domain_decompose_full(&ddecomp);
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G, 0);
     gravshort_fill_ntab(SHORTRANGE_FORCE_WINDOW_TYPE_EXACT, Asmth);
     /* Setup cosmology*/
     Cosmology CP ={0};

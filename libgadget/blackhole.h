@@ -32,6 +32,7 @@ struct BHPriv {
 
     /* Time factors*/
     double atime;
+    double time;
     double a3inv;
     double hubble;
     struct UnitSystem units;
@@ -60,7 +61,7 @@ void set_blackhole_params(ParameterSet * ps);
  * It will be compared to the current time and updated after seeding takes place.
  * tree is a valid ForceTree.
  */
-void blackhole(const ActiveParticles * act, double atime, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails, size_t *bhdetailswritten);
+void blackhole(const ActiveParticles * act, double atime, double time, Cosmology * CP, ForceTree * tree, DomainDecomp * ddecomp, DriftKickTimes * times, RandTable * rnd, const struct UnitSystem units, FILE * FdBlackHoles, FILE * FdBlackholeDetails, size_t *bhdetailswritten);
 
 /* Make a black hole from the particle at index. Random number generator used for the initial mass drawn from a power law.*/
 void blackhole_make_one(int index, const double atime, const RandTable * const rnd);
