@@ -113,17 +113,31 @@ peano_t peano_hilbert_key(const int x, const int y, const int z, const int bits)
 {
     int bit;
     unsigned char rotation = 0;
-    peano_t key = 0;
+    peano_t key = {0};
 
     for(bit = (bits - 1); bit >= 0; bit -= 1)
     {
         const int mask = 1 << bit;
         const unsigned char pix = (4*((x & mask) >> bit)) | (2*((y & mask) >> bit)) | ((z & mask) >> bit);
 
-        key <<= 3;
-        key |= subpix3[rotation][pix];
-        rotation = rottable3[rotation][pix];
-    }
+        key.hs <<= 3;
+        key.hs |= (key.is & (~((~((uint64_t)0)) >> 3))) >> (BITS_PER_DIMENSION - 3);
 
-    return key;
+        key.is <<= 3;
+        key.is |= (key.ls & (~((~((uint64_t)0)) >> 3))) >> (BITS_PER_DIMENSION - 3);
+
+        key.ls <<= 3;
+        key.ls |= subpix3[rotation][pix];
+
+      rotation = rottable3[rotation][pix];
+    }
+       return key;
+}
+
+unsigned char peano_incremental_key(unsigned char pix, unsigned char *rotation)
+{
+  unsigned char outpix = subpix3[*rotation][pix];
+  *rotation            = rottable3[*rotation][pix];
+
+  return outpix;
 }

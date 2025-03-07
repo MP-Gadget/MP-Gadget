@@ -415,11 +415,22 @@ order_by_type_and_key(const void *a, const void *b)
         return -1;
     if(pa->TypeKey > pb->TypeKey)
         return +1;
-    if(pa->Key < pb->Key)
+    //if(pa->Key < pb->Key)
+    //    return -1;
+    //if(pa->Key > pb->Key)
+    //    return +1;
+    if(pa->Key.hs < pb->Key.hs)
         return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
+    else if(pa->Key.hs > pb->Key.hs)
+        return 1;
+    else if(pa->Key.is < pb->Key.is)
+        return -1;
+    else if(pa->Key.is > pb->Key.is)
+        return 1;
+    else if(pa->Key.ls < pb->Key.ls)
+        return -1;
+    else
+        return 1;
     return 0;
 }
 

@@ -876,8 +876,10 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
         for(j = 0; j < 2; j++)
             for(k = 0; k < 2; k++)
             {
-                int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
-
+                //int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                peano_t peanokey = peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                int sub = 7 & peanokey.ls;
+                
                 int count = i + 2 * j + 4 * k;
 
                 Nodes[no].s.suns[count] = *nextfree;
@@ -922,7 +924,9 @@ void force_create_node_for_topnode(int no, int topnode, struct NODE * Nodes, con
         for(j = 0; j < 2; j++)
             for(k = 0; k < 2; k++)
             {
-                int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                //int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                peano_t peanokey = peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+                int sub = 7 & peanokey.ls;
                 int count = i + 2 * j + 4 * k;
                 force_create_node_for_topnode(Nodes[no].s.suns[count], ddecomp->TopNodes[topnode].Daughter + sub, Nodes, ddecomp,
                         bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
