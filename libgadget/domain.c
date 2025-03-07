@@ -431,7 +431,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
     #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopNodes; i++)
     {
-        ddecomp->TopNodes[i].StartKey = topTree[i].StartKey;
+        ddecomp->TopNodes[i].StartKey = add_peano_key(topTree[i].StartKey, get_peanokey_offset(topTree[i].Shift));
         ddecomp->TopNodes[i].Shift = topTree[i].Shift;
         ddecomp->TopNodes[i].Daughter = topTree[i].Daughter;
         ddecomp->TopNodes[i].Leaf = -1; /* will be assigned by create_topleaves*/
@@ -566,8 +566,20 @@ topleaf_ext_order_by_task_and_key(const void * c1, const void * c2)
     const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
     if(p1->Task < p2->Task) return -1;
     if(p1->Task > p2->Task) return 1;
-    if(p1->Key < p2->Key) return -1;
-    if(p1->Key > p2->Key) return 1;
+    //if(p1->Key < p2->Key) return -1;
+    //if(p1->Key > p2->Key) return 1;
+    if(p1->Key.hs < p2->Key.hs)
+        return -1;
+    else if(p1->Key.hs > p2->Key.hs)
+        return 1;
+    else if(p1->Key.is < p2->Key.is)
+        return -1;
+    else if(p1->Key.is > p2->Key.is)
+        return 1;
+    else if(p1->Key.ls < p2->Key.ls)
+        return -1;
+    else
+        return 1;
     return 0;
 }
 
@@ -576,8 +588,20 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
 {
     const struct topleaf_extdata * p1 = (const struct topleaf_extdata *) c1;
     const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
-    if(p1->Key < p2->Key) return -1;
-    if(p1->Key > p2->Key) return 1;
+    //if(p1->Key < p2->Key) return -1;
+    //if(p1->Key > p2->Key) return 1;
+    if(p1->Key.hs < p2->Key.hs)
+        return -1;
+    else if(p1->Key.hs > p2->Key.hs)
+        return 1;
+    else if(p1->Key.is < p2->Key.is)
+        return -1;
+    else if(p1->Key.is > p2->Key.is)
+        return 1;
+    else if(p1->Key.ls < p2->Key.ls)
+        return -1;
+    else
+        return 1;
     return 0;
 }
 
@@ -805,7 +829,38 @@ domain_toptree_get_subnode(struct local_topnode_data * topTree,
 {
     int no = 0;
     while(topTree[no].Daughter >= 0) {
-        no = topTree[no].Daughter + ((key - topTree[no].StartKey) >> (topTree[no].Shift - 3));
+       // no = topTree[no].Daughter + ((key - topTree[no].StartKey) >> (topTree[no].Shift - 3));
+        /* Calculate the shift delta for each level */
+        peano_t delta = subtract_peano_key(key, topTree[no].StartKey);
+        /* Right shift by (Shift - 3) bits to get the subnode index
+            * We need to handle the shifting across the three components */
+        int shift = topTree[no].Shift - 3;
+        uint64_t subnode_index;
+
+        if (shift >= 2 * BITS_PER_DIMENSION) {
+            /* Use only hs component */
+            subnode_index = delta.hs >> (shift - 2 * BITS_PER_DIMENSION);
+        }
+        else if (shift >= BITS_PER_DIMENSION) {
+            /* Use is component and possibly some bits from hs */
+            subnode_index = delta.is >> (shift - BITS_PER_DIMENSION);
+            if (shift < 2 * BITS_PER_DIMENSION) {
+                /* Add any remaining bits from hs */
+                subnode_index |= delta.hs << (2 * BITS_PER_DIMENSION - shift);
+            }
+        }
+        else {
+            /* Use ls component and possibly some bits from is */
+            subnode_index = delta.ls >> shift;
+            if (shift < BITS_PER_DIMENSION) {
+                /* Add any remaining bits from is */
+                subnode_index |= delta.is << (BITS_PER_DIMENSION - shift);
+            }
+        }
+
+        /* Get the lower 3 bits as the subnode index (0-7) */
+        no = topTree[no].Daughter + (subnode_index & 7);
+    
     }
     return no;
 }
@@ -849,7 +904,9 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize, con
         /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
         topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
-        topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+        //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+        peano_t offset = get_peanokey_offset(topTree[sub].Shift);
+        topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         /* We will compute the cost in the node below.*/
         topTree[sub].Count = 0;
         topTree[sub].Cost = 0;
@@ -945,14 +1002,25 @@ domain_toptree_truncate(
 static int
 order_by_key(const void *a, const void *b)
 {
-    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
-    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
-    if(pa->Key < pb->Key)
+    const struct local_particle_data * p1  = (const struct local_particle_data *) a;
+    const struct local_particle_data * p2  = (const struct local_particle_data *) b;
+    //if(pa->Key < pb->Key)
+    //    return -1;
+
+    //if(pa->Key > pb->Key)
+    //    return +1;
+    if(p1->Key.hs < p2->Key.hs)
         return -1;
-
-    if(pa->Key > pb->Key)
-        return +1;
-
+    else if(p1->Key.hs > p2->Key.hs)
+        return 1;
+    else if(p1->Key.is < p2->Key.is)
+        return -1;
+    else if(p1->Key.is > p2->Key.is)
+        return 1;
+    else if(p1->Key.ls < p2->Key.ls)
+        return -1;
+    else
+        return 1;
     return 0;
 }
 
@@ -960,7 +1028,12 @@ static void
 mp_order_by_key(const void * data, void * radix, void * arg)
 {
     const struct local_particle_data * pa  = (const struct local_particle_data *) data;
-    ((uint64_t *) radix)[0] = pa->Key;
+    //((uint64_t *) radix)[0] = pa->Key;
+    uint64_t * out = (uint64_t *) radix;
+    /* Fill the radix buffer with the three components. */
+    out[0] = pa->Key.hs;
+    out[1] = pa->Key.is;
+    out[2] = pa->Key.ls;
 }
 
 /**
@@ -1060,7 +1133,9 @@ domain_check_for_local_refine_subsample(
     topTree[0].Daughter = -1;
     topTree[0].Parent = -1;
     topTree[0].Shift = BITS_PER_DIMENSION * 3;
-    topTree[0].StartKey = 0;
+    topTree[0].StartKey.hs = 0;
+    topTree[0].StartKey.is = 0;
+    topTree[0].StartKey.ls = 0;
     topTree[0].Count = 0;
     topTree[0].Cost = 0;
 
@@ -1123,8 +1198,8 @@ domain_check_for_local_refine_subsample(
                  * Normally we would refine, but if Shift == 0 we don't have space.
                  * In this case we just add the current particle sample to the last toptree node.
                  */
-                endrun(10, "toptree[%d].Count=%ld, shift %d, last_leaf=%d key = %ld i= %d Nsample = %d\n",
-                        leaf, topTree[leaf].Count, topTree[leaf].Shift, last_leaf,LP[i].Key, i, Nsample);
+                endrun(10, "toptree[%d].Count=%ld, shift %d, last_leaf=%d key = (%lu,%lu,%lu) i= %d Nsample = %d\n",
+                                leaf, topTree[leaf].Count, topTree[leaf].Shift, last_leaf, LP[i].Key.hs, LP[i].Key.is, LP[i].Key.ls, i, Nsample);
             }
             /* this will create a new node. */
             last_key = LP[i].Key;
@@ -1362,7 +1437,13 @@ domain_global_refine(
             topTree[sub].Cost = topTree[i].Cost / 8;
             topTree[sub].Daughter = -1;
             topTree[sub].Parent = i;
-            topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+            //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+            peano_t offset = get_peanokey_offset(topTree[sub].Shift);
+            /* Scale offset by j and add to parent's StartKey */
+            offset.ls *= j;
+            offset.is *= j;
+            offset.hs *= j;
+            topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         }
         (*topTreeSize) += 8;
     }
@@ -1484,13 +1565,40 @@ domain_toptree_merge(struct local_topnode_data *treeA,
                 treeA[sub].Cost  = (j + 1) * cost / 8 - j * cost / 8;
                 treeA[sub].Daughter = -1;
                 treeA[sub].Parent = noA;
-                treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
+                //treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
+                peano_t offset = get_peanokey_offset(treeA[sub].Shift);
+                /* Scale offset by j */
+                offset.ls *= j;
+                offset.is *= j;
+                offset.hs *= j;
+                treeA[sub].StartKey = add_peano_key(treeA[noA].StartKey, offset);
             }
             (*treeASize) += 8;
         }
 
         /* find the sub node in A for me and merge, this would bring noB and sub on the same shift, drop to next case */
-        sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
+
+        //sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
+        peano_t delta = subtract_peano_key(treeB[noB].StartKey, treeA[noA].StartKey);
+        int shift = treeA[noA].Shift - 3;
+        uint64_t subnode_index;
+
+        /* Calculate subnode index based on shift level */
+        if (shift >= 2 * BITS_PER_DIMENSION) {
+            subnode_index = delta.hs >> (shift - 2 * BITS_PER_DIMENSION);
+        } else if (shift >= BITS_PER_DIMENSION) {
+            subnode_index = delta.is >> (shift - BITS_PER_DIMENSION);
+            if (shift < 2 * BITS_PER_DIMENSION) {
+                subnode_index |= delta.hs << (2 * BITS_PER_DIMENSION - shift);
+            }
+        } else {
+            subnode_index = delta.ls >> shift;
+            if (shift < BITS_PER_DIMENSION) {
+                subnode_index |= delta.is << (BITS_PER_DIMENSION - shift);
+            }
+        }
+
+        sub = treeA[noA].Daughter + (subnode_index & 7);
         domain_toptree_merge(treeA, treeB, sub, noB, treeASize, MaxTopNodes);
     }
     else if(treeB[noB].Shift == treeA[noA].Shift)
