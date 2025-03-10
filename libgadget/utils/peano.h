@@ -51,9 +51,9 @@ static inline peano_t PEANO(const double * const Pos, const double BoxSize)
 unsigned char peano_incremental_key(unsigned char pix, unsigned char *rotation);
 
 
-inline peano_t get_peanokey_offset(int bits) /* this returns the peanokey for which  j << bits */
+inline peano_t get_peanokey_offset(unsigned int j, int bits) /* this returns the peanokey for which  j << bits */
 {
-  peano_t key = {0};
+  peano_t key = {j, j, j};
 
   if(bits < BITS_PER_DIMENSION)
     key.ls <<= bits;

@@ -431,7 +431,7 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
     #pragma omp parallel for
     for(i = 0; i < ddecomp->NTopNodes; i++)
     {
-        ddecomp->TopNodes[i].StartKey = add_peano_key(topTree[i].StartKey, get_peanokey_offset(topTree[i].Shift));
+        ddecomp->TopNodes[i].StartKey = topTree[i].StartKey;
         ddecomp->TopNodes[i].Shift = topTree[i].Shift;
         ddecomp->TopNodes[i].Daughter = topTree[i].Daughter;
         ddecomp->TopNodes[i].Leaf = -1; /* will be assigned by create_topleaves*/
@@ -905,7 +905,7 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize, con
         topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
         //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-        peano_t offset = get_peanokey_offset(topTree[sub].Shift);
+        peano_t offset = get_peanokey_offset(j, 3 * BITS_PER_DIMENSION - topTree[sub].Shift);
         topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         /* We will compute the cost in the node below.*/
         topTree[sub].Count = 0;
@@ -1438,7 +1438,7 @@ domain_global_refine(
             topTree[sub].Daughter = -1;
             topTree[sub].Parent = i;
             //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-            peano_t offset = get_peanokey_offset(topTree[sub].Shift);
+            peano_t offset = get_peanokey_offset(j, 3 * BITS_PER_DIMENSION - topTree[sub].Shift)
             /* Scale offset by j and add to parent's StartKey */
             offset.ls *= j;
             offset.is *= j;
@@ -1566,7 +1566,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
                 treeA[sub].Daughter = -1;
                 treeA[sub].Parent = noA;
                 //treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
-                peano_t offset = get_peanokey_offset(treeA[sub].Shift);
+                peano_t offset = get_peanokey_offset(j,  3 * BITS_PER_DIMENSION - treeA[sub].Shift);
                 /* Scale offset by j */
                 offset.ls *= j;
                 offset.is *= j;
