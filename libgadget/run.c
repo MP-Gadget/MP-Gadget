@@ -216,7 +216,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
-    if (!All.ComovingIntegrationOn){
+    if (!All.CP.ComovingIntegrationOn){
         if(All.Nmesh < 4)
             endrun(6, "Nmesh = %d. This is likely not what you meant! Usually you need Nmesh >= cbrt(Npart) (%d)\n", All.Nmesh, (int) cbrt(head->NTotalInit[1]));
         if(All.Nmesh % 2 != 0)
