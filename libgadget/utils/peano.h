@@ -6,7 +6,7 @@
 
 //typedef uint64_t peano_t;
 //#define PEANOT_MAX UINT64_MAX
-#define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 21 to fit in 64-bit integer ! */
+#define  BITS_PER_DIMENSION 64
 //#define  PEANOCELLS (((peano_t)1)<<(3*BITS_PER_DIMENSION))
 
 typedef struct {
@@ -24,15 +24,8 @@ static const peano_t PEANOT_MAX = {
 
 static inline peano_t get_peanocells(void) {
     peano_t cells = {0};
-    int total_bits = 3 * BITS_PER_DIMENSION;
-    
-    if(total_bits <= BITS_PER_DIMENSION) {
-        cells.ls = ((uint64_t)1) << total_bits;
-    } else if(total_bits <= 2 * BITS_PER_DIMENSION) {
-        cells.is = ((uint64_t)1) << (total_bits - BITS_PER_DIMENSION);
-    } else {
-        cells.hs = ((uint64_t)1) << (total_bits - 2 * BITS_PER_DIMENSION);
-    }
+    int total_bits = BITS_PER_DIMENSION;
+    cells.hs = ((uint64_t)1) << (total_bits);
     return cells;
 }
 
@@ -43,7 +36,7 @@ peano_t peano_hilbert_key(const int x, const int y, const int z, const int bits)
 static inline peano_t PEANO(const double * const Pos, const double BoxSize)
 {
     /*No reason known for the Box/2000 and 1.001 factors*/
-    const double DomainFac = 1.0 / (BoxSize*1.001) * (((uint64_t) 1) << (BITS_PER_DIMENSION));
+    const double DomainFac = 1.0 / (BoxSize*1.001) * (((uint64_t) 1) << (BITS_PER_DIMENSION - 2));
     const double spos[3] = {Pos[0] + BoxSize/2000, Pos[1] + BoxSize/2000, Pos[2] + BoxSize/2000};
     return peano_hilbert_key(spos[0]*DomainFac, spos[1]*DomainFac, spos[2]*DomainFac, BITS_PER_DIMENSION);
 }
