@@ -1567,10 +1567,6 @@ domain_toptree_merge(struct local_topnode_data *treeA,
                 treeA[sub].Parent = noA;
                 //treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
                 peano_t offset = get_peanokey_offset(j,  3 * BITS_PER_DIMENSION - treeA[sub].Shift);
-                /* Scale offset by j */
-                offset.ls *= j;
-                offset.is *= j;
-                offset.hs *= j;
                 treeA[sub].StartKey = add_peano_key(treeA[noA].StartKey, offset);
             }
             (*treeASize) += 8;
