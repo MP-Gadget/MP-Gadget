@@ -1132,7 +1132,7 @@ domain_check_for_local_refine_subsample(
     *topTreeSize = 1;
     topTree[0].Daughter = -1;
     topTree[0].Parent = -1;
-    topTree[0].Shift = BITS_PER_DIMENSION;
+    topTree[0].Shift = 3 * BITS_PER_DIMENSION;
     topTree[0].StartKey.hs = 0;
     topTree[0].StartKey.is = 0;
     topTree[0].StartKey.ls = 0;
@@ -1439,10 +1439,6 @@ domain_global_refine(
             topTree[sub].Parent = i;
             //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
             peano_t offset = get_peanokey_offset(j, 3 * BITS_PER_DIMENSION - topTree[sub].Shift);
-            /* Scale offset by j and add to parent's StartKey */
-            offset.ls *= j;
-            offset.is *= j;
-            offset.hs *= j;
             topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         }
         (*topTreeSize) += 8;
