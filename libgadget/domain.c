@@ -905,7 +905,7 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize, con
         topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
         //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-        peano_t offset = get_peanokey_offset(j, 3 * BITS_PER_DIMENSION - topTree[sub].Shift);
+        peano_t offset = get_peanokey_offset(j, topTree[sub].Shift);
         topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         /* We will compute the cost in the node below.*/
         topTree[sub].Count = 0;
@@ -1438,7 +1438,7 @@ domain_global_refine(
             topTree[sub].Daughter = -1;
             topTree[sub].Parent = i;
             //topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-            peano_t offset = get_peanokey_offset(j, 3 * BITS_PER_DIMENSION - topTree[sub].Shift);
+            peano_t offset = get_peanokey_offset(j, topTree[sub].Shift);
             topTree[sub].StartKey = add_peano_key(topTree[i].StartKey, offset);
         }
         (*topTreeSize) += 8;
@@ -1562,7 +1562,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
                 treeA[sub].Daughter = -1;
                 treeA[sub].Parent = noA;
                 //treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
-                peano_t offset = get_peanokey_offset(j,  3 * BITS_PER_DIMENSION - treeA[sub].Shift);
+                peano_t offset = get_peanokey_offset(j, treeA[sub].Shift);
                 treeA[sub].StartKey = add_peano_key(treeA[noA].StartKey, offset);
             }
             (*treeASize) += 8;
