@@ -75,17 +75,25 @@ domain_get_topleaf(peano_t key, const DomainDecomp * ddecomp) {
         //no = ddecomp->TopNodes[no].Daughter + ((key - ddecomp->TopNodes[no].StartKey) >> (ddecomp->TopNodes[no].Shift - 3));
         peano_t diff = subtract_peano_key(key, ddecomp->TopNodes[no].StartKey);
         int shift = ddecomp->TopNodes[no].Shift - 3;
-        unsigned int off;
+        uint64_t off;
         
         if(shift >= 2 * BITS_PER_DIMENSION) {
-            off = (diff.hs >> (shift - 2 * BITS_PER_DIMENSION)) & 7;
+            off = (diff.hs >> (shift - 2 * BITS_PER_DIMENSION));
         } else if(shift >= BITS_PER_DIMENSION) {
-            off = (diff.is >> (shift - BITS_PER_DIMENSION)) & 7;
+            off = (diff.is >> (shift - BITS_PER_DIMENSION));
+            if (shift < 2 * BITS_PER_DIMENSION) {
+                /* Add any remaining bits from hs */
+                off |= diff.hs << (2 * BITS_PER_DIMENSION - shift);
+            }
         } else {
-            off = (diff.ls >> shift) & 7;
+            off = (diff.ls >> shift);
+            if (shift < BITS_PER_DIMENSION) {
+                /* Add any remaining bits from is */
+                off |= diff.is << (BITS_PER_DIMENSION - shift);
+            }
         }
         
-        no = ddecomp->TopNodes[no].Daughter + off;
+        no = ddecomp->TopNodes[no].Daughter + (off & 7);
     }    
     no = ddecomp->TopNodes[no].Leaf;
     return no;
