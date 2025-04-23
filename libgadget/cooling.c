@@ -7,15 +7,9 @@
  * Follows the DoCooling function found in Gadget-4, which is Copyright (C) 2014 - 2020 Volker Springel.
  ************** */
 
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <bigfile.h>
 #include "utils/endrun.h"
-#include "utils/mymalloc.h"
-#include "utils/interp.h"
 #include "physconst.h"
 #include "cooling.h"
 #include "cooling_rates.h"

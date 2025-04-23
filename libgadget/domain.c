@@ -7,12 +7,9 @@
 #include <stdint.h>
 #include <omp.h>
 
-#include "utils.h"
-
 #include "domain.h"
 #include "forcetree.h"
 #include "timestep.h"
-#include "timebinmgr.h"
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
@@ -90,7 +87,7 @@ void set_domain_params(ParameterSet * ps)
         if(domain_params.DomainOverDecompositionFactor < 0)
             domain_params.DomainOverDecompositionFactor = omp_get_max_threads();
         if(domain_params.DomainOverDecompositionFactor == 0)
-            domain_params.DomainOverDecompositionFactor = floor(omp_get_max_threads()/2);                
+            domain_params.DomainOverDecompositionFactor = floor(omp_get_max_threads()/2);
         if(domain_params.DomainOverDecompositionFactor < 4)
             domain_params.DomainOverDecompositionFactor = 4;
         domain_params.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
