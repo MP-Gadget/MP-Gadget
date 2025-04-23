@@ -2,6 +2,7 @@
 #define GADGET_WALLTIME_H
 
 #include <stdio.h>
+#include <mpi.h>
 
 int walltime_clock(const char * name);
 void walltime_reset(void);
