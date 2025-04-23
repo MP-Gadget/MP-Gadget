@@ -1,4 +1,5 @@
 #include <math.h>
+#include "libgadget/timestep.h"
 #include "treewalk.h"
 #include "densitykernel.h"
 #include "bhdynfric.h"
@@ -403,10 +404,11 @@ blackhole_dfaccel(int * ActiveBlackHoles, size_t NumActiveBlackHoles, const doub
     if (blackhole_dynfric_params.BH_DynFrictionMethod == 0)
         return;
 
-    int i;
     #pragma omp parallel for
-    for(i = 0; i < NumActiveBlackHoles; i++) {
-        int n = ActiveBlackHoles ? ActiveBlackHoles[i] : i;
+    for(size_t i = 0; i < NumActiveBlackHoles; i++) {
+        int n = i;
+        if(ActiveBlackHoles)
+            n = ActiveBlackHoles[i];
         blackhole_compute_dfaccel(n, atime, GravInternal);
     }
 }
