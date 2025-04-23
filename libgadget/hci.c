@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/string.h"
+#include "utils/mymalloc.h"
 #include "hci.h"
 
 static double

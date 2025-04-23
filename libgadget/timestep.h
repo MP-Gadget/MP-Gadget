@@ -3,7 +3,6 @@
 
 #include "utils/paramset.h"
 #include "timebinmgr.h"
-#include "timefac.h"
 #include "petapm.h"
 #include "domain.h"
 

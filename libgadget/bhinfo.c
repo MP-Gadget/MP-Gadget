@@ -1,11 +1,12 @@
 #include <math.h>
 #include <string.h>
 #include "utils/mymalloc.h"
+#include "utils/endrun.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
 #include "blackhole.h"
-#include "bhdynfric.h"
 #include "bhinfo.h"
+#include "physconst.h"
 
 /* Structure needs to be packed to ensure disc write is the same on all architectures and the record size is correct. */
 struct __attribute__((__packed__)) BHinfo{

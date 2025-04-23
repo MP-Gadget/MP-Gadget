@@ -4,8 +4,8 @@
 #include <string.h>
 #include <omp.h>
 
-#include "utils.h"
-
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 #include "partmanager.h"
 #include "forcetree.h"
 #include "petapm.h"

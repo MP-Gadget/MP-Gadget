@@ -2,6 +2,7 @@
 #define PLANE_H
 
 #include "cosmology.h"
+#include "utils/paramset.h"
 
 /* The set_plane_params function initializes the parameters needed for computing lensing potential planes. It sets the normal directions and cut points for the planes, the resolution of the planes, and their thickness. The function reads these parameters from a ParameterSet object, broadcasts the initialized parameters to all processes in an MPI environment, and ensures consistency across different processes. */
 void set_plane_params(ParameterSet * ps);

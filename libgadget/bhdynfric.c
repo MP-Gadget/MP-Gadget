@@ -4,6 +4,8 @@
 #include "bhdynfric.h"
 #include "density.h"
 #include "walltime.h"
+#include "utils/system.h"
+#include "utils/endrun.h"
 
 #define BHPOTVALUEINIT 1.0e29
 

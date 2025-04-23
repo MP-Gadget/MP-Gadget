@@ -15,8 +15,10 @@
 #include "densitykernel.h"
 #include "density.h"
 #include "cosmology.h"
-#include "winds.h"
 #include "utils/spinlocks.h"
+#include "utils/mymalloc.h"
+#include "utils/endrun.h"
+#include "utils/system.h"
 #include "metal_tables.h"
 
 /*! \file metal_return.c

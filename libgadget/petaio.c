@@ -10,8 +10,6 @@
 #include <bigfile-mpi.h>
 
 #include "sfr_eff.h"
-#include "cooling.h"
-#include "timestep.h"
 
 #include "petaio.h"
 #include "slotsmanager.h"
@@ -20,8 +18,11 @@
 #include "partmanager.h"
 #include "config.h"
 #include "neutrinos_lra.h"
-
-#include "utils.h"
+#include "physconst.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/openmpsort.h"
+#include "utils/string.h"
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c

@@ -6,20 +6,20 @@
 #include <omp.h>
 
 #include "physconst.h"
-#include "cooling.h"
 #include "gravity.h"
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "slotsmanager.h"
 #include "blackhole.h"
 #include "timestep.h"
-#include "hydra.h"
 #include "density.h"
 #include "sfr_eff.h"
 #include "winds.h"
 #include "walltime.h"
 #include "bhinfo.h"
 #include "bhdynfric.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers

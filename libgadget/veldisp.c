@@ -4,6 +4,10 @@
 #include "treewalk.h"
 #include "walltime.h"
 #include "sfr_eff.h"
+#include "timefac.h"
+#include "density.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 /* Compute the DM velocity dispersion for black holes*/
 static void blackhole_veldisp(const ActiveParticles * act, Cosmology * CP, ForceTree * tree, struct kick_factor_data * kf);

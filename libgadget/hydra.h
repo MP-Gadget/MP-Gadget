@@ -2,7 +2,6 @@
 #define HYDRA_H
 
 #include "forcetree.h"
-#include "types.h"
 #include "timestep.h"
 #include "density.h"
 #include "utils/paramset.h"

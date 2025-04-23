@@ -1,20 +1,19 @@
 #include <mpi.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
-#include <ctype.h>
-// #include <time.h>
 #include "lenstools.h"
-#include "utils.h"
+#include "utils/string.h"
+#include "utils/mymalloc.h"
 #include "cosmology.h"
 #include "plane.h"
+#include "physconst.h"
 #include "partmanager.h"
-#include "petaio.h"
-#include "utils.h"
 #include "timefac.h"
-// #include "timebinmgr.h"
+#include "utils/endrun.h"
+#include "utils/system.h"
+#include "timebinmgr.h"
 
 static struct plane_params
 {
@@ -188,7 +187,7 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
     }
     myfree(summed_plane_result);
     myfree(plane_result);
-    
+
 
     if (ThisTask == 0) {
         double comoving_distance_Mpc  = comoving_distance * UnitLength_in_cm / CM_PER_MPC;

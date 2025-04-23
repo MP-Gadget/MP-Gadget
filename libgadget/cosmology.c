@@ -5,7 +5,7 @@
 
 #include "cosmology.h"
 #include "physconst.h"
-#include "utils.h"
+#include "utils/endrun.h"
 
 /*Stefan-Boltzmann constant in cgs units*/
 #define  STEFAN_BOLTZMANN 5.670373e-5

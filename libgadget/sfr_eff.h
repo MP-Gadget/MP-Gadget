@@ -3,10 +3,10 @@
 
 #include "forcetree.h"
 #include "utils/paramset.h"
+#include "utils/system.h"
 #include "timestep.h"
 #include "partmanager.h"
 #include "slotsmanager.h"
-#include "physconst.h"
 
 #define  METAL_YIELD       0.02	/*!< effective metal yield for star formation */
 

@@ -9,9 +9,11 @@
 #include "slotsmanager.h"
 #include "treewalk.h"
 #include "density.h"
+#include "timefac.h"
 #include "hydra.h"
 #include "winds.h"
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation

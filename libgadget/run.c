@@ -4,18 +4,19 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <omp.h>
 
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/string.h"
 
+#include "uvbg.h"
 #include "walltime.h"
 #include "gravity.h"
 #include "density.h"
 #include "domain.h"
 #include "run.h"
 #include "init.h"
-#include "cooling.h"
 #include "checkpoint.h"
 #include "petaio.h"
 #include "petapm.h"
@@ -31,11 +32,10 @@
 #include "fof.h"
 #include "cooling_qso_lightup.h"
 #include "lightcone.h"
-#include "timefac.h"
-#include "uvbg.h"
 #include "neutrinos_lra.h"
 #include "stats.h"
 #include "veldisp.h"
+#include "physconst.h"
 #include "plane.h"
 
 static struct ClockTable Clocks;

@@ -3,7 +3,6 @@
 
 #include "domain.h"
 #include "utils/paramset.h"
-#include "timebinmgr.h"
 #include "petaio.h"
 
 /* Loads and validates a particle table and initialise properties of the particle distribution.*/

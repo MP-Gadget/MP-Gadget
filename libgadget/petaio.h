@@ -7,7 +7,6 @@
 #include "partmanager.h"
 #include "slotsmanager.h"
 #include "cosmology.h"
-#include "physconst.h"
 
 /* Struct to store information written to each snapshot header. */
 struct header_data

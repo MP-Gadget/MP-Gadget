@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <string.h>
 
 #include <bigfile-mpi.h>
 
-#include "utils.h"
+#include "utils/endrun.h"
 #include "utils/mpsort.h"
+#include "utils/mymalloc.h"
+#include "utils/openmpsort.h"
 
 #include "partmanager.h"
 #include "slotsmanager.h"

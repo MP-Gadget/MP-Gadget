@@ -7,13 +7,13 @@
 
 #include "physconst.h"
 #include "walltime.h"
-#include "cooling.h"
 #include "density.h"
 #include "treewalk.h"
 #include "timefac.h"
 #include "slotsmanager.h"
 #include "timestep.h"
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 #include "gravity.h"
 #include "winds.h"
 

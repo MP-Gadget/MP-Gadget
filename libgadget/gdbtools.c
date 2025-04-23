@@ -1,10 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include "utils.h"
 #include "partmanager.h"
 
 
@@ -75,4 +72,3 @@ char * GDB_format_particle(int i) {
     add("GravPM: %g %g %g ", P[i].GravPM[0], P[i].GravPM[1], P[i].GravPM[2]);
     return buf;
 }
-

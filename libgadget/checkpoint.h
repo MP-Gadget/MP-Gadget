@@ -1,6 +1,5 @@
 #ifndef CHECKPOINT_H
 #define CHECKPOINT_H
-#include "physconst.h"
 #include "cosmology.h"
 
 void write_checkpoint(int snapnum, int WriteGroupID, int MetalReturnOn, double Time, const Cosmology * CP, const char * OutputDir, const int OutputDebugFields);

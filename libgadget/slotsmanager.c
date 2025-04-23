@@ -2,7 +2,11 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/peano.h"
+#include "utils/openmpsort.h"
+#include "utils/system.h"
 
 struct slots_manager_type SlotsManager[1];
 

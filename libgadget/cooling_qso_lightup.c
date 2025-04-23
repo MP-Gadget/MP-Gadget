@@ -35,8 +35,6 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "treewalk.h"
-#include "hydra.h"
-#include "drift.h"
 #include "walltime.h"
 #include "fof.h"
 #include "utils/endrun.h"

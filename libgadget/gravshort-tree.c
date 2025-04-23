@@ -7,7 +7,8 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 #include "forcetree.h"
 #include "treewalk.h"

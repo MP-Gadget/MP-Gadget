@@ -2,14 +2,14 @@
 #include <omp.h>
 #include <string.h>
 #include "exchange.h"
-#include "forcetree.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "walltime.h"
-#include "timefac.h"
 
-#include "utils.h"
+#include "utils/endrun.h"
 #include "utils/mpsort.h"
+#include "utils/mymalloc.h"
+#include "utils/system.h"
 
 /*Number of structure types for particles*/
 typedef struct {
@@ -648,4 +648,3 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
     myfree(prev);
     myfree(ids);
 }
-

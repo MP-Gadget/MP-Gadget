@@ -4,10 +4,9 @@
 #include <string.h>
 #include <math.h>
 
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
-#include "cooling.h"
-#include "densitykernel.h"
 #include "treewalk.h"
 #include "gravshort.h"
 #include "walltime.h"

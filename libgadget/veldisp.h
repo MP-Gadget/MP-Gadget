@@ -1,10 +1,8 @@
 #ifndef VELDISP_H
 #define VELDISP_H
 
-#include "forcetree.h"
-#include "utils/paramset.h"
 #include "timestep.h"
-#include "density.h"
+#include "cosmology.h"
 
 /* Find the 1D DM velocity dispersion of all nearly star-forming gas and black hole particles.
  * Gas is done by running a density loop for find Vdisp of nearest 40 DM particles.

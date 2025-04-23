@@ -1,7 +1,6 @@
 #ifndef __GARBAGE_H
 #define __GARBAGE_H
 #include <mpi.h>
-#include "utils.h"
 
 #include "types.h"
 #include "partmanager.h"
@@ -162,11 +161,5 @@ int slots_gc(int * compact_slots, struct part_manager_type * pman, struct slots_
 void slots_gc_sorted(struct part_manager_type * pman, struct slots_manager_type * sman);
 size_t slots_reserve(int where, int64_t atleast[6], struct slots_manager_type * sman);
 void slots_check_id_consistency(struct part_manager_type * pman, struct slots_manager_type * sman);
-
-typedef struct {
-    EIBase base;
-    int parent;
-    int64_t child;
-} EISlotsFork;
 
 #endif

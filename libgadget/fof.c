@@ -3,17 +3,15 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <inttypes.h>
 #include <omp.h>
 
-#include "utils.h"
+#include "utils/endrun.h"
 #include "utils/mpsort.h"
 
 #include "walltime.h"
-#include "sfr_eff.h"
 #include "blackhole.h"
 #include "domain.h"
 #include "winds.h"
@@ -23,6 +21,10 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "densitykernel.h"
+#include "utils/mymalloc.h"
+#include "utils/openmpsort.h"
+#include "utils/spinlocks.h"
+#include "utils/string.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder

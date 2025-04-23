@@ -5,15 +5,15 @@
 #include <math.h>
 #include <omp.h>
 
-#include "timestep.h"
 #include "physconst.h"
 #include "cooling.h"
 #include "slotsmanager.h"
-#include "hydra.h"
-#include "utils.h"
 #include "stats.h"
 #include "walltime.h"
 #include "cooling_qso_lightup.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/string.h"
 
 /* global state of system
 */

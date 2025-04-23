@@ -7,25 +7,23 @@
 ============================================================================*/
 
 #include <mpi.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <bigfile.h>
 #include <bigfile-mpi.h>
 #include <stdbool.h>
 #include <assert.h>
 
 #include "uvbg.h"
-#include "cosmology.h"
-#include "utils.h"
-#include "partmanager.h"
-#include "slotsmanager.h"
-#include "petapm.h"
 #include "physconst.h"
 #include "walltime.h"
+#include "cosmology.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "petapm.h"
 #include "petaio.h"
 
 // TODO(smutch): See if something equivalent is defined anywhere else

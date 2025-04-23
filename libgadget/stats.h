@@ -1,6 +1,9 @@
 #ifndef STATS_H
 #define STATS_H
 
+#include <stdio.h>
+#include "utils/paramset.h"
+#include "partmanager.h"
 /* Header for writing statistics*/
 
 /* Structs and functions to open file descriptors for logging output*/

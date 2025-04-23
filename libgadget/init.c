@@ -4,13 +4,12 @@
 #include <mpi.h>
 
 #include "init.h"
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
-#include "cooling.h"
 #include "forcetree.h"
 #include "density.h"
 
-#include "timefac.h"
 #include "petaio.h"
 #include "domain.h"
 #include "walltime.h"

@@ -1,14 +1,10 @@
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
 
 #include "physconst.h"
 #include "timefac.h"
 #include "timebinmgr.h"
-#include "utils.h"
 
 #define WORKSIZE 10000
 
@@ -81,7 +77,7 @@ static double comoving_distance_integ(double a, void *param)
 {
     Cosmology *CP = (Cosmology *) param;
     double h = hubble_function(CP, a);
-    return 1. / (h * a * a); 
+    return 1. / (h * a * a);
 }
 
 /* Function to compute the comoving distance between two scale factors */
@@ -90,7 +86,7 @@ double compute_comoving_distance(Cosmology *CP, double a0, double a1, const doub
     double result, abserr;
     gsl_function F;
     gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(WORKSIZE);
-    
+
     F.function = comoving_distance_integ;
     F.params = CP;
 
@@ -100,4 +96,3 @@ double compute_comoving_distance(Cosmology *CP, double a0, double a1, const doub
 
     return (LIGHTCGS/UnitVelocity_in_cm_per_s) * result;
 }
-

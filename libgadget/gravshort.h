@@ -4,6 +4,7 @@
 #include "partmanager.h"
 #include "treewalk.h"
 #include "gravity.h"
+#include <math.h>
 
 typedef struct {
     TreeWalkNgbIterBase base;

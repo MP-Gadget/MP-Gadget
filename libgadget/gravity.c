@@ -4,8 +4,8 @@
 #include <string.h>
 #include <math.h>
 
-#include "utils.h"
 #include "gravity.h"
+#include "utils/endrun.h"
 
 /*
  * This table is computed by comparing with brute force calculation it matches the full PM exact up to 10 mesh sizes
@@ -64,4 +64,3 @@ grav_apply_short_range_window(double r, double * fac, double * pot, const double
     *pot *= (tabindex + 1 - i) * shortrange_table_potential[tabindex] + (i - tabindex) * shortrange_table_potential[tabindex];
     return 0;
 }
-

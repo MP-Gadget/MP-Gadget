@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <omp.h>
 #include <alloca.h>
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/system.h"
 
 #include "treewalk.h"
 #include "partmanager.h"

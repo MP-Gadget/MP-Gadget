@@ -8,6 +8,10 @@
 #include "domain.h"
 #include "run.h"
 #include "treewalk.h"
+#include "utils/endrun.h"
+#include "utils/system.h"
+#include "utils/mymalloc.h"
+#include "utils/string.h"
 
 char * GDB_format_particle(int i);
 

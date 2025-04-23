@@ -1,14 +1,10 @@
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include "drift.h"
 #include "bhdynfric.h"
 #include "walltime.h"
 #include "timefac.h"
-#include "timestep.h"
-#include "utils.h"
+#include "utils/endrun.h"
 
 /* Drifts an individual particle to time ti1, by a drift factor ddrift.
  * The final argument is a random shift vector applied uniformly to all particles before periodic wrapping.

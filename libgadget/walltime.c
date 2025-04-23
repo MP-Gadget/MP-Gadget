@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include "walltime.h"
 
-#include "utils.h"
+#include "utils/mymalloc.h"
+#include "utils/openmpsort.h"
 
 static struct ClockTable * CT = NULL;
 

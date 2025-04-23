@@ -1,10 +1,10 @@
 #ifndef FOF_H
 #define FOF_H
 
-#include "forcetree.h"
 #include "utils/paramset.h"
 #include "timestep.h"
 #include "slotsmanager.h"
+#include "utils/system.h"
 
 void set_fof_params(ParameterSet * ps);
 

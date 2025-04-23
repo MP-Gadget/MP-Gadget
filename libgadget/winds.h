@@ -3,6 +3,7 @@
 
 #include "forcetree.h"
 #include "utils/paramset.h"
+#include "utils/system.h"
 
 /*
  * Enumeration of the supported wind models.

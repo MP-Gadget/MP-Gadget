@@ -1,12 +1,16 @@
+#include <mpi.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include <gsl/gsl_integration.h>
 
 #include "timebinmgr.h"
-#include "utils.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/string.h"
+#include "utils/openmpsort.h"
+
 #include "cosmology.h"
-#include "physconst.h"
 #include "plane.h"
 
 #define MAXTIMES 1024
@@ -21,7 +25,7 @@ static struct sync_params
     int64_t PlaneOutputListLength;
     double PlaneOutputListTimes[MAXTIMES];
 
-    int ExcursionSetReionOn; 
+    int ExcursionSetReionOn;
     double ExcursionSetZStart;
     double ExcursionSetZStop;
     double UVBGTimestep;
@@ -196,7 +200,7 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     //z=20 to z=4 is ~150 syncpoints at 10 Myr spaces
     //
     SyncPoints = (SyncPoint *) mymalloc("SyncPoints", sizeof(SyncPoint) * NSyncPointsAlloc);
-    
+
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
 
@@ -456,4 +460,3 @@ round_down_power_of_two(inttime_t dti)
         ti_min >>= 1;
     return ti_min * sign;
 }
-

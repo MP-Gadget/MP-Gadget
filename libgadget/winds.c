@@ -9,10 +9,10 @@
 #include "slotsmanager.h"
 #include "timebinmgr.h"
 #include "walltime.h"
-#include "density.h"
-#include "hydra.h"
-#include "sfr_eff.h"
-#include "blackhole.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
+#include "utils/openmpsort.h"
+
 
 /*Parameters of the wind model*/
 static struct WindParams

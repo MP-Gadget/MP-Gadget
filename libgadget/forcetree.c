@@ -1,15 +1,12 @@
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
 #include <omp.h>
 
 #include "domain.h"
 #include "forcetree.h"
-#include "checkpoint.h"
 #include "walltime.h"
+#include "checkpoint.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "utils/endrun.h"

@@ -5,10 +5,12 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 
-#include "types.h"
 #include "petapm.h"
 
-#include "utils.h"
+#include "utils/mymalloc.h"
+#include "utils/endrun.h"
+#include "utils/openmpsort.h"
+#include "utils/system.h"
 #include "walltime.h"
 
 static void

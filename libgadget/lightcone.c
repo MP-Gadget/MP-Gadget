@@ -8,8 +8,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "utils.h"
-
+#include "utils/endrun.h"
+#include "utils/system.h"
 #include "timefac.h"
 #include "partmanager.h"
 #include "cosmology.h"

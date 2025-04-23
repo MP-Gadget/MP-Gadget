@@ -2,17 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "petaio.h"
 #include "checkpoint.h"
 #include "walltime.h"
-#include "fof.h"
-
-#include "utils.h"
+#include "utils/string.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.

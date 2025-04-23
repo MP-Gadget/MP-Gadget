@@ -27,10 +27,11 @@
 #include "slotsmanager.h"
 #include "walltime.h"
 #include "winds.h"
-#include "hydra.h"
 /*Only for the star slot reservation*/
 #include "forcetree.h"
 #include "domain.h"
+#include "utils/endrun.h"
+#include "utils/mymalloc.h"
 
 /*Parameters of the star formation model*/
 static struct SFRParams

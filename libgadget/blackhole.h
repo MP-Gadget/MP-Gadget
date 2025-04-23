@@ -2,8 +2,8 @@
 #define __BLACKHOLE_H
 #include "utils/paramset.h"
 #include "forcetree.h"
-#include "physconst.h"
 #include "density.h"
+#include "utils/system.h"
 
 struct BHPriv {
     /* Temporary array to store the IDs of the swallowing black hole for gas.

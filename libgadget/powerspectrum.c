@@ -5,10 +5,12 @@
 #include <string.h>
 #include <math.h>
 
-#include "types.h"
 #include "powerspectrum.h"
 #include "physconst.h"
-#include "utils.h"
+#include "utils/mymalloc.h"
+#include "utils/string.h"
+#include "utils/endrun.h"
+#include "utils/system.h"
 
 /*Power spectrum related functions*/
 

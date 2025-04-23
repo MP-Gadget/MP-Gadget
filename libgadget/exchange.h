@@ -3,7 +3,6 @@
 
 #include "partmanager.h"
 #include "slotsmanager.h"
-#include "drift.h"
 
 typedef int (*ExchangeLayoutFunc) (int p, const void * userdata);
 
