@@ -270,15 +270,17 @@ void print_spec(int ThisTask, const int Nmesh, struct genic_config All2, Cosmolo
 
       fprintf(fd, "# %12g %12g\n", 1/All2.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All2.BoxSize * (All2.units.UnitLength_in_cm / CM_PER_MPC));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All2.BoxSize/(sqrt(3)*Nmesh) * (All2.units.UnitLength_in_cm/ CM_PER_MPC));	/* smallest power mode in sim*/
+      double scale =  (CM_PER_MPC / All2.units.UnitLength_in_cm);
+      kstart = 2 * M_PI / (2*All2.BoxSize);	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All2.BoxSize/(sqrt(3)*Nmesh));	/* smallest power mode in sim*/
 
-      message(1,"kstart=%lg kend=%lg (1/internal length units)\n",kstart,kend);
+      message(1,"kstart=%lg kend=%lg (h/Mpc)\n",kstart * scale,kend * scale);
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
+		/* DeltaSpec takes k in internal units */
 	    double po = pow(DeltaSpec(k, DELTA_TOT),2);
-	    fprintf(fd, "%12g %12g\n", k, po);
+	    fprintf(fd, "%12g %12g\n", k * scale, po);
 	  }
       fclose(fd);
     }
