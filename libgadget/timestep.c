@@ -864,10 +864,8 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
      * Note we can leave the gravitational timestep as set by the acceleration: repositioning may take care of it.*/
     if(isFirstTimeStep) {
         set_bh_first_timestep(mTimeBin);
-        message(0, "first time step, set BH timestep\n");
+        message(0, "First time step, set BH timesteps\n");
     }
-    else
-        message(0, "not first time step");
 
     walltime_measure("/Timeline");
     times->mintimebin = mTimeBin;
