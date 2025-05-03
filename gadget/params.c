@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-
 #include <libgadget/gravity.h>
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>

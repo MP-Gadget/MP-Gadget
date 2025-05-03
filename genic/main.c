@@ -1,5 +1,4 @@
 #include <math.h>
-#include <stdlib.h>
 #include <strings.h>
 #include <stdio.h>
 #include <mpi.h>
@@ -284,4 +283,3 @@ void print_spec(int ThisTask, const int Nmesh, struct genic_config All2, Cosmolo
       fclose(fd);
     }
 }
-
