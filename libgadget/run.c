@@ -271,7 +271,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
 
     if(RestartSnapNum < 0) {
         DomainDecomp ddecomp[1] = {0};
-        domain_decompose_full(ddecomp); /* do initial domain decomposition (gives equal numbers of particles) so density() is safe*/
+        domain_decompose_full(ddecomp, MPI_COMM_WORLD); /* do initial domain decomposition (gives equal numbers of particles) so density() is safe*/
         /* On first run, generate smoothing lengths and set initial entropies based on CMB temperature*/
         setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, get_MinEgySpec(), units.UnitInternalEnergy_in_cgs, ti_init, head->TimeSnapshot, head->NTotalInit[0]);
         domain_free(ddecomp);
@@ -419,7 +419,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             /* Sync positions of all particles */
             drift_all_particles(Ti_Last, times.Ti_Current, &All.CP, rel_random_shift);
             /* full decomposition rebuilds the domain, needs keys.*/
-            domain_decompose_full(ddecomp);
+            domain_decompose_full(ddecomp, MPI_COMM_WORLD);
         } else {
             /* If it is not a PM step, do a shorter version
              * of the ddecomp decomp which just exchanges particles.
@@ -431,7 +431,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             drift.ti1 = times.Ti_Current;
             int needfull = domain_maintain(ddecomp, &drift);
             if(needfull)
-                domain_decompose_full(ddecomp);
+                domain_decompose_full(ddecomp, MPI_COMM_WORLD);
         }
         if(All.ParticlesAlwaysSorted)
             slots_gc_sorted(PartManager, SlotsManager);
@@ -817,7 +817,7 @@ runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
-    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+    domain_decompose_full(ddecomp, MPI_COMM_WORLD);	/* do initial domain decomposition (gives equal numbers of particles) */
 
     DriftKickTimes times = init_driftkicktime(Ti_Current);
     /* Regenerate the star formation rate for the FOF table.*/
@@ -857,7 +857,7 @@ runpower(const struct header_data * header)
     gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
-    domain_decompose_full(ddecomp);	/* do initial domain decomposition (gives equal numbers of particles) */
+    domain_decompose_full(ddecomp, MPI_COMM_WORLD);	/* do initial domain decomposition (gives equal numbers of particles) */
     /*PM needs a tree*/
     gravpm_force(&pm, ddecomp, &All.CP, header->TimeSnapshot, header->UnitLength_in_cm, All.OutputDir, header->TimeSnapshot);
 }

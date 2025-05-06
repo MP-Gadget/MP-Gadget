@@ -105,7 +105,7 @@ void set_domain_params(ParameterSet * ps)
 static void
 domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
-static int domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
+static int domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, MPI_Comm DomainComm);
 
 static int
 domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
@@ -147,7 +147,7 @@ domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
  *  as a tuning measure.
  */
 #define NPOLICY 16
-void domain_decompose_full(DomainDecomp * ddecomp)
+void domain_decompose_full(DomainDecomp * ddecomp, MPI_Comm DomainComm)
 {
     static DomainDecompositionPolicy policies[NPOLICY];
     static int Npolicies = 0;
@@ -174,7 +174,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
         /* Keep going with the same policy until we have enough topnodes to make it work.*/
         do {
-            int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
+            int MaxTopNodes = domain_allocate(ddecomp, &policies[i], DomainComm);
 
             decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
             decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
@@ -360,7 +360,7 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
 static int
-domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
+domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, MPI_Comm DomainComm)
 {
     size_t bytes, all_bytes = 0;
 
@@ -369,7 +369,7 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
-    ddecomp->DomainComm = MPI_COMM_WORLD;
+    ddecomp->DomainComm = DomainComm;
 
     int NTask;
     MPI_Comm_size(ddecomp->DomainComm, &NTask);

@@ -63,7 +63,7 @@ void set_domain_params(ParameterSet * ps);
 void set_domain_par(DomainParams dp);
 
 /* Do a full domain decomposition, which splits the particles into even clumps*/
-void domain_decompose_full(DomainDecomp * ddecomp);
+void domain_decompose_full(DomainDecomp * ddecomp, MPI_Comm DomainComm);
 /* Exchange particles which have moved into the new domains, not re-doing the split unless we have to*/
 int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift);
 

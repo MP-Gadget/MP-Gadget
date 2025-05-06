@@ -84,7 +84,7 @@ test_fof(void **state)
 
     /* Build a tree and domain decomposition*/
     DomainDecomp ddecomp = {0};
-    domain_decompose_full(&ddecomp);
+    domain_decompose_full(&ddecomp, MPI_COMM_WORLD);
 
     FOFGroups fof = fof_fof(&ddecomp, 1, MPI_COMM_WORLD);
 
