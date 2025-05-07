@@ -212,6 +212,19 @@ void domain_decompose_full(DomainDecomp * ddecomp, MPI_Comm DomainComm)
         myfree(OldTopLeaves);
         myfree(OldTopNodes);
 
+        /* Now the TopLeaves and TopNodes are finalised, we can set the particle topleaves.
+         * Needs to be stored for the tree build, but the index must be to a final entry
+         * in the ddecomp->TopLeaves array. */
+        #pragma omp parallel for
+        for (int n = 0; n < PartManager->NumPart; n++) {
+          /* Skip garbage particles, will be removed during exchange.*/
+          if (PartManager->Base[n].IsGarbage)
+            continue;
+          /* Store the topleaf in the header to avoid recomputing every tree build. */
+          const peano_t key = PEANO(PartManager->Base[n].Pos, PartManager->BoxSize);
+          PartManager->Base[n].TopLeaf = domain_get_topleaf(key, ddecomp);
+        }
+
         if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
             message(0,"Could not exchange particles\n");
             if(i == Npolicies - 1)
@@ -1405,12 +1418,11 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         {
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
-            if(P[n].IsGarbage)
+            if(PartManager->Base[n].IsGarbage)
                 continue;
 
-            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
-            /* Set the topleaf so we can use it for exchange*/
-            P[n].TopLeaf = leaf;
+            /* This leaf is not final until the topnodes have been sorted and assigned. */
+            const int leaf = domain_get_topleaf(PEANO(PartManager->Base[n].Pos, PartManager->BoxSize), ddecomp);
 
             if(local_TopLeafWork)
                 local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
