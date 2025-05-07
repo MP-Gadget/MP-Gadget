@@ -103,7 +103,7 @@ void set_domain_params(ParameterSet * ps)
 }
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
+domain_assign_topleaves_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
 static struct task_data *
 domain_set_task_leafs(const DomainDecomp * const ddecomp);
@@ -473,8 +473,8 @@ domain_balance(DomainDecomp * ddecomp)
 
     domain_compute_costs(ddecomp, NULL, TopLeafCount);
 
-    /* first try work balance */
-    domain_assign_balanced(ddecomp, TopLeafCount, 1);
+    /* This re-orders and sets up the TopLeaves, assigning them to tasks.*/
+    domain_assign_topleaves_balanced(ddecomp, TopLeafCount, 1);
     /* Set up the tasks structure now the topleaves are final. */
     ddecomp->Tasks = domain_set_task_leafs(ddecomp);
     int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
@@ -595,7 +595,7 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
  *
  * */
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask)
+domain_assign_topleaves_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask)
 {
     int NTask;
     MPI_Comm_size(ddecomp->DomainComm, &NTask);
