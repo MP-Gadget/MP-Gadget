@@ -1550,7 +1550,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
     else if(treeB[noB].Shift > treeA[noA].Shift)
     {
         /* Since we only know how to split A, here we simply add a spatial average to A */
-        uint64_t n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
+        peano_t n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
 
         if(treeB[noB].Shift - treeA[noA].Shift > 60) {
             message(1, "Warning: Refusing to merge two tree nodes of wildly different depth: %d %d;\n ", treeB[noB].Shift, treeA[noA].Shift);
