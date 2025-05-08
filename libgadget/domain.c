@@ -1074,7 +1074,7 @@ domain_check_for_local_refine_subsample(
     }
 
     if(domain_params.DomainUseGlobalSorting) {
-        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, DomainComm);
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, sizeof(peano_t), NULL, DomainComm);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
     }
