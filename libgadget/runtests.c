@@ -97,7 +97,7 @@ void
 run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const int Nmesh, const inttime_t Ti_Current, const char * OutputDir, const struct header_data * header)
 {
     DomainDecomp ddecomp[1] = {0};
-    domain_decompose_full(ddecomp);
+    domain_decompose_full(ddecomp, MPI_COMM_WORLD);
 
     struct IOTable IOTable = {0};
     /* NO metals written*/

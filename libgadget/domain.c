@@ -103,9 +103,13 @@ void set_domain_params(ParameterSet * ps)
 }
 
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
+domain_assign_topleaves_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask);
 
-static int domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy);
+static struct task_data *
+domain_set_task_leafs(const DomainDecomp * const ddecomp);
+
+static int
+domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, MPI_Comm DomainComm);
 
 static int
 domain_check_memory_bound(const DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopLeafCount);
@@ -147,7 +151,7 @@ domain_policies_init(DomainDecompositionPolicy policies[], const int Npolicies);
  *  as a tuning measure.
  */
 #define NPOLICY 16
-void domain_decompose_full(DomainDecomp * ddecomp)
+void domain_decompose_full(DomainDecomp * ddecomp, MPI_Comm DomainComm)
 {
     static DomainDecompositionPolicy policies[NPOLICY];
     static int Npolicies = 0;
@@ -174,7 +178,7 @@ void domain_decompose_full(DomainDecomp * ddecomp)
 
         /* Keep going with the same policy until we have enough topnodes to make it work.*/
         do {
-            int MaxTopNodes = domain_allocate(ddecomp, &policies[i]);
+            int MaxTopNodes = domain_allocate(ddecomp, &policies[i], DomainComm);
 
             decompose_failed = domain_attempt_decompose(ddecomp, &policies[i], MaxTopNodes);
             decompose_failed = MPIU_Any(decompose_failed, ddecomp->DomainComm);
@@ -207,6 +211,19 @@ void domain_decompose_full(DomainDecomp * ddecomp)
         /* no longer useful */
         myfree(OldTopLeaves);
         myfree(OldTopNodes);
+
+        /* Now the TopLeaves and TopNodes are finalised, we can set the particle topleaves.
+         * Needs to be stored for the tree build, but the index must be to a final entry
+         * in the ddecomp->TopLeaves array. */
+        #pragma omp parallel for
+        for (int n = 0; n < PartManager->NumPart; n++) {
+          /* Skip garbage particles, will be removed during exchange.*/
+          if (PartManager->Base[n].IsGarbage)
+            continue;
+          /* Store the topleaf in the header to avoid recomputing every tree build. */
+          const peano_t key = PEANO(PartManager->Base[n].Pos, PartManager->BoxSize);
+          PartManager->Base[n].TopLeaf = domain_get_topleaf(key, ddecomp);
+        }
 
         if(domain_exchange(domain_layoutfunc, ddecomp, NULL, PartManager, SlotsManager, 10000, ddecomp->DomainComm)) {
             message(0,"Could not exchange particles\n");
@@ -360,7 +377,7 @@ domain_policies_init(DomainDecompositionPolicy policies[],
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
 static int
-domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
+domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy, MPI_Comm DomainComm)
 {
     size_t bytes, all_bytes = 0;
 
@@ -369,16 +386,9 @@ domain_allocate(DomainDecomp * ddecomp, DomainDecompositionPolicy * policy)
 
     /* Build the domain over the global all-processors communicator.
      * We use a symbol in case we want to do fancy things in the future.*/
-    ddecomp->DomainComm = MPI_COMM_WORLD;
+    ddecomp->DomainComm = DomainComm;
 
-    int NTask;
-    MPI_Comm_size(ddecomp->DomainComm, &NTask);
-
-    /* Add a tail item to avoid special treatments */
-    ddecomp->Tasks = (struct task_data *) mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(ddecomp->Tasks[0])));
-
-    all_bytes += bytes;
-
+    ddecomp->Tasks = NULL;
     ddecomp->TopNodes = (struct topnode_data *) mymalloc("TopNodes",
         bytes = (MaxTopNodes * (sizeof(ddecomp->TopNodes[0]))));
 
@@ -402,7 +412,8 @@ void domain_free(DomainDecomp * ddecomp)
     {
         myfree(ddecomp->TopLeaves);
         myfree(ddecomp->TopNodes);
-        myfree(ddecomp->Tasks);
+        if(ddecomp->Tasks)
+            myfree(ddecomp->Tasks);
         ddecomp->domain_allocated_flag = 0;
     }
 }
@@ -475,9 +486,10 @@ domain_balance(DomainDecomp * ddecomp)
 
     domain_compute_costs(ddecomp, NULL, TopLeafCount);
 
-    /* first try work balance */
-    domain_assign_balanced(ddecomp, TopLeafCount, 1);
-
+    /* This re-orders and sets up the TopLeaves, assigning them to tasks.*/
+    domain_assign_topleaves_balanced(ddecomp, TopLeafCount, 1);
+    /* Set up the tasks structure now the topleaves are final. */
+    ddecomp->Tasks = domain_set_task_leafs(ddecomp);
     int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
     if(status != 0)
         message(0, "Domain decomposition is outside memory bounds.\n");
@@ -592,12 +604,11 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
  * At the moment the Segment/Task distinction is not used: we call this with NSegmentPerTask = 1, because
  * we are able to create Segments of roughly equal cost from the TopLeaves.
  *
- * This creates the index in Tasks[Task].StartLeaf and Tasks[Task].EndLeaf
  * cost is the cost per TopLeaves
  *
  * */
 static void
-domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask)
+domain_assign_topleaves_balanced(DomainDecomp * ddecomp, int64_t * cost, const int NsegmentPerTask)
 {
     int NTask;
     MPI_Comm_size(ddecomp->DomainComm, &NTask);
@@ -739,26 +750,38 @@ domain_assign_balanced(DomainDecomp * ddecomp, int64_t * cost, const int Nsegmen
     /* here we reduce the number of code branches by adding an item to the end. */
     ddecomp->TopLeaves[ddecomp->NTopLeaves].Task = NTask;
     ddecomp->TopLeaves[ddecomp->NTopLeaves].topnode = -1;
+}
 
+/* Set up the Task structure, which contains the start and end domain leafs for each task.*/
+struct task_data *
+domain_set_task_leafs(const DomainDecomp * const ddecomp)
+{
+    int NTask;
+    MPI_Comm_size(ddecomp->DomainComm, &NTask);
+
+    /* Add a tail item to avoid special treatments */
+    struct task_data * Tasks = (struct task_data *) mymalloc2("Tasks", (NTask + 1)* sizeof(ddecomp->Tasks[0]));
+    int i;
     int ta = 0;
-    ddecomp->Tasks[ta].StartLeaf = 0;
+    Tasks[ta].StartLeaf = 0;
     for(i = 0; i <= ddecomp->NTopLeaves; i ++) {
 
         if(ddecomp->TopLeaves[i].Task == ta) continue;
 
-        ddecomp->Tasks[ta].EndLeaf = i;
+        Tasks[ta].EndLeaf = i;
         ta ++;
         while(ta < ddecomp->TopLeaves[i].Task) {
-            ddecomp->Tasks[ta].EndLeaf = i;
-            ddecomp->Tasks[ta].StartLeaf = i;
+            Tasks[ta].EndLeaf = i;
+            Tasks[ta].StartLeaf = i;
             ta ++;
         }
         /* the last item will set Tasks[NTask], but we allocated memory for it already */
-        ddecomp->Tasks[ta].StartLeaf = i;
+        Tasks[ta].StartLeaf = i;
     }
     if(ta != NTask) {
-        endrun(0, "Assertion failed: not all tasks are assigned. This indicates a bug.\n");
+        endrun(0, "Assertion failed: we have %d MPI ranks but found domain entries for %d tasks.\n", NTask, ta);
     }
+    return Tasks;
 }
 
 /*! This function determines which particles that are currently stored
@@ -1051,7 +1074,7 @@ domain_check_for_local_refine_subsample(
     }
 
     if(domain_params.DomainUseGlobalSorting) {
-        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, DomainComm);
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, sizeof(peano_t), NULL, DomainComm);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
     }
@@ -1395,12 +1418,11 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         {
             /* Skip garbage particles: they have zero work
              * and can be removed by exchange if under memory pressure.*/
-            if(P[n].IsGarbage)
+            if(PartManager->Base[n].IsGarbage)
                 continue;
 
-            const int leaf = domain_get_topleaf(PEANO(P[n].Pos, PartManager->BoxSize), ddecomp);
-            /* Set the topleaf so we can use it for exchange*/
-            P[n].TopLeaf = leaf;
+            /* This leaf is not final until the topnodes have been sorted and assigned. */
+            const int leaf = domain_get_topleaf(PEANO(PartManager->Base[n].Pos, PartManager->BoxSize), ddecomp);
 
             if(local_TopLeafWork)
                 local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
@@ -1528,7 +1550,7 @@ domain_toptree_merge(struct local_topnode_data *treeA,
     else if(treeB[noB].Shift > treeA[noA].Shift)
     {
         /* Since we only know how to split A, here we simply add a spatial average to A */
-        uint64_t n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
+        peano_t n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
 
         if(treeB[noB].Shift - treeA[noA].Shift > 60) {
             message(1, "Warning: Refusing to merge two tree nodes of wildly different depth: %d %d;\n ", treeB[noB].Shift, treeA[noA].Shift);

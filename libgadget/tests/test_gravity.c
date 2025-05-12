@@ -174,7 +174,7 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     }
 
     DomainDecomp ddecomp = {0};
-    domain_decompose_full(&ddecomp);
+    domain_decompose_full(&ddecomp, MPI_COMM_WORLD);
 
     PetaPM pm = {0};
     gravpm_init_periodic(&pm, PartManager->BoxSize, Asmth, Nmesh, G);
