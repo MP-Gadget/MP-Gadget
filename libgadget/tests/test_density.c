@@ -287,7 +287,9 @@ static struct ClockTable CT;
 
 static int setup_density(void **state) {
     /* Needed so the integer timeline works*/
-    setup_sync_points(NULL,0.01, 0.1, 0.0, 0);
+    Cosmology CP = {0};
+    CP.ComovingIntegrationOn = 1;
+    setup_sync_points(&CP,0.01, 0.1, 0.0, 0);
 
     /*Reserve space for the slots*/
     slots_init(0.01 * PartManager->MaxPart, SlotsManager);

@@ -12,6 +12,8 @@
 static double drift_integ(double a, void *param)
 {
   Cosmology * CP = (Cosmology *) param;
+    if (!CP->ComovingIntegrationOn)
+      return 1.0 / hubble_function(CP, a);
   double h = hubble_function(CP, a);
   return 1 / (h * a * a * a);
 }
@@ -20,6 +22,8 @@ static double drift_integ(double a, void *param)
 static double gravkick_integ(double a, void *param)
 {
   Cosmology * CP = (Cosmology *) param;
+  if (!CP->ComovingIntegrationOn)
+      return 1.0 / hubble_function(CP, a);
   double h = hubble_function(CP, a);
 
   return 1 / (h * a * a);
@@ -29,10 +33,12 @@ static double gravkick_integ(double a, void *param)
  * Note this is the same function as drift.*/
 static double hydrokick_integ(double a, void *param)
 {
-  double h;
 
   Cosmology * CP = (Cosmology *) param;
-  h = hubble_function(CP, a);
+  if (!CP->ComovingIntegrationOn)
+      return 1.0 / hubble_function(CP, a);
+
+  double h = hubble_function(CP, a);
 
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
@@ -41,10 +47,20 @@ static double hydrokick_integ(double a, void *param)
 static double get_exact_factor(Cosmology * CP, inttime_t t0, inttime_t t1, double (*factor) (double, void *))
 {
     double result, abserr;
+    double a0, a1;
     if(t0 == t1)
         return 0;
-    double a0 = exp(loga_from_ti(t0));
-    double a1 = exp(loga_from_ti(t1));
+    if (CP->ComovingIntegrationOn) {
+        a0 = exp(loga_from_ti(t0));
+        a1 = exp(loga_from_ti(t1));
+    }
+    else {
+    /* In the Non-Comoving Case integrate wrt dloga
+        integrand = dt = dloga / H(a) = dloga / H0
+    */
+        a0 = loga_from_ti(t0);
+        a1 = loga_from_ti(t1);
+    }
     gsl_function F;
     gsl_integration_workspace *workspace;
     workspace = gsl_integration_workspace_alloc(WORKSIZE);

@@ -944,6 +944,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC && !lv->tw->tree->hmax_computed_flag)
         endrun(3, "%s tried to do a symmetric treewalk without computing hmax!\n", lv->tw->ev_label);
     const double BoxSize = lv->tw->tree->BoxSize;
+    const int NonPeriodic = lv->tw->tree->NonPeriodic;
 
     int64_t ninteractions = 0;
     int inode = 0;
@@ -984,7 +985,12 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             double h2 = dist * dist;
             for(d = 0; d < 3; d ++) {
                 /* the distance vector points to 'other' */
-                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                if (NonPeriodic) {
+                    iter->dist[d] = I->Pos[d] - P[other].Pos[d];
+                }
+                else {
+                    iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                }
                 r2 += iter->dist[d] * iter->dist[d];
                 if(r2 > h2) break;
             }
@@ -1013,7 +1019,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  * Returns 0 if the node has no business with this query.
  */
 static int
-cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize)
+cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const iter, const struct NODE * const current, const double BoxSize, const int NonPeriodic)
 {
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
@@ -1027,7 +1033,12 @@ cull_node(const TreeWalkQueryBase * const I, const TreeWalkNgbIterBase * const i
     /* do each direction */
     int d;
     for(d = 0; d < 3; d ++) {
-        dx = NEAREST(current->center[d] - I->Pos[d], BoxSize);
+        if (NonPeriodic) {
+            dx = current->center[d] - I->Pos[d];
+        }
+        else {
+            dx = NEAREST(current->center[d] - I->Pos[d], BoxSize);
+        }
         if(dx > dist) return 0;
         if(dx < -dist) return 0;
         r2 += dx * dx;
@@ -1064,6 +1075,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     const ForceTree * tree = lv->tw->tree;
     const double BoxSize = tree->BoxSize;
+    const int NonPeriodic = tree->NonPeriodic;
 
     no = startnode;
 
@@ -1091,7 +1103,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
 
         /* Cull the node */
-        if(0 == cull_node(I, iter, current, BoxSize)) {
+        if(0 == cull_node(I, iter, current, BoxSize, NonPeriodic)) {
             /* in case the node can be discarded */
             no = current->sibling;
             continue;
@@ -1166,6 +1178,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
         int no = I->NodeList[inode];
         const ForceTree * tree = lv->tw->tree;
         const double BoxSize = tree->BoxSize;
+        const int NonPeriodic = tree->NonPeriodic;
 
         while(no >= 0)
         {
@@ -1184,7 +1197,7 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
             }
 
             /* Cull the node */
-            if(0 == cull_node(I, iter, current, BoxSize)) {
+            if(0 == cull_node(I, iter, current, BoxSize, NonPeriodic)) {
                 /* in case the node can be discarded */
                 no = current->sibling;
                 continue;
@@ -1226,7 +1239,10 @@ int treewalk_visit_nolist_ngbiter(TreeWalkQueryBase * I,
                         double h2 = dist * dist;
                         for(d = 0; d < 3; d ++) {
                             /* the distance vector points to 'other' */
-                            iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
+                            if(NonPeriodic)
+                                iter->dist[d] = I->Pos[d] - P[other].Pos[d];
+                            else
+                                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d], BoxSize);
                             r2 += iter->dist[d] * iter->dist[d];
                             if(r2 > h2) break;
                         }

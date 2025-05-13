@@ -36,6 +36,7 @@ void setup_cosmology(Cosmology * CP, double MNu[])
     CP->RadiationOn = 1;
     CP->Omega_fld = 0;
     CP->Omega_ur = 0;
+    CP->ComovingIntegrationOn = 1;
     int i;
     for(i = 0; i<3; i++)
         CP->MNu[i] = MNu[i];
