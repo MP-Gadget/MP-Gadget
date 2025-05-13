@@ -277,6 +277,9 @@ static inline int inside_topleaf(const int topleaf, const double Pos[3], const F
     return inside;
 }
 
+/* Defined in forcetree.c */
+int get_subnode(const struct NODE * node, const double Pos[3]);
+
 /* This is a cut-down version of the domain decomposition that leaves the
  * domain grid intact, but exchanges the particles and rebuilds the tree */
 int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
@@ -320,9 +323,26 @@ int domain_maintain(DomainDecomp * ddecomp, struct DriftData * drift)
             if(PartManager->Base[i].Type == 1 && !is_timebin_active(PartManager->Base[i].TimeBinGravity, PartManager->Base[i].Ti_drift))
                 continue;
         if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
-            const int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
+            int no = domain_get_topleaf(PEANO(PartManager->Base[i].Pos, PartManager->BoxSize), ddecomp);
             /* Set the topleaf for layoutfunc.*/
             PartManager->Base[i].TopLeaf = no;
+            /* Let's walk the toptree directly to get a topleaf, in case we are slightly outside
+             * of the nodes (maybe due to Peano key inaccuracy).*/
+            if(!inside_topleaf(PartManager->Base[i].TopLeaf, PartManager->Base[i].Pos, &tree)) {
+                no = tree.firstnode;
+                do
+                {
+                    /* This node has child subnodes: find them.*/
+                    int subnode = get_subnode(&tree.Nodes[no], PartManager->Base[i].Pos);
+                    /*No lock needed: if we have an internal node here it will be stable*/
+                    int child = tree.Nodes[no].s.suns[subnode];
+
+                    if(child > tree.lastnode || child < tree.firstnode)
+                        endrun(1,"Corruption in domain maintain: bad toptree walk N[%d].[%d] = %d > lastnode (%ld)\n",no, subnode, child, tree.lastnode);
+                    no = child;
+                }
+                while(tree.Nodes[no].f.InternalTopLevel);
+            }
         }
         int target = domain_layoutfunc(i, ddecomp);
         if(target != tree.ThisTask) {
