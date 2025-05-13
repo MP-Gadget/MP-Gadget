@@ -109,6 +109,8 @@ void read_parameterfile(char *fname, struct genic_config * GenicConfig, int * Sh
     CP->MNu[0] = param_get_double(ps, "MNue");
     CP->MNu[1] = param_get_double(ps, "MNum");
     CP->MNu[2] = param_get_double(ps, "MNut");
+    /* Always enabled for IC generation */
+    CP->ComovingIntegrationOn = 1;
     GenicConfig->WDM_therm_mass = param_get_double(ps, "MWDM_therm");
     *MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     if(*MaxMemSizePerNode <= 1) {
