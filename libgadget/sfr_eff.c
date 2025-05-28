@@ -123,7 +123,7 @@ static int add_new_particle_to_active(const int parent, const int child, ActiveP
 static int copy_gravaccel_new_particle(const int parent, const int child, MyFloat (* GravAccel)[3], int64_t nstoredgravaccel);
 
 static int make_particle_star(int child, int parent, int placement, double Time);
-static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd);
+static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd);
 static int quicklyastarformation(int i, const double a3inv, const RandTable * const rnd);
 static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble, const double GravInternal);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const double atime);
@@ -247,8 +247,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
                     sum_sm += P[p_i].Mass;
                     sm = P[p_i].Mass;
                 } else {
-                    newstar = starformation(p_i, &localsfr, &sm, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG, rnd);
-                    sum_sm += P[p_i].Mass * (1 - exp(-sm/P[p_i].Mass));
+                    newstar = starformation(p_i, &localsfr, &sm, &sum_sm, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG, rnd);
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
@@ -715,7 +714,7 @@ quicklyastarformation(int i, const double a3inv, const RandTable * const rnd)
  * The star slot is not actually created here, but a particle for it is.
  */
 static int
-starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd)
+starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
@@ -738,6 +737,8 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
 
     *sm_out = sm;
     double p = sm / P[i].Mass;
+
+    *sum_sm += P[i].Mass * (1 - exp(-p));
 
     /* convert to Solar per Year.*/
     SPHP(i).Sfr = smr * sfr_params.UnitSfr_in_solar_per_year;
