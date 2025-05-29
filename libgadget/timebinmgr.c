@@ -250,14 +250,16 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
     if (CP->ComovingIntegrationOn) {
         SyncPoints[NSyncPoints].a = TimeMax;
         SyncPoints[NSyncPoints].loga = log(TimeMax);
+        SyncPoints[NSyncPoints].write_fof = 1;
     }
     else {
         SyncPoints[NSyncPoints].a = TimeMax;
         SyncPoints[NSyncPoints].loga = TimeMax;
+        /*No FOF for non-comoving integration. */
+        SyncPoints[NSyncPoints].write_fof = 0;
     }
     SyncPoints[NSyncPoints].write_snapshot = 1;
     SyncPoints[NSyncPoints].calc_uvbg = 0;
-    SyncPoints[NSyncPoints].write_fof = 1;
     SyncPoints[NSyncPoints].write_plane = 0;
     SyncPoints[NSyncPoints].plane_snapnum = -1;
     NSyncPoints++;

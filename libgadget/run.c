@@ -759,10 +759,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             WriteFOF |= action->write_fof;
             WritePlane |= action->write_plane;
         }
-        //NYC: FOF not enabled for Non-ComovingIntegration
-        if (All.CP.ComovingIntegrationOn) {
-            WriteFOF = 0;
-        }
 
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
@@ -785,7 +781,6 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         /* However, we need to define the conversion variable conv.atime=1 in petaio_save_checkpoint*/
         if(WriteSnapshot)
             write_checkpoint(SnapshotFileCount, WriteFOF, All.MetalReturnOn, atime, &All.CP, All.OutputDir, All.OutputDebugFields);
-        message(0, "**** Saved checkpoint **** \n");
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
 
