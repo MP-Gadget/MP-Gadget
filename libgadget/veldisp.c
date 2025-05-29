@@ -262,7 +262,14 @@ wind_vdisp_ngbiter(TreeWalkQueryWindVDisp * I,
             for(d = 0; d < 3; d ++) {
                 /* Add hubble flow to relative velocity. Use predicted velocity to current time.
                  * The I particle is active so always at current time.*/
-                double vel = VelPred[d] - I->Vel[d] + WINDV_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                /* ComovingIntegration Note: ignore hubble flow in non-comoving runs*/
+                double vel;
+                /* FIXME: this should be comovingintegration insdead of nonperiodic, 
+                but currently do not have access to CP in this treewalk */
+                if (!PartManager->NonPeriodic)
+                    vel = VelPred[d] - I->Vel[d] + WINDV_GET_PRIV(lv->tw)->hubble * atime * atime * dist[d];
+                else
+                    vel = VelPred[d] - I->Vel[d];
                 O->V1sum[i][d] += vel;
                 O->V2sum[i] += vel * vel;
             }

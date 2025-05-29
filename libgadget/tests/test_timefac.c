@@ -78,8 +78,9 @@ double exact_drift_factor(Cosmology * CP, double a1, double a2, int exp)
 void test_drift_factor(void ** state)
 {
     /*Initialise the table: default values from z=200 to z=0*/
-    Cosmology CP;
+    Cosmology CP = {0};
     CP.Omega0 = 1.;
+    CP.ComovingIntegrationOn = 1;
     /* Check default scaling: for total matter domination
      * we should have a drift factor like 1/sqrt(a)*/
     assert_true(fabs(get_exact_drift_factor(&CP, get_ti(0.8), get_ti(0.85)) + 2/0.1*(1/sqrt(0.85) - 1/sqrt(0.8))) < 5e-5);

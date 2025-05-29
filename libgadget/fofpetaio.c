@@ -76,7 +76,7 @@ int fof_save_particles(FOFGroups * fof, char * fname, int SaveParticles, Cosmolo
     int domain_needed = 0;
     if(SaveParticles) {
         struct IOTable IOTable = {0};
-        register_io_blocks(&IOTable, 1, MetalReturnOn);
+        register_io_blocks(&IOTable, 1, MetalReturnOn, CP->ComovingIntegrationOn);
         struct part_manager_type * halo_pman = NULL;
         struct slots_manager_type * halo_sman = NULL;
         int64_t NpigLocal = 0;

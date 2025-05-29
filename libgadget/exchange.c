@@ -582,22 +582,18 @@ domain_test_id_uniqueness(struct part_manager_type * pman)
     message(0, "Testing ID uniqueness...\n");
 
     ids = (MyIDType *) mymalloc("ids", pman->NumPart * sizeof(MyIDType));
-
     #pragma omp parallel for
     for(i = 0; i < pman->NumPart; i++) {
         ids[i] = pman->Base[i].ID;
         if(pman->Base[i].IsGarbage)
             ids[i] = (MyIDType) -1;
     }
-
     mpsort_mpi(ids, pman->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
-
     /*Remove garbage from the end*/
     int64_t nids = pman->NumPart;
     while(nids > 0 && (ids[nids-1] == (MyIDType)-1)) {
         nids--;
     }
-
     #pragma omp parallel for
     for(i = 1; i < nids; i++) {
         if(ids[i] <= ids[i - 1])
