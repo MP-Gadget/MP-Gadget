@@ -349,7 +349,11 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
             rate = total_sm / (dloga / hubble);
 
         /* convert to solar masses per yr */
-
+        /* Note that this does not really make sense: the dloga above is from the
+         * minimum current timestep, but the star formation rate is from the
+         * individual timesteps of each star forming particle. This is not the same,
+         * and will be particularly strange when the minimum timestep particle is
+         * not star-forming.*/
         double rate_in_msunperyear = rate * sfr_params.UnitSfr_in_solar_per_year;
 
         /* Format:
