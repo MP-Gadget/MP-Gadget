@@ -19,4 +19,4 @@ DEPS := $(OBJS:.o=.d)
 -include $(DEPS)
 
 clean:
-	rm -rf $(OBJS) MP-GenIC
+	rm -rf $(OBJS) $(OBJS:.o=.d) MP-GenIC
