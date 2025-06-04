@@ -368,8 +368,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
          * moderately different from columns 1 and 2.
          * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm).
          * This should be a noisier version of total_sm. */
-        fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear,
-                total_sum_mass_stars);
+        fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear, total_sum_mass_stars);
         fflush(FdSfr);
     }
 
