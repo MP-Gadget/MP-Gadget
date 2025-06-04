@@ -210,13 +210,13 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /* Get the global UVBG for this redshift. */
     const double redshift = 1./Time - 1;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    double sum_sm = 0, sum_mass_stars = 0, localsfr = 0, sum_dtime = 0;
+    double sum_sm = 0, localsfr = 0, sum_dtime = 0;
     int64_t sum_sf_part = 0;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars) reduction(+:sum_dtime) reduction(+:sum_sf_part)
+    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_dtime) reduction(+:sum_sf_part)
     {
         int i;
         const int tid = omp_get_thread_num();
@@ -316,6 +316,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     int64_t stars_converted = 0, stars_spawned = 0, stars_spawned_gravity = 0;
     int i;
+    double sum_mass_stars = 0;
 
     /*Now we turn the particles into stars*/
     #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars) reduction(+:stars_spawned_gravity)
