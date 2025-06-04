@@ -358,9 +358,12 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
         /* Format:
          * Time = current scale factor,
-         * total_sm = expected change in stellar mass this timestep,
-         * totsfrrate = current star formation rate in active particles in Msun/year,
+         * total_sm = expected change in stellar mass this timestep.
+         * This is: sigma_i dM_* = p_* M_* = M_i (1 - exp(-sm_i / M_i))
+         * totsfrrate = current star formation rate in active particles in Msun/year.
+         * This is: sigma_i dM_* / dt_i
          * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
+         * This is sigma_i dM_* / min(dt_i), which may be completely different from the above.
          * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm) */
         fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear,
                 total_sum_mass_stars);
@@ -742,10 +745,11 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFlo
     *sm_out = sm;
     double p = sm / P[i].Mass;
 
-    *sum_sm += P[i].Mass * (1 - exp(-p));
+    double dM = P[i].Mass * (1 - exp(-p));
+    *sum_sm += dM;
 
-    /* convert to Solar per Year.*/
-    SPHP(i).Sfr = smr * sfr_params.UnitSfr_in_solar_per_year;
+    /* convert to Solar per Year: this is dM_* / dt = p_* M_* / dt ~ smr when smr << 1 */
+    SPHP(i).Sfr = dM /dtime * sfr_params.UnitSfr_in_solar_per_year;
     SPHP(i).Ne = sfr_data.ne;
     *localsfr += SPHP(i).Sfr;
 
@@ -758,7 +762,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFlo
         cooling_relaxed(i, dtime, &uvbg, redshift, a3inv, sfr_data, GlobalUVBG);
 
     double mass_of_star = find_star_mass(i, sfr_params.avg_baryon_mass);
-    double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
+    double prob = dM / mass_of_star;
 
     int form_star = (get_random_number(P[i].ID + 1, rnd) < prob);
     if(form_star) {
