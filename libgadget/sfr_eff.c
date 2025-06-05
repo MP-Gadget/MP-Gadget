@@ -21,6 +21,7 @@
 #include <string.h>
 #include <math.h>
 #include <omp.h>
+#include "libgadget/timebinmgr.h"
 #include "physconst.h"
 #include "sfr_eff.h"
 #include "cooling.h"
@@ -123,7 +124,7 @@ static int add_new_particle_to_active(const int parent, const int child, ActiveP
 static int copy_gravaccel_new_particle(const int parent, const int child, MyFloat (* GravAccel)[3], int64_t nstoredgravaccel);
 
 static int make_particle_star(int child, int parent, int placement, double Time);
-static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd);
+static int starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFloat * sum_dtime, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd);
 static int quicklyastarformation(int i, const double a3inv, const RandTable * const rnd);
 static double get_sfr_factor_due_to_selfgravity(int i, const double atime, const double a3inv, const double hubble, const double GravInternal);
 static double get_sfr_factor_due_to_h2(int i, MyFloat * GradRho_mag, const double atime);
@@ -209,12 +210,13 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /* Get the global UVBG for this redshift. */
     const double redshift = 1./Time - 1;
     struct UVBG GlobalUVBG = get_global_UVBG(redshift);
-    double sum_sm = 0, sum_mass_stars = 0, localsfr = 0;
+    double sum_sm = 0, localsfr = 0, sum_dtime = 0;
+    int64_t sum_sf_part = 0;
 
     /* First decide which stars are cooling and which starforming. If star forming we add them to a list.
      * Note the dynamic scheduling: individual particles may have very different loop iteration lengths.
      * Cooling is much slower than sfr. I tried splitting it into a separate loop instead, but this was faster.*/
-    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_mass_stars)
+    #pragma omp parallel reduction(+:localsfr) reduction(+: sum_sm) reduction(+:sum_dtime) reduction(+:sum_sf_part)
     {
         int i;
         const int tid = omp_get_thread_num();
@@ -241,14 +243,14 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
             if(shall_we_star_form) {
                 int newstar = -1;
                 MyFloat sm = 0;
+                sum_sf_part++;
                 if(sfr_params.QuickLymanAlphaProbability > 0) {
                     /*New star is always the same particle as the parent for quicklya*/
                     newstar = p_i;
                     sum_sm += P[p_i].Mass;
                     sm = P[p_i].Mass;
                 } else {
-                    newstar = starformation(p_i, &localsfr, &sm, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG, rnd);
-                    sum_sm += P[p_i].Mass * (1 - exp(-sm/P[p_i].Mass));
+                    newstar = starformation(p_i, &localsfr, &sm, &sum_sm, &sum_dtime, GradRho, redshift, a3inv, hubble, CP->GravInternal, &GlobalUVBG, rnd);
                 }
                 /*Add this particle to the stellar conversion queue if necessary.*/
                 if(newstar >= 0) {
@@ -314,6 +316,7 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
 
     int64_t stars_converted = 0, stars_spawned = 0, stars_spawned_gravity = 0;
     int i;
+    double sum_mass_stars = 0;
 
     /*Now we turn the particles into stars*/
     #pragma omp parallel for schedule(static) reduction(+:stars_converted) reduction(+:stars_spawned) reduction(+:sum_mass_stars) reduction(+:stars_spawned_gravity)
@@ -337,36 +340,47 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     /*Done with the parents*/
     myfree(NewParents);
 
-    double total_sum_mass_stars = 0, total_sm = 0, totsfrrate = 0;
+    double total_sum_mass_stars = 0, total_sm = 0, totsfrrate = 0, total_sum_dtime = 0;
+    int64_t total_sum_part = 0;
 
     MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(FdSfr && total_sm > 0)
-    {
-        double rate = 0;
-
-        if(dloga > 0)
-            rate = total_sm / (dloga / hubble);
-
-        /* convert to solar masses per yr */
-
-        double rate_in_msunperyear = rate * sfr_params.UnitSfr_in_solar_per_year;
-
-        /* Format:
-         * Time = current scale factor,
-         * total_sm = expected change in stellar mass this timestep,
-         * totsfrrate = current star formation rate in active particles in Msun/year,
-         * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
-         * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm) */
-        fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear,
-                total_sum_mass_stars);
-        fflush(FdSfr);
-    }
+    MPI_Reduce(&sum_dtime, &total_sum_dtime, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&sum_sf_part, &total_sum_part, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
     int64_t tot_spawned=0, tot_converted=0;
     MPI_Reduce(&stars_spawned, &tot_spawned, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&stars_converted, &tot_converted, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if(FdSfr && total_sm > 0)
+    {
+        double rate = 0;
+
+        if(total_sum_dtime > 0)
+            rate = total_sm * total_sum_part / total_sum_dtime;
+
+        /* convert to solar masses per yr */
+        double rate_in_msunperyear = rate * sfr_params.UnitSfr_in_solar_per_year;
+
+        /* Format:
+         * Time = current scale factor,
+         * total_sm = expected change in stellar mass this timestep.
+         * This is: sigma_i dM_* = p_* M_* = M_i (1 - exp(-sm_i / M_i))
+         * totsfrrate = current star formation rate in active particles in Msun/year.
+         * This is: sigma_i dM_* / dt_i
+         * rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
+         * This is sigma_i dM_* / mean(dt_i), where dt_i is over the starforming particles, and may be
+         * moderately different from columns 1 and 2.
+         * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm).
+         * This should be a noisier version of total_sm.
+         * total_sum_dtime / total_sum_part : this is the average timsetep (dt) for the currently active star particles
+         * total_sum_part: the number of actively star-forming particles
+         * tot_new stars: number of new star particles spawned or converted this timestep
+         * */
+        fprintf(FdSfr, "%.12g %g %g %g %g %g %ld %ld\n", Time, total_sm, totsfrrate, rate_in_msunperyear, total_sum_mass_stars, total_sum_dtime / total_sum_part, total_sum_part, tot_spawned + tot_converted);
+        fflush(FdSfr);
+    }
 
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
@@ -715,11 +729,12 @@ quicklyastarformation(int i, const double a3inv, const RandTable * const rnd)
  * The star slot is not actually created here, but a particle for it is.
  */
 static int
-starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd)
+starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * sum_sm, MyFloat * sum_dtime,MyFloat * GradRho, const double redshift, const double a3inv, const double hubble, const double GravInternal, const struct UVBG * const GlobalUVBG, const RandTable * const rnd)
 {
     /*  the proper time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBinHydro, P[i].Ti_drift);
     double dtime = dloga / hubble;
+    *sum_dtime += dtime;
     int newstar = -1;
     double localJ21 = 0;
     double zreion = 0;
@@ -739,8 +754,11 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
     *sm_out = sm;
     double p = sm / P[i].Mass;
 
-    /* convert to Solar per Year.*/
-    SPHP(i).Sfr = smr * sfr_params.UnitSfr_in_solar_per_year;
+    double dM = P[i].Mass * (1 - exp(-p));
+    *sum_sm += dM;
+
+    /* convert to Solar per Year: this is dM_* / dt = p_* M_* / dt ~ smr when smr << 1 */
+    SPHP(i).Sfr = dM /dtime * sfr_params.UnitSfr_in_solar_per_year;
     SPHP(i).Ne = sfr_data.ne;
     *localsfr += SPHP(i).Sfr;
 
@@ -753,7 +771,7 @@ starformation(int i, double *localsfr, MyFloat * sm_out, MyFloat * GradRho, cons
         cooling_relaxed(i, dtime, &uvbg, redshift, a3inv, sfr_data, GlobalUVBG);
 
     double mass_of_star = find_star_mass(i, sfr_params.avg_baryon_mass);
-    double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
+    double prob = dM / mass_of_star;
 
     int form_star = (get_random_number(P[i].ID + 1, rnd) < prob);
     if(form_star) {

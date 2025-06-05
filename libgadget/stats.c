@@ -137,6 +137,21 @@ open_outputfiles(int RestartSnapNum, struct OutputFD * fds, const char * OutputD
         fastpm_path_ensure_dirname(buf);
         if(!(fds->FdSfr = fopen(buf, mode)))
             endrun(1, "error in opening file '%s'\n", buf);
+        const char * helpstr = "# SFR.txt columns are:\n"
+                "# 0. Time = current scale factor,\n"
+         "# 1. total_sm = expected change in stellar mass this timestep.\n"
+         "# This is: sigma_i dM_* = p_* M_* = M_i (1 - exp(-sm_i / M_i))\n"
+         "# 2. totsfrrate = current star formation rate in active particles in Msun/year.\n"
+         "# This is: sigma_i dM_* / dt_i\n"
+         "# 3. rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,\n"
+         "# This is sigma_i dM_* / mean(dt_i), where dt_i is over the starforming particles, and may be\n"
+         "# moderately different from columns 1 and 2. This differs from Col3 in Gadget-2.\n"
+         "# 4. total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm).\n"
+         "# This should be a noisier version of total_sm.\n"
+         "# 5. total_sum_dtime / total_sum_part : this is the average timsetep (dt) for the currently active star particles\n"
+         "# 6. total_sum_part: the number of actively star-forming particles\n"
+         "# 7. tot_new stars: number of new star particles spawned or converted this timestep\n";
+         fprintf(fds->FdSfr, helpstr);
         myfree(buf);
     }
 
