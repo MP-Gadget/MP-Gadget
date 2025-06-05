@@ -30,10 +30,13 @@ def check_sfr(sfrfile="output/sfr.txt"):
     #2 - totsfrrate = current star formation rate in active particles in Msun/year,
     #3 - rate_in_msunperyear = expected stellar mass formation rate in Msun/year from total_sm,
     #4 - total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm)
+    #5. avg_dtime = the average timsetep (dt) for the currently active star particles
+    #6. total_sum_part: the number of actively star-forming particles
+    #7. tot_new stars: number of new star particles spawned or converted this timestep
     assert 0.5 < np.median(sfr[:,2])/np.median(sfr[:,3]) < 1.5
     #Always a PM step
     ii = np.argmax(sfr[:, -1])
-    assert 0.25 < sfr[ii, 1] / sfr[ii, -1] < 1
+    assert 0.25 < sfr[ii, 1] / sfr[ii, 4] < 1
 
 def check_bh(bhfile="output/blackholes.txt"):
     """Check that blackholes.txt is as expected."""
