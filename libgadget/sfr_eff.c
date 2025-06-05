@@ -348,6 +348,11 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_dtime, &total_sum_dtime, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sf_part, &total_sum_part, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    int64_t tot_spawned=0, tot_converted=0;
+    MPI_Reduce(&stars_spawned, &tot_spawned, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&stars_converted, &tot_converted, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
+
     if(FdSfr && total_sm > 0)
     {
         double rate = 0;
@@ -368,14 +373,14 @@ cooling_and_starformation(ActiveParticles * act, double Time, double dloga, Forc
          * This is sigma_i dM_* / mean(dt_i), where dt_i is over the starforming particles, and may be
          * moderately different from columns 1 and 2.
          * total_sum_mass_stars = actual mass of stars formed this timestep (discretized total_sm).
-         * This should be a noisier version of total_sm. */
-        fprintf(FdSfr, "%g %g %g %g %g\n", Time, total_sm, totsfrrate, rate_in_msunperyear, total_sum_mass_stars);
+         * This should be a noisier version of total_sm.
+         * total_sum_dtime / total_sum_part : this is the average timsetep (dt) for the currently active star particles
+         * total_sum_part: the number of actively star-forming particles
+         * tot_new stars: number of new star particles spawned or converted this timestep
+         * */
+        fprintf(FdSfr, "%.12g %g %g %g %g %g %ld %ld\n", Time, total_sm, totsfrrate, rate_in_msunperyear, total_sum_mass_stars, total_sum_dtime / total_sum_part, total_sum_part, tot_spawned + tot_converted);
         fflush(FdSfr);
     }
-
-    int64_t tot_spawned=0, tot_converted=0;
-    MPI_Reduce(&stars_spawned, &tot_spawned, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&stars_converted, &tot_converted, 1, MPI_INT64, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(tot_spawned || tot_converted)
         message(0, "SFR: spawned %ld stars, converted %ld gas particles into stars\n", tot_spawned, tot_converted);
