@@ -404,7 +404,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * is added to the random seed. The current snapshot is folded into
          * bits 32 - 23 so that the random tables do not cycle after every snapshot.
          * We may still cycle after 512 snapshots but that should be far enough apart. */
-        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin) + ((times.Ti_Current >> TIMEBINS) << 23L);
+        uint64_t seed = All.RandomSeed + (times.Ti_Current >> times.mintimebin) + (SnapshotFileCount << 23L);
         message(0, "New step random seed: %ld Ti %lx\n", seed % (1L<<32L), times.Ti_Current);
 
         double rel_random_shift[3] = {0};
