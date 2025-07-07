@@ -171,6 +171,9 @@ void set_sync_params_test(int OutputListLength, double * OutputListTimes)
 void
 setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snapshot_until_time, int SnapshotWithFOF)
 {
+    // NonComovingIntegration Note:
+    // TimeIC, TimeMax, no_snapshot_until_time all represent loga
+    // Now Syncpoints[i].a = Syncpoints[i].loga: I think this is ok as a is not used elsewhere.
     int64_t i;
 
     qsort_openmp(Sync.OutputListTimes, Sync.OutputListLength, sizeof(double), cmp_double);
@@ -203,9 +206,14 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
     //NOTE(jdavies): these first syncpoints need to be in order
-
-    SyncPoints[0].a = TimeIC;
-    SyncPoints[0].loga = log(TimeIC);
+    if (CP->ComovingIntegrationOn) {
+        SyncPoints[0].a = TimeIC;
+        SyncPoints[0].loga = log(TimeIC);
+    }
+    else {
+        SyncPoints[0].a = TimeIC;
+        SyncPoints[0].loga = TimeIC;
+    }
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[0].write_fof = 0;
     SyncPoints[0].calc_uvbg = 0;
@@ -239,22 +247,36 @@ setup_sync_points(Cosmology * CP, double TimeIC, double TimeMax, double no_snaps
         message(0,"Added %ld Syncpoints for the excursion Set\n",NSyncPoints-1);
     }
 
-    SyncPoints[NSyncPoints].a = TimeMax;
-    SyncPoints[NSyncPoints].loga = log(TimeMax);
+    if (CP->ComovingIntegrationOn) {
+        SyncPoints[NSyncPoints].a = TimeMax;
+        SyncPoints[NSyncPoints].loga = log(TimeMax);
+        SyncPoints[NSyncPoints].write_fof = 1;
+    }
+    else {
+        SyncPoints[NSyncPoints].a = TimeMax;
+        SyncPoints[NSyncPoints].loga = TimeMax;
+        /*No FOF for non-comoving integration. */
+        SyncPoints[NSyncPoints].write_fof = 0;
+    }
     SyncPoints[NSyncPoints].write_snapshot = 1;
     SyncPoints[NSyncPoints].calc_uvbg = 0;
-    SyncPoints[NSyncPoints].write_fof = 1;
     SyncPoints[NSyncPoints].write_plane = 0;
     SyncPoints[NSyncPoints].plane_snapnum = -1;
     NSyncPoints++;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     for(i = 0; i < Sync.OutputListLength; i ++) {
-        // print outputlisttime and index
-        // message(0, "outIdx: %d, outtime: %g, planeoutIdx: %d, planeouttime: %g.\n", outIdx, Sync.OutputListTimes[outIdx], planeoutIdx, Sync.PlaneOutputListTimes[planeoutIdx]);
         int64_t j = 0;
-        double a = Sync.OutputListTimes[i];
-        double loga = log(a);
+        double a, loga;
+
+        if (CP->ComovingIntegrationOn) {
+            a = Sync.OutputListTimes[i];
+            loga = log(a);
+        }
+        else {
+            loga = Sync.OutputListTimes[i];
+            a = loga;
+        }
 
         if(a < TimeIC || a > TimeMax) {
             /*If the user inputs syncpoints outside the scope of the simulation, it can mess
@@ -339,6 +361,7 @@ SyncPoint *
 find_next_sync_point(inttime_t ti)
 {
     int64_t i;
+    message(0, "**** Inside find_next_sync_point ***\n");
     for(i = 0; i < NSyncPoints; i ++) {
         if(SyncPoints[i].ti > ti) {
             return &SyncPoints[i];

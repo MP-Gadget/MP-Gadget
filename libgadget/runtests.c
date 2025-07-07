@@ -101,13 +101,13 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     struct IOTable IOTable = {0};
     /* NO metals written*/
-    register_io_blocks(&IOTable, 0, 0);
+    register_io_blocks(&IOTable, 0, 0, CP->ComovingIntegrationOn);
     register_extra_blocks(&IOTable);
 
     double (* PairAccn)[3] = (double (*) [3]) mymalloc2("PairAccns", 3*sizeof(double) * PartManager->NumPart);
 
     PetaPM pm[1] = {0};
-    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh, CP->GravInternal);
+    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh, CP->GravInternal, CP->NonPeriodic);
 
     int NTask;
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -203,7 +203,7 @@ run_gravity_test(int RestartSnapNum, Cosmology * CP, const double Asmth, const i
 
     petapm_destroy(pm);
 
-    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh/2., CP->GravInternal);
+    gravpm_init_periodic(pm, PartManager->BoxSize, Asmth, Nmesh/2., CP->GravInternal, CP->NonPeriodic);
     gravpm_force(pm, ddecomp, CP, header->TimeSnapshot, header->UnitLength_in_cm, OutputDir, header->TimeIC);
     force_tree_full(&Tree, ddecomp, 0, OutputDir);
     set_gravshort_treepar(treeacc);
