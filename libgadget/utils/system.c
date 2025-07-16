@@ -66,11 +66,14 @@ RandTable set_random_numbers(uint64_t seed, const size_t rndtablesize)
     rnd.Table = (double *) mymalloc2("Random", rndtablesize * sizeof(double));
     rnd.tablesize = rndtablesize;
     /* start-up seed */
-    gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
+    gsl_rng * random_generator = gsl_rng_alloc(gsl_rng_ranlxd2);
     gsl_rng_set(random_generator, seed);
-
     /* Populate a table with uniform random numbers between 0 and 1*/
     size_t i;
+    /* Draw a few random numbers. Some RNGs have bad behaviour
+     * near the beginning for small seeds, and discarding the first 100 numbers helps. */
+    for(i = 0; i < 100; i++)
+        gsl_rng_uniform(random_generator);
     for(i = 0; i < rndtablesize; i++)
         rnd.Table[i] = gsl_rng_uniform(random_generator);
 
