@@ -2,6 +2,8 @@ MPICC       =   cc
 
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
 OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=native
+#For KNL use
+#OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=knl
 
 GSL_INCL = -I$(GSL_DIR)/include
 GSL_LIBS = $(GSL) -lmvec -lmvec_nonshared
