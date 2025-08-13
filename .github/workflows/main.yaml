@@ -81,16 +81,8 @@ jobs:
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget
         python check_results.py
     - name: Setup nbodykit
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniconda-version: latest
-        activate-environment: test
-        environment-file: maintainer/conda-env.yaml
-        channels: bccp
-        show-channel-urls: true
-        use-only-tar-bz2: true
-    - run: |
-        conda info
+      run: |
+        sudo pip install nbodykit
     - name : Check travis results
       run: |
         cd examples/travis
