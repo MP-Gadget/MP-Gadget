@@ -46,6 +46,8 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y build-essential libopenmpi-dev openmpi-bin libgsl-dev python3-configobj python3-numpy python3-h5py python3-scipy cython3
+        #For nbodykit
+        sudo apt install -y python3-matplotlib python3-sympy python3-pandas python3-mpi4py python3-numexpr
     - name: Build
       run: |
         cp platform-options/Options.mk.travis Options.mk
