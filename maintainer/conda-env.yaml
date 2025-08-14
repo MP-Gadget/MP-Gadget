@@ -1,9 +1,0 @@
-name: test
-
-channels:
-  - bccp
-
-dependencies:
-  - python
-  - nbodykit
-  - matplotlib

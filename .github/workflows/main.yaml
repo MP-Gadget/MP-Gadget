@@ -20,17 +20,6 @@ jobs:
 
     - name: Checkout source code
       uses: actions/checkout@v4
-
-    - name: Cache conda
-      uses: actions/cache@v4
-      env:
-        # Increase this value to reset cache.
-        CACHE_NUMBER: 0
-      with:
-        path: ~/conda_pkgs_dir
-        key:
-          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}
-
     - name: Cache depends/
       uses: actions/cache@v4
       with:
@@ -46,6 +35,8 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y build-essential libopenmpi-dev openmpi-bin libgsl-dev python3-configobj python3-numpy python3-h5py python3-scipy cython3
+        #For nbodykit
+        sudo apt install -y python3-matplotlib python3-sympy python3-pandas python3-mpi4py python3-numexpr
     - name: Build
       run: |
         cp platform-options/Options.mk.travis Options.mk
@@ -81,16 +72,8 @@ jobs:
         mpirun -np 2 ../../gadget/MP-Gadget paramfile.gadget
         python check_results.py
     - name: Setup nbodykit
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniconda-version: latest
-        activate-environment: test
-        environment-file: maintainer/conda-env.yaml
-        channels: bccp
-        show-channel-urls: true
-        use-only-tar-bz2: true
-    - run: |
-        conda info
+      run: |
+        sudo pip install nbodykit
     - name : Check travis results
       run: |
         cd examples/travis
