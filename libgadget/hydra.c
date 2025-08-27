@@ -192,6 +192,9 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     walltime_measure("/SPH/Hydro/Init");
 
     /* Initialize some time factors*/
+    // Non-ComovingIntegration Note: 
+    // atime=afac = 1 when passed into this function, so we are good
+    // with the original time factors
     const double hubble = hubble_function(CP, atime);
     HYDRA_GET_PRIV(tw)->fac_mu = pow(atime, 3 * (GAMMA - 1) / 2) / atime;
     HYDRA_GET_PRIV(tw)->fac_vsic_fix = hubble * pow(atime, 3 * GAMMA_MINUS1);

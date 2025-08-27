@@ -32,12 +32,12 @@ void cooling_and_starformation(ActiveParticles * act, double Time, double dloga,
 /*Get the neutral fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
  * when on the equation of state calls them separately for the cold and hot gas.*/
-double get_neutral_fraction_sfreff(double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata);
+double get_neutral_fraction_sfreff(double redshift, double hubble, int ComovingIntegrationOn, struct particle_data * partdata, struct sph_particle_data * sphdata);
 
 /*Get the helium ionic fraction of a particle correctly, even when on the star-forming equation of state.
  * This calls the cooling routines for the current internal energy when off the equation of state, but
  * when on the equation of state calls them separately for the cold and hot gas.*/
-double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubble, struct particle_data * partdata, struct sph_particle_data * sphdata);
+double get_helium_neutral_fraction_sfreff(int ion, double redshift, double hubble, int ComovingIntegrationOn, struct particle_data * partdata, struct sph_particle_data * sphdata);
 
 /* Return whether we are using a star formation model that needs grad rho computed for the gas particles*/
 int sfr_need_to_compute_sph_grad_rho(void);
@@ -46,7 +46,7 @@ int sfr_need_to_compute_sph_grad_rho(void);
 int get_generations(void);
 
 /* Returns 1 if particle is on effective EOS, 0 otherwise*/
-int sfreff_on_eeqos(const struct sph_particle_data * sph, const double a3inv);
+int sfreff_on_eeqos(const struct sph_particle_data * sph, double a3inv, double redshift);
 
 /* Get the Minimum temperature in internal energy*/
 double get_MinEgySpec(void);

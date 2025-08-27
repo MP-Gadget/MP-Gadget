@@ -134,6 +134,12 @@ set_all_global_params(ParameterSet * ps)
         All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
+        /********** Non-Comsological Flags ***************/
+        All.CP.NonPeriodic = param_get_int(ps, "NonPeriodic");
+        All.CP.ComovingIntegrationOn = param_get_int(ps, "ComovingIntegrationOn");
+        All.CP.Redshift = param_get_double(ps, "Redshift");
+
+
         All.OutputDebugFields = param_get_int(ps, "OutputDebugFields");
 
         All.TimeMax = param_get_double(ps, "TimeMax");
@@ -210,10 +216,12 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /*Set Nmesh to triple the mean grid spacing of the dark matter by default.*/
     if(All.Nmesh  < 0)
         All.Nmesh = 3*pow(2, (int)(log(head->NTotal[1])/3./log(2)) );
-    if(All.Nmesh < 4)
-        endrun(6, "Nmesh = %d. This is likely not what you meant! Usually you need Nmesh >= cbrt(Npart) (%d)\n", All.Nmesh, (int) cbrt(head->NTotalInit[1]));
-    if(All.Nmesh % 2 != 0)
-        message(6, "WARNING! Nmesh = %d. It is strongly recommended to use an even value for the FFT grid.\n", All.Nmesh);
+    if (All.CP.ComovingIntegrationOn){
+        if(All.Nmesh < 4)
+            endrun(6, "Nmesh = %d. This is likely not what you meant! Usually you need Nmesh >= cbrt(Npart) (%d)\n", All.Nmesh, (int) cbrt(head->NTotalInit[1]));
+        if(All.Nmesh % 2 != 0)
+            message(6, "WARNING! Nmesh = %d. It is strongly recommended to use an even value for the FFT grid.\n", All.Nmesh);
+    }
     /* Convert to a fraction of the box, from a fraction of a PM mesh cell*/
     All.RandomParticleOffset /= All.Nmesh;
     if(head->neutrinonk <= 0)
@@ -231,7 +239,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
 
     const struct UnitSystem units = get_unitsystem(head->UnitLength_in_cm, head->UnitMass_in_g, head->UnitVelocity_in_cm_per_s);
     /* convert some physical input parameters to internal units */
-    init_cosmology(&All.CP, head->TimeIC, units);
+    init_cosmology(&All.CP, head->TimeIC, units); // ComovingIntegrationOn: good as long as no nutrino
 
     check_units(&All.CP, units);
 
@@ -259,7 +267,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
     /* Ensure that the timeline runs at least to the current time*/
     if(head->TimeSnapshot > All.TimeMax)
         All.TimeMax = head->TimeSnapshot;
-
+    // ComovingIntegrationOn: good as we have dealt with set_up_syncpoints
     init_timeline(&All.CP, RestartSnapNum, All.TimeMax, head, All.SnapshotWithFOF);
 
     /* Get the nk and do allocation. */
@@ -267,6 +275,7 @@ begrun(const int RestartSnapNum, struct header_data * head)
         init_neutrinos_lra(head->neutrinonk, head->TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.CP.UnitTime_in_s, CM_PER_MPC);
 
     /* ... read initial model and initialise the times*/
+    // ComovingIntegrationOn: good as we have dealt with set_up_syncpoints
     inttime_t ti_init = init(RestartSnapNum, All.OutputDir, head, &All.CP);
 
     if(RestartSnapNum < 0) {
@@ -276,9 +285,10 @@ begrun(const int RestartSnapNum, struct header_data * head)
         setup_smoothinglengths(RestartSnapNum, ddecomp, &All.CP, All.BlackHoleOn, get_MinEgySpec(), units.UnitInternalEnergy_in_cgs, ti_init, head->TimeSnapshot, head->NTotalInit[0]);
         domain_free(ddecomp);
     }
-    else
+    else if (All.CP.ComovingIntegrationOn)
         /* When we restart, validate the SPH properties of the particles.
          * This also allows us to increase MinEgySpec on a restart if we choose.*/
+        /* Skip density entropy check for idealized IC (for now)*/
         check_density_entropy(&All.CP, get_MinEgySpec(), head->TimeSnapshot);
 
     return ti_init;
@@ -327,7 +337,19 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     int SnapshotFileCount = RestartSnapNum;
 
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    if (All.CP.NonPeriodic) {
+        // double rel_random_shift[3] = {0};
+        set_lbox_nonperiodic(PartManager);
+        // update_offset(PartManager, rel_random_shift);
+
+        message(0, "***** set boxsize %g *****", PartManager->BoxSize);
+        PartManager->NonPeriodic = 1;
+        gravpm_init_nonperiodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal, All.CP.NonPeriodic);
+    }
+    else {
+        PartManager->NonPeriodic = 0;
+        gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal, All.CP.NonPeriodic);
+    }
     /*define excursion set PetaPM structs*/
     /*because we need to FFT 3 grids, and we can't separate sets of regions, we need 3 PetaPM structs */
     /*also, we will need different pencils and layouts due to different zero cells*/
@@ -336,9 +358,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     PetaPM pm_star = {0};
     PetaPM pm_sfr = {0};
     if(All.ExcursionSetReionOn){
-        petapm_init(&pm_mass, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
-        petapm_init(&pm_star, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
-        petapm_init(&pm_sfr, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, MPI_COMM_WORLD);
+        petapm_init(&pm_mass, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, All.CP.NonPeriodic, MPI_COMM_WORLD);
+        petapm_init(&pm_star, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, All.CP.NonPeriodic, MPI_COMM_WORLD);
+        petapm_init(&pm_sfr, PartManager->BoxSize, All.Asmth, All.UVBGdim, All.CP.GravInternal, All.CP.NonPeriodic, MPI_COMM_WORLD);
     }
 
     DomainDecomp ddecomp[1] = {0};
@@ -347,13 +369,21 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
     double TimeNextSeedingCheck = header->TimeSnapshot;
 
     struct OutputFD fds;
-    open_outputfiles(RestartSnapNum, &fds, All.OutputDir, All.BlackHoleOn, All.StarformationOn);
+    open_outputfiles(RestartSnapNum, &fds, All.OutputDir, All.BlackHoleOn, All.StarformationOn, All.CP.ComovingIntegrationOn);
 
     write_cpu_log(NumCurrentTiStep, header->TimeSnapshot, fds.FdCPU, Clocks.ElapsedTime); /* produce some CPU usage info */
 
     DriftKickTimes times = init_driftkicktime(ti_init);
 
     double atime = get_atime(times.Ti_Current);
+    double afac = atime;
+    if (!All.CP.ComovingIntegrationOn) {
+        double hubble;
+        atime = log(atime);
+        afac = 1.;
+        hubble = hubble_function(&All.CP, 1.0);
+        message(0, "********** TEST HUBBLE ************** %g \n", hubble);
+    }
 
     while(1) /* main loop */
     {
@@ -367,12 +397,23 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         inttime_t Ti_Last = times.Ti_Current;
 
         times.Ti_Current = Ti_Next;
+        message(0, "***** timestep checks: Ti_last=%ld, Ti_current=%ld *******\n", Ti_Last, times.Ti_Current);
 
         /*Convert back to floating point time*/
         double newatime = get_atime(times.Ti_Current);
+        if (!All.CP.ComovingIntegrationOn) {
+            newatime = log(newatime);
+        }
         if(newatime < atime)
             endrun(1, "Negative timestep: %g New Time: %g Old time %g!\n", newatime - atime, newatime, atime);
         atime = newatime;
+
+        if (All.CP.ComovingIntegrationOn) {
+            afac = atime;
+        }
+        else {
+            afac = 1.;
+        }
 
         int is_PM = is_PM_timestep(&times);
 
@@ -409,7 +450,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
         double rel_random_shift[3] = {0};
         if(NumCurrentTiStep > 0 && is_PM  && All.RandomParticleOffset > 0) {
-            update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, seed);
+            /* For NonPeriodic bounary, particles are offset by min(Pos[i]) to prevent oob issue */
+            if (All.CP.NonPeriodic) {
+                set_lbox_nonperiodic(PartManager);
+                update_offset(PartManager, rel_random_shift);
+            }
+            else {
+                update_random_offset(PartManager, rel_random_shift, All.RandomParticleOffset, seed);
+            }
         }
 
         int extradomain = is_timebin_active(times.mintimebin + All.MaxDomainTimeBinDepth, times.Ti_Current);
@@ -418,6 +466,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(extradomain || is_PM) {
             /* Sync positions of all particles */
             drift_all_particles(Ti_Last, times.Ti_Current, &All.CP, rel_random_shift);
+            message(0, "*** Pass drift_all_particles ***\n");
             /* full decomposition rebuilds the domain, needs keys.*/
             domain_decompose_full(ddecomp, MPI_COMM_WORLD);
         } else {
@@ -439,6 +488,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         update_lastactive_drift(&times);
 
         ActiveParticles Act = init_empty_active_particles(PartManager);
+        /* don't change this atime to 1 as it need to print out the actual time */
         build_active_particles(&Act, &times, NumCurrentTiStep, atime, PartManager);
 
         /* Are the particle neutrinos gravitating this timestep?
@@ -486,7 +536,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                  * he has never encountered a simulation where this matters in practice, probably because
                  * it would only be important in very dissipative environments where the SPH noise is fairly large
                  * and there is no opportunity for errors to build up.*/
-                hydro_force(&Act, atime, &sph_predicted, times, &All.CP, &gasTree);
+                message(0,"**** Hydro Force ****\n");
+                hydro_force(&Act, afac, &sph_predicted, times, &All.CP, &gasTree);
             }
             /* Scratch data cannot be used checkpoint because FOF does an exchange.*/
             slots_free_sph_pred_data(&sph_predicted);
@@ -496,7 +547,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
             /* Hydro half-kick after hydro force, as not done with the gravity.*/
             if(All.HierarchicalGravity)
-                apply_hydro_half_kick(&Act, &All.CP, &times, atime);
+                apply_hydro_half_kick(&Act, &All.CP, &times, afac);
         }
 
         /* The opening criterion for the gravtree
@@ -519,12 +570,17 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         if(is_PM)
         {
             /* Tree freed in PM*/
+            /* Non-ComovingIntegration Note: Doesn't seem to matter is we use log(a) or 1 in here*/
             gravpm_force(&pm, ddecomp, &All.CP, atime, units.UnitLength_in_cm, All.OutputDir, header->TimeIC);
 
             /* compute and output energy statistics if desired. */
             if(fds.FdEnergy)
-                energy_statistics(fds.FdEnergy, atime, PartManager);
+                /* Non-ComovingIntegration Note: need afac here as we are using atime purely for computing
+                  physical quantities */
+                energy_statistics(fds.FdEnergy, afac, All.CP.Redshift, PartManager);
         }
+        if(fds.FdBlackHoleDynamics)
+            output_blackhole_dynamics(fds.FdBlackHoleDynamics, atime, PartManager);
 
         int64_t totgravactive;
         MPI_Allreduce(&Act.NumActiveGravity, &totgravactive, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -555,7 +611,8 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * Need a scale factor for velocity limiter.
              * For hierarchical gravity the short-range kick is done above.
              * Synchronises TiKick and TiDrift for the active particles. */
-            apply_half_kick(&Act, &All.CP, &times, atime);
+            message(0,"**** Half Kick ****\n");
+            apply_half_kick(&Act, &All.CP, &times, afac);
         }
 
         /* Sets Ti_Kick in the times structure.*/
@@ -608,22 +665,33 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 force_tree_rebuild_mask(&gasTree, ddecomp, GASMASK | BHMASK, All.OutputDir);
 
             /* Do this before sfr and bh so the gas hsml always contains DesNumNgb neighbours.*/
+            /* ComovingIntegration TODO: need to fix AvgGasMass because it is obviously wrong
+               It is used to set a cap on the maximum gas mass after metal return, shouldn't have a huge effect for now?*/
             if(All.MetalReturnOn) {
-                double AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
+                double AvgGasMass;
+                if (All.CP.ComovingIntegrationOn)
+                    AvgGasMass = All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.CP.GravInternal) * pow(PartManager->BoxSize, 3) / header->NTotalInit[0];
+                else
+                    AvgGasMass = 1.0e20; // effectively no cap
+                /* atime should be dloga not afac in metal return, since it is ONLY used to compute stellar age in Myr*/
                 metal_return(&Act, &gasTree, &All.CP, atime, AvgGasMass);
             }
+            message(0, "**** Passed Metal Return ****\n");
 
             /* this will find new black hole seed halos.
              * Note: the FOF code does not know about garbage particles,
              * so ensure we do not have garbage present when we call this.
              * Also a good idea to only run it on a PM step.
              * This does not break the tree because the new black holes do not move or change mass, just type.*/
-            if (is_PM && ((All.BlackHoleOn && atime >= TimeNextSeedingCheck) ||
+            /* NYC: Non-ComovingIntegration Note: disable seeding of BHs for non-cosomological options for now*/
+            if ((All.CP.ComovingIntegrationOn) && is_PM && ((All.BlackHoleOn && atime >= TimeNextSeedingCheck) ||
                 (during_helium_reionization(1/atime - 1) && need_change_helium_ionization_fraction(atime)) ||
                  (CalcUVBG && All.ExcursionSetReionOn))) {
 
                 /* Seeding: builds its own tree.*/
                 FOFGroups fof = fof_fof(ddecomp, 0, MPI_COMM_WORLD);
+
+                //NYC:BH Seeding not enabled for Non-ComovingIntegration
                 if(All.BlackHoleOn && atime >= TimeNextSeedingCheck) {
                     fof_seed(&fof, &Act, atime, &rnd, MPI_COMM_WORLD);
                     TimeNextSeedingCheck = atime * All.TimeBetweenSeedingSearch;
@@ -631,10 +699,12 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 
                 if(during_helium_reionization(1/atime - 1)) {
                     /* Helium reionization by switching on quasar bubbles*/
+                    //NYC: Helium reionization not enabled for Non-ComovingIntegration
                     do_heiii_reionization(atime, &fof, &gasTree, &All.CP, &rnd, units.UnitInternalEnergy_in_cgs, fds.FdHelium);
                 }
 #ifdef EXCUR_REION
                 //excursion set reionisation
+                //NYC: ExcursionSetReionOn not enabled for Non-ComovingIntegration
                 if(CalcUVBG && All.ExcursionSetReionOn) {
                     calculate_uvbg(&pm_mass, &pm_star, &pm_sfr, WriteSnapshot, SnapshotFileCount, All.OutputDir, atime, &All.CP, units);
                     message(0,"uvbg calculated\n");
@@ -644,7 +714,9 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             }
 
             if(is_PM && All.CoolingOn)
-                winds_find_vel_disp(&Act, atime, hubble_function(&All.CP, atime), &All.CP, &times, ddecomp);
+                // Non-ComovingIntegration Note: use afac here;
+                // the atime in hubble_func does not matter because it is determined by CP.ComovingIntegrationOn
+                winds_find_vel_disp(&Act, afac, hubble_function(&All.CP, atime), &All.CP, &times, ddecomp);
             /* Note that the tree here may be freed, if we are not a gravity-active timestep,
              * or if we are a PM step.*/
             /* If we didn't build a tree for gravity, we need to build one in BH or in winds.
@@ -657,11 +729,14 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             if(All.BlackHoleOn) {
                 /*Get a new BH details file if the current one is too large.*/
                 rotate_bhdetails_file(&fds, All.OutputDir, RestartSnapNum);
-                blackhole(&Act, atime, &All.CP, &gasTree, ddecomp, &times, &rnd, units, fds.FdBlackHoles, fds.FdBlackholeDetails, &fds.TotalBHDetailsBytesWritten);
+                //NYC: afac here because it only enters into the physical quantity conversion (i.e. no timestep involved)
+                // Also input atime=loga (non-cosmo) because we want to output it in BH details
+                blackhole(&Act, afac, atime, &All.CP, &gasTree, ddecomp, &times, &rnd, units, fds.FdBlackHoles, fds.FdBlackholeDetails, &fds.TotalBHDetailsBytesWritten);
             }
             /**** radiative cooling and star formation *****/
             if(All.CoolingOn)
-                cooling_and_starformation(&Act, atime, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, &rnd, fds.FdSfr);
+                //NYC: afac here because it only enters into the physical quantity conversion (i.e. no timestep involved)
+                cooling_and_starformation(&Act, afac, get_dloga_for_bin(times.mintimebin, times.Ti_Current), &gasTree, GravAccel, ddecomp, &All.CP, GradRho_mag, &rnd, fds.FdSfr);
         }
         /* We don't need this timestep's tree anymore.*/
         force_tree_free(&gasTree);
@@ -684,6 +759,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
             WriteFOF |= action->write_fof;
             WritePlane |= action->write_plane;
         }
+
         if(WriteSnapshot || WriteFOF) {
             /* Get a new snapshot*/
             SnapshotFileCount++;
@@ -694,17 +770,21 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 Act.NumActiveParticle = PartManager->NumPart;
         }
         FOFGroups fof = {0};
+
         if(WriteFOF) {
             /* Compute FOF and assign GrNr so it can be written in checkpoint.*/
             fof = fof_fof(ddecomp, 1, MPI_COMM_WORLD);
         }
 
         /* WriteFOF just reminds the checkpoint code to save GroupID*/
+        /* Non-ComovingIntegration Note: use atime=log(a) here to write snapshots*/
+        /* However, we need to define the conversion variable conv.atime=1 in petaio_save_checkpoint*/
         if(WriteSnapshot)
             write_checkpoint(SnapshotFileCount, WriteFOF, All.MetalReturnOn, atime, &All.CP, All.OutputDir, All.OutputDebugFields);
 
         /* Save FOF tables after checkpoint so that if there is a FOF save bug we have particle tables available to debug it*/
-        if(WriteFOF) {
+
+        if (WriteFOF) {
             int domain_needed = fof_save_groups(&fof, All.OutputDir, All.FOFFileBase, SnapshotFileCount, &All.CP, atime, header->MassTable, All.MetalReturnOn, MPI_COMM_WORLD);
             /* In case we need to do a second exchange to get back to a sensible compact mass distribution*/
             fof_finish(&fof);
@@ -734,6 +814,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
 #ifdef DEBUG
         check_kick_drift_times(PartManager, times.Ti_Current);
 #endif
+        //NYC: atime here because we want to get the real time in log file
         write_cpu_log(NumCurrentTiStep, atime, fds.FdCPU, Clocks.ElapsedTime);    /* produce some CPU usage info */
 
         report_memory_usage("RUN");
@@ -752,11 +833,13 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
          * and advance the PM timestep.*/
         int badtimestep=0;
         if(!All.HierarchicalGravity) {
-            const double asmth = pm.Asmth * PartManager->BoxSize / pm.Nmesh;
-            badtimestep = find_timesteps(&Act, &times, atime, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
+            message(0, "**** Inside Non-HierarchicalGravity: NumCurrentTiStep = %d\n", NumCurrentTiStep);
+            const double asmth = pm.Asmth * PartManager->BoxSize / pm.Nmesh; // TODO_NYC: asmth should not change with boxsize
+            badtimestep = find_timesteps(&Act, &times, afac, All.FastParticleType, &All.CP, asmth, NumCurrentTiStep == 0);
             /* Update velocity and ti_kick to the new step, with the newly computed step size. Unsyncs ti_kick and ti_drift.
              * Both hydro and gravity are kicked.*/
-            apply_half_kick(&Act, &All.CP, &times, atime);
+            apply_half_kick(&Act, &All.CP, &times, afac); //NYC: afac here because it is only passed in do_hydro_kick() to get vel limits
+            message(0, "**** Second Half Kick ****\n");
         } else {
             /* This finds the gravity timesteps, computes the gravitational forces
              * and kicks the particles on the gravitational timeline.
@@ -764,13 +847,16 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * each timebin has a force done individually and we do not store the acceleration hierarchy.
              * This does mean we double the cost of the force evaluations.*/
             if(totgravactive)
-                badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, GravAccel, &times, atime, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
+                //Non-ComovingIntegration Note: it seems sufficient to put afac here
+                // input into long-range, shortrange grav timestep calc, which only used atime as scalefac calculation
+                badtimestep = hierarchical_gravity_and_timesteps(&Act, &pm, ddecomp, GravAccel, &times, afac, HybridNuTracer, All.FastParticleType, &All.CP, All.OutputDir);
             if(GasEnabled) {
                 /* Find hydro timesteps and apply the hydro kick, unsyncing the drift and kick times. */
-                badtimestep += find_hydro_timesteps(&Act, &times, atime, &All.CP, NumCurrentTiStep == 0);
+                // Non-ComovingIntegration: input into do_hydro_kick, which uses atime as scalefac, so afac here
+                badtimestep += find_hydro_timesteps(&Act, &times, afac, &All.CP, NumCurrentTiStep == 0);
                 /* If there is no hydro kick to do we still need to update the kick times.*/
                 if(!badtimestep)
-                    apply_hydro_half_kick(&Act, &All.CP, &times, atime);
+                    apply_hydro_half_kick(&Act, &All.CP, &times, afac);
             }
         }
         if(badtimestep) {
@@ -798,6 +884,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         free_active_particles(&Act);
 
         NumCurrentTiStep++;
+        message(0, "**** Finished One Step ****\n");
     }
 
     close_outputfiles(&fds);
@@ -814,7 +901,12 @@ void
 runfof(const int RestartSnapNum, const inttime_t Ti_Current, const struct header_data * header)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    if (All.CP.NonPeriodic){
+    	gravpm_init_nonperiodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal, All.CP.NonPeriodic);
+    }
+    else{
+        gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal, All.CP.NonPeriodic);
+    }
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
 
@@ -855,7 +947,7 @@ void
 runpower(const struct header_data * header)
 {
     PetaPM pm = {0};
-    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal);
+    gravpm_init_periodic(&pm, PartManager->BoxSize, All.Asmth, All.Nmesh, All.CP.GravInternal, All.CP.NonPeriodic);
     DomainDecomp ddecomp[1] = {0};
     /* ... read in initial model */
     domain_decompose_full(ddecomp, MPI_COMM_WORLD);	/* do initial domain decomposition (gives equal numbers of particles) */

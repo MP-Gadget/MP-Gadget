@@ -39,6 +39,8 @@ struct conversions
 {
     double atime;
     double hubble;
+    int ComovingIntegrationOn;
+    double redshift;
 };
 
 typedef void (*property_getter) (int i, void * result, void * baseptr, void * slotptr, const struct conversions * params);
@@ -67,7 +69,7 @@ struct IOTable {
 /* Get the full path for a snapshot number. String returned must be freed.*/
 char * petaio_get_snapshot_fname(int num, const char * OutputDir);
 /* Populate an IOTable with the default set of blocks to read or write.*/
-void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn);
+void register_io_blocks(struct IOTable * IOTable, int WriteGroupID, int MetalReturnOn, int ComovingIntegrationOn);
 /* Write (but don't read) some extra output blocks useful for debugging the particle structure*/
 void register_debug_io_blocks(struct IOTable * IOTable);
 /* Free the entries in the IOTable.*/

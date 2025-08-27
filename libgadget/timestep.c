@@ -608,6 +608,7 @@ void set_bh_first_timestep(int mTimeBin)
     for(pa = 0; pa < PartManager->NumPart; pa++)
         if(P[pa].Type == 5)
             P[pa].TimeBinHydro = mTimeBin;
+    // message(1, "******  Setting BH Timestep ***********: %d \n", mTimeBin);
 }
 
 /* This function assigns new short-range timesteps to particles.
@@ -717,6 +718,7 @@ find_hydro_timesteps(const ActiveParticles * act, DriftKickTimes * times, const 
             if(P[i].Type != 4)
                 continue;
             /* Need stars that were just formed with active hydro timesteps.*/
+            // NYC: why atime - dloga??
             if(STARP(i).FormationTime < get_atime(times->Ti_Current) - get_dloga_for_bin(P[i].TimeBinHydro, times->Ti_Current))
                 continue;
             /* You could imagine that only the gravitational timesteps are active,
@@ -768,7 +770,7 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
         times->PM_start = times->PM_kick;
     }
 
-    const double hubble = hubble_function(CP, atime);
+    double hubble = hubble_function(CP, atime);
     /* Now assign new timesteps and kick */
     if(TimestepParams.ForceEqualTimesteps) {
         dti_min = find_global_timestep(times, dti_max, atime, hubble);
@@ -861,8 +863,11 @@ find_timesteps(const ActiveParticles * act, DriftKickTimes * times, const double
      * On the first timestep this is not effective because all the particles have zero timestep.
      * So on the first timestep only set all BH particles to the smallest allowable timestep.
      * Note we can leave the gravitational timestep as set by the acceleration: repositioning may take care of it.*/
-    if(isFirstTimeStep)
+    if(isFirstTimeStep) {
         set_bh_first_timestep(mTimeBin);
+        message(0, "First time step, set BH timesteps\n");
+    }
+
     walltime_measure("/Timeline");
     times->mintimebin = mTimeBin;
     times->maxtimebin = maxTimeBin;
@@ -1017,6 +1022,7 @@ do_grav_short_range_kick(struct particle_data * part, const MyFloat * const Grav
 void
 do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const double atime)
 {
+    /* Non-ComovingIntegration Note: atime = 1 when passed to this function*/
     int j;
     /* Add kick from dynamic friction and hydro drag for BHs. */
     if(P[i].Type == 5) {
@@ -1059,6 +1065,7 @@ do_hydro_kick(int i, double dt_entr, double Fgravkick, double Fhydrokick, const 
 
 static double grav_acceleration2(const int p, const MyFloat * const GravAccel, const double atime)
 {
+    /* Non-ComovingIntegration Note: atime = 1 when passed to this function*/
     /*Compute physical acceleration*/
     const double a2inv = 1/(atime * atime);
     double ax = a2inv * GravAccel[0];
@@ -1077,9 +1084,10 @@ static double grav_acceleration2(const int p, const MyFloat * const GravAccel, c
 static double
 get_timestep_gravity_dloga(const int p, const MyFloat * const GravAccel, const double atime, const double hubble)
 {
+    /* Non-ComovingIntegration Note: atime = 1 when passed to this function*/
     double ac = sqrt(grav_acceleration2(p, GravAccel, atime));
     /* mind the factor 2.8 difference between gravity and softening used here. */
-    double dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING() / 2.8) / ac);
+    double dt = sqrt(2 * TimestepParams.ErrTolIntAccuracy * atime * (FORCE_SOFTENING(P[p].Type) / 2.8) / ac);
 
     /* d a / a = dt * H */
     double dloga = dt * hubble;
@@ -1089,6 +1097,7 @@ get_timestep_gravity_dloga(const int p, const MyFloat * const GravAccel, const d
 static double
 get_timestep_hydro_dloga(const int p, const inttime_t Ti_Current, const double atime, const double hubble, enum TimeStepType * titype)
 {
+    /* Non-ComovingIntegration Note: atime = 1 when passed to this function*/
     double dt = 1;
     *titype = TI_ACCEL;
 
@@ -1215,6 +1224,8 @@ print_bad_timebin(const double dloga, const inttime_t dti, const int p, const do
 double
 get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const int FastParticleType, const double asmth)
 {
+    /* Non-ComovingIntegration Note: atime = 1 when passed to this function*/
+    /* Non-ComovingIntegration Note2: skip the computation if not cosmological (same as Pgadget3)*/
     int i, type;
     int64_t count[6] = {0};
     int64_t count_sum[6] ={0};
@@ -1224,23 +1235,24 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
     for(type = 0; type < 6; type++)
         mim[type] = 1.0e30;
 
-    #pragma omp parallel for reduction(+: count[:6]) reduction(min: mim[:6]) reduction(+: v[:6])
-    for(i = 0; i < PartManager->NumPart; i++)
-    {
-        if(P[i].IsGarbage || P[i].Swallowed)
-            continue;
-        v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
-        if(P[i].Mass > 0)
+    if (CP->ComovingIntegrationOn) {
+        #pragma omp parallel for reduction(+: count[:6]) reduction(min: mim[:6]) reduction(+: v[:6])
+        for(i = 0; i < PartManager->NumPart; i++)
         {
-            if(mim[P[i].Type] > P[i].Mass)
-                mim[P[i].Type] = P[i].Mass;
+            if(P[i].IsGarbage || P[i].Swallowed)
+                continue;
+            v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
+            if(P[i].Mass > 0)
+            {
+                if(mim[P[i].Type] > P[i].Mass)
+                    mim[P[i].Type] = P[i].Mass;
+            }
+            count[P[i].Type]++;
         }
-        count[P[i].Type]++;
+        MPI_Allreduce(v, v_sum, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(mim, min_mass, 6, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(count, count_sum, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     }
-
-    MPI_Allreduce(v, v_sum, 6, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(mim, min_mass, 6, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(count, count_sum, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* add star, gas and black hole particles together to treat them on equal footing,
      * using the original gas particle spacing. */
@@ -1283,11 +1295,6 @@ get_long_range_timestep_dloga(const double atime, const Cosmology * CP, const in
         if(type != FastParticleType && dloga1 < dloga)
             dloga = dloga1;
     }
-
-    if(dloga < TimestepParams.MinSizeTimestep) {
-        dloga = TimestepParams.MinSizeTimestep;
-    }
-
     return dloga;
 }
 
@@ -1375,7 +1382,6 @@ build_active_particles(ActiveParticles * act, const DriftKickTimes * const times
     else {
         /*We want a lockless algorithm which preserves the ordering of the particle list.*/
         gadget_thread_arrays gthread = gadget_setup_thread_arrays("ActiveParticle", 0, PartManager->NumPart);
-
         /* We enforce schedule static to imply monotonic, ensure that each thread executes on contiguous particles
         * and ensure no thread gets more than narr particles.*/
         int64_t nactivegrav = 0;
