@@ -47,6 +47,7 @@ struct particle_data
                                  * is important the gravitational acceleration is small compared to hydro force anyway).
                                  */
     MyFloat GravPM[3];      /* particle acceleration due to long-range PM gravity force */
+    int GravCost;           /* Measured short-range gravity work from the most recent tree walk touching this particle. */
     inttime_t Ti_drift;       /*!< current time of the particle position. The same for all particles. */
     MyFloat Hsml;
     /* Cacheline is here: data above needed for kick*/

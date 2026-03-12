@@ -383,6 +383,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 if(lv->mode != TREEWALK_TOPTREE) {
                     /* Compute the acceleration and apply it to the output structure*/
                     apply_accn_to_output(output, dx, r2, nop->mom.mass, cellsize, h);
+                    output->GravCost += 1;
                 }
                 continue;
             }
@@ -448,6 +449,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
             /* Compute the acceleration and apply it to the output structure*/
             apply_accn_to_output(output, dx, r2, P[pp].Mass, cellsize, h);
+            output->GravCost += 1;
         }
         ninteractions = numcand;
     }

@@ -75,6 +75,15 @@ struct local_particle_data
     int64_t Cost;
 };
 
+static inline int64_t
+domain_particle_cost(const struct particle_data * part)
+{
+    if(part->IsGarbage)
+        return 0;
+    /* Fall back to particle count if we have not yet measured a gravity cost. */
+    return part->GravCost > 0 ? part->GravCost : 1;
+}
+
 /*This is a helper for the tests*/
 void set_domain_par(DomainParams dp)
 {
@@ -501,21 +510,33 @@ domain_attempt_decompose(DomainDecomp * ddecomp, DomainDecompositionPolicy * pol
 static int
 domain_balance(DomainDecomp * ddecomp)
 {
+    int NTask;
+    MPI_Comm_size(ddecomp->DomainComm, &NTask);
+
+    int64_t * TopLeafWork = (int64_t *) mymalloc("TopLeafWork",  ddecomp->NTopLeaves * sizeof(TopLeafWork[0]));
     /*!< a table that gives the total number of particles held by each processor */
     int64_t * TopLeafCount = (int64_t *) mymalloc("TopLeafCount",  ddecomp->NTopLeaves * sizeof(TopLeafCount[0]));
 
-    domain_compute_costs(ddecomp, NULL, TopLeafCount);
+    domain_compute_costs(ddecomp, TopLeafWork, TopLeafCount);
+
+    int NsegmentPerTask = domain_params.DomainOverDecompositionFactor;
+    const int MaxSegmentsPerTask = ddecomp->NTopLeaves / NTask;
+    if(NsegmentPerTask < 1)
+        NsegmentPerTask = 1;
+    if(NsegmentPerTask > MaxSegmentsPerTask)
+        NsegmentPerTask = MaxSegmentsPerTask;
 
     /* This re-orders and sets up the TopLeaves, assigning them to tasks.*/
-    domain_assign_topleaves_balanced(ddecomp, TopLeafCount, 1);
+    domain_assign_topleaves_balanced(ddecomp, TopLeafWork, NsegmentPerTask);
     /* Set up the tasks structure now the topleaves are final. */
     ddecomp->Tasks = domain_set_task_leafs(ddecomp);
-    int status = domain_check_memory_bound(ddecomp, NULL, TopLeafCount);
+    int status = domain_check_memory_bound(ddecomp, TopLeafWork, TopLeafCount);
     if(status != 0)
         message(0, "Domain decomposition is outside memory bounds.\n");
 
     walltime_measure("/Domain/Decompose");
 
+    myfree(TopLeafWork);
     myfree(TopLeafCount);
 
     return status;
@@ -1065,7 +1086,7 @@ domain_check_for_local_refine_subsample(
                 continue;
             }
             LPfull[i].Key = PEANO(P[i].Pos, PartManager->BoxSize);
-            LPfull[i].Cost = 1;
+            LPfull[i].Cost = domain_particle_cost(&P[i]);
         }
 
         /* First sort to ensure spatially 'even' subsamples and remove garbage.*/
@@ -1088,8 +1109,13 @@ domain_check_for_local_refine_subsample(
         for(i = 0; i < Nsample; i ++)
         {
             int j = i * policy->SubSampleDistance;
-            LP[i].Key = PEANO(P[j].Pos, PartManager->BoxSize);
-            LP[i].Cost = 1;
+            if(P[j].IsGarbage) {
+                LP[i].Key = PEANOCELLS;
+                LP[i].Cost = 0;
+            } else {
+                LP[i].Key = PEANO(P[j].Pos, PartManager->BoxSize);
+                LP[i].Cost = domain_particle_cost(&P[j]);
+            }
         }
     }
 
@@ -1443,9 +1469,10 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
 
             /* This leaf is not final until the topnodes have been sorted and assigned. */
             const int leaf = domain_get_topleaf(PEANO(PartManager->Base[n].Pos, PartManager->BoxSize), ddecomp);
+            const int64_t cost = domain_particle_cost(&PartManager->Base[n]);
 
             if(local_TopLeafWork)
-                local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += 1;
+                local_TopLeafWork[leaf + tid * ddecomp->NTopLeaves] += cost;
 
             local_TopLeafCount[leaf + tid * ddecomp->NTopLeaves] += 1;
         }

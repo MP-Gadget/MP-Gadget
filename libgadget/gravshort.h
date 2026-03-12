@@ -21,6 +21,7 @@ typedef struct {
     TreeWalkResultBase base;
     MyFloat Acc[3];
     MyFloat Potential;
+    int GravCost;
 } TreeWalkResultGravShort;
 
 struct GravShortPriv {
@@ -96,6 +97,7 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][0], result->Acc[0]);
     TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][1], result->Acc[1]);
     TREEWALK_REDUCE(GRAV_GET_PRIV(tw)->Accel[place][2], result->Acc[2]);
+    TREEWALK_REDUCE(P[place].GravCost, result->GravCost);
     if(tw->tree->full_particle_tree_flag)
         TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }

@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
+#include <limits.h>
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
@@ -211,6 +212,21 @@ static void do_force_test(int Nmesh, double Asmth, double ErrTolForceAcc, int di
     ActiveParticles act = init_empty_active_particles(PartManager);
     grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
     grav_short_tree(&act, &pm, &Tree, NULL, rho0, 0);
+
+    int64_t local_cost_sum = 0;
+    int min_cost = INT_MAX;
+    #pragma omp parallel for reduction(+: local_cost_sum) reduction(min: min_cost)
+    for(i = 0; i < PartManager->NumPart; i++) {
+        local_cost_sum += P[i].GravCost;
+        if(min_cost > P[i].GravCost)
+            min_cost = P[i].GravCost;
+    }
+    int64_t total_cost_sum = 0;
+    int global_min_cost = 0;
+    MPI_Allreduce(&local_cost_sum, &total_cost_sum, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&min_cost, &global_min_cost, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    assert_true(total_cost_sum > 0);
+    assert_true(global_min_cost > 0);
 
     force_tree_free(&Tree);
     petapm_destroy(&pm);
