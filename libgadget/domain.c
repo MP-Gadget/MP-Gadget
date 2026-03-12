@@ -536,8 +536,8 @@ domain_balance(DomainDecomp * ddecomp)
 
     walltime_measure("/Domain/Decompose");
 
-    myfree(TopLeafWork);
     myfree(TopLeafCount);
+    myfree(TopLeafWork);
 
     return status;
 }
@@ -1493,13 +1493,12 @@ domain_compute_costs(DomainDecomp * ddecomp, int64_t *TopLeafWork, int64_t *TopL
         }
     }
 
+    MPI_Allreduce(local_TopLeafCount, TopLeafCount, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, ddecomp->DomainComm);
+    myfree(local_TopLeafCount);
     if(local_TopLeafWork) {
         MPI_Allreduce(local_TopLeafWork, TopLeafWork, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, ddecomp->DomainComm);
         myfree(local_TopLeafWork);
     }
-
-    MPI_Allreduce(local_TopLeafCount, TopLeafCount, ddecomp->NTopLeaves, MPI_INT64, MPI_SUM, ddecomp->DomainComm);
-    myfree(local_TopLeafCount);
 }
 
 /**
