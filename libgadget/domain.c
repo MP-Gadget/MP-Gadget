@@ -1120,9 +1120,13 @@ domain_check_for_local_refine_subsample(
     }
 
     if(domain_params.DomainUseGlobalSorting) {
+        message(0, "Domain local refine: globally sorting %d sampled particles\n", Nsample);
         mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, sizeof(peano_t), NULL, DomainComm);
+        message(0, "Domain local refine: global sample sort finished\n");
     } else {
+        message(0, "Domain local refine: locally sorting %d sampled particles\n", Nsample);
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
+        message(0, "Domain local refine: local sample sort finished\n");
     }
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
@@ -1223,6 +1227,7 @@ domain_check_for_local_refine_subsample(
 
     /* then compute the costs of the internal nodes. */
     domain_toptree_update_cost(topTree, 0);
+    message(0, "Domain local refine: built local top tree with %d nodes from %d samples\n", *topTreeSize, Nsample);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
@@ -1369,6 +1374,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
 
     /* we now need to exchange tree parts and combine them as needed */
     int combine_failed = domain_nonrecursively_combine_topTree(topTree, topTreeSize, MaxTopNodes, DomainComm);
+    message(0, "Domain global top tree combine finished: size=%d\n", *topTreeSize);
 
     if(combine_failed) {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
@@ -1376,6 +1382,7 @@ int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
     }
     /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
     int prerefinetoptree = *topTreeSize;
+    message(0, "Domain global refine: starting from %d nodes\n", prerefinetoptree);
     int global_refine_failed = domain_global_refine(topTree, topTreeSize, MaxTopNodes, countlimit, costlimit);
 
     if(MPIU_Any(global_refine_failed, DomainComm)) {
