@@ -84,6 +84,12 @@ domain_particle_cost(const struct particle_data * part)
     return part->GravCost > 0 ? part->GravCost : 1;
 }
 
+static inline peano_t
+domain_particle_key(const struct particle_data * part)
+{
+    return PEANO(part->Pos, PartManager->BoxSize);
+}
+
 /*This is a helper for the tests*/
 void set_domain_par(DomainParams dp)
 {
@@ -1104,19 +1110,36 @@ domain_check_for_local_refine_subsample(
         myfree(LPfull);
     }
     else {
-        /* Subsample, computing keys*/
-        #pragma omp parallel for
-        for(i = 0; i < Nsample; i ++)
-        {
+        /* Subsample, compacting away garbage so we never feed invalid sentinel
+         * keys into the top-tree builder. */
+        int sampled_non_garbage = 0;
+        for(i = 0; i < Nsample; i ++) {
             int j = i * policy->SubSampleDistance;
-            if(P[j].IsGarbage) {
-                LP[i].Key = PEANOCELLS;
-                LP[i].Cost = 0;
-            } else {
-                LP[i].Key = PEANO(P[j].Pos, PartManager->BoxSize);
-                LP[i].Cost = domain_particle_cost(&P[j]);
+            if(!P[j].IsGarbage)
+                sampled_non_garbage++;
+        }
+        if(sampled_non_garbage == 0 && PartManager->NumPart != 0) {
+            for(i = 0; i < PartManager->NumPart; i++) {
+                if(P[i].IsGarbage)
+                    continue;
+                sampled_non_garbage = 1;
+                LP[0].Key = domain_particle_key(&P[i]);
+                LP[0].Cost = domain_particle_cost(&P[i]);
+                break;
+            }
+        } else {
+            int out = 0;
+            for(i = 0; i < Nsample; i ++)
+            {
+                int j = i * policy->SubSampleDistance;
+                if(P[j].IsGarbage)
+                    continue;
+                LP[out].Key = domain_particle_key(&P[j]);
+                LP[out].Cost = domain_particle_cost(&P[j]);
+                out++;
             }
         }
+        Nsample = sampled_non_garbage;
     }
 
     if(domain_params.DomainUseGlobalSorting) {
@@ -1172,6 +1195,10 @@ domain_check_for_local_refine_subsample(
     int last_leaf = -1;
     i = 0;
     while(i < Nsample) {
+        if(LP[i].Key >= PEANOCELLS) {
+            endrun(11, "Invalid sampled key %llu at i=%d Nsample=%d during top-tree build\n",
+                (unsigned long long) LP[i].Key, i, Nsample);
+        }
 
         int leaf = domain_toptree_get_subnode(topTree, LP[i].Key);
 
