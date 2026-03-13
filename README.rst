@@ -169,7 +169,7 @@ MP-Gadget is maintained by Simeon Bird, Yu Feng and Yueying Ni.
 
 Contributors to MP-Gadget include:
 
-Yihao Zhou, Yanhui Yang. Nicholas Battaglia, Nianyi Chen, James Davies, Nishikanta Khandai, Karime Maamari, Chris Pederson, Phoebe Upton Sanderbeck, and Lauren Anderson.
+Yihao Zhou, Yanhui Yang, Demao Kong, Nicholas Battaglia, Nianyi Chen, James Davies, Nishikanta Khandai, Karime Maamari, Chris Pederson, Phoebe Upton Sanderbeck, and Lauren Anderson.
 
 Code review
 -----------
