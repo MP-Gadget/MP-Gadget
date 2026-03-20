@@ -1155,12 +1155,10 @@ struct topleaf_momentsdata
  */
 static void force_exchange_pseudodata(const ForceTree * const tree, const DomainDecomp * const ddecomp)
 {
-    int i;
-
     struct topleaf_momentsdata * TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", ddecomp->NTopLeaves * sizeof(TopLeafMoments[0]));
 
     #pragma omp parallel for
-    for(i = ddecomp->Tasks[tree->ThisTask].StartLeaf; i < ddecomp->Tasks[tree->ThisTask].EndLeaf; i ++) {
+    for(int i = ddecomp->Tasks[tree->ThisTask].StartLeaf; i < ddecomp->Tasks[tree->ThisTask].EndLeaf; i ++) {
         int no = ddecomp->TopLeaves[i].treenode;
         if(ddecomp->TopLeaves[i].Task != tree->ThisTask)
             endrun(131231231, "TopLeaf %d Task table is corrupted: task is %d\n", i, ddecomp->TopLeaves[i].Task);
@@ -1193,14 +1191,12 @@ static void force_exchange_pseudodata(const ForceTree * const tree, const Domain
     myfree(recvoffset);
     myfree(recvcounts);
 
-    int ta;
-    #pragma omp parallel for
-    for(ta = 0; ta < NTask; ta++) {
+    for(int ta = 0; ta < NTask; ta++) {
         if(ta == tree->ThisTask)
             continue; /* bypass ThisTask since it is already up to date */
-
-        for(i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
-            int no = ddecomp->TopLeaves[i].treenode;
+        #pragma omp parallel for
+        for(int i = ddecomp->Tasks[ta].StartLeaf; i < ddecomp->Tasks[ta].EndLeaf; i ++) {
+            const int no = ddecomp->TopLeaves[i].treenode;
             tree->Nodes[no].mom.cofm[0] = TopLeafMoments[i].s[0];
             tree->Nodes[no].mom.cofm[1] = TopLeafMoments[i].s[1];
             tree->Nodes[no].mom.cofm[2] = TopLeafMoments[i].s[2];
