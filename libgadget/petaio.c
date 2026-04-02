@@ -317,8 +317,8 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
                 keep |= (0 == strcmp(IOTable->ent[i].name, "BlackholeMass"));
                 keep |= (0 == strcmp(IOTable->ent[i].name, "MinPotPos"));
             }
-            /* Some IC codes may set the gas particle mass directly, rather than in the header*/
-            if(ptype == 0 && header->MassTable[ptype] <= 0)
+            /* Some IC codes may set the particle mass directly, rather than in the header*/
+            if(header->MassTable[ptype] <= 0)
                 keep |= (0 == strcmp(IOTable->ent[i].name, "Mass"));
             if(!keep) continue;
         }
@@ -355,7 +355,8 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
         {
-            parts[i].Mass = header->MassTable[parts[i].Type];
+            if(header->MassTable[parts[i].Type] > 0)
+                parts[i].Mass = header->MassTable[parts[i].Type];
         }
 
         if (!IO.UsePeculiarVelocity ) {
