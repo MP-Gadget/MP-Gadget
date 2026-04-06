@@ -191,7 +191,7 @@ petaio_save_snapshot(const char * fname, struct IOTable * IOTable, int verbose, 
         }
         /* No need to write empty folders for particle types we don't have.
          * But do still write them for stars and BHs as someone might expect them.*/
-        if(ptype_count[ptype] == 0 && ptype < 4)
+        if(NTotal[ptype] == 0 && ptype < 4)
             continue;
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_build_buffer(&array, &IOTable->ent[i], selection + ptype_offset[ptype], ptype_count[ptype], P, SlotsManager, &conv);
