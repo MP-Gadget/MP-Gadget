@@ -405,6 +405,11 @@ hydro_ngbiter(
     double p_over_rho2_j = Pressure_j / (eomdensity * eomdensity);
     double soundspeed_j = sqrt(GAMMA * Pressure_j / eomdensity);
 
+    /* Symmetrize the max signal vel*/
+    double vsig = iter->soundspeed_i + soundspeed_j;
+    if(vsig > O->MaxSignalVel)
+        O->MaxSignalVel = vsig;
+
     double dv[3];
     int d;
     for(d = 0; d < 3; d++) {
