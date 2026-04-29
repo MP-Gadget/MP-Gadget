@@ -369,7 +369,7 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     }
     /* Count particles in timebins and find largest timestep with particles.*/
     for(ti = largest_active; ti >= 1; ti--) {
-        for(i = 0; i < nthread; i++)
+        for(i = 1; i < nthread; i++)
             timebincounts[ti] += timebincounts [i * TIMEBINS + ti];
     }
     int64_t alltimebincounts[TIMEBINS];
