@@ -146,7 +146,7 @@ metal_return_reduce(const int place, TreeWalkResultMetals * remote, const enum T
 static double chabrier_imf(double mass)
 {
     if(mass <= 1) {
-        return 0.852464 / mass * exp(- pow(log(mass / 0.079)/ 0.69, 2)/2);
+        return 0.852464 / mass * exp(- pow(log10(mass / 0.079)/ 0.69, 2)/2);
     }
     else {
         return 0.237912 * pow(mass, -2.3);
