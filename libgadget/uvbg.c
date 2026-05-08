@@ -129,7 +129,7 @@ void save_uvbg_grids(int SnapshotFileCount, char * OutputDir, PetaPM * pm)
     //TODO: think about the cartesian communicator in the PetaPM struct
     //and the mapping between ranks, indices and positions
 
-    size_t dims[2] = {grid_n, 1};
+    size_t dims[2] = {(size_t) grid_n, 1};
     //J21 block
     BigArray arr = {0};
     big_array_init(&arr, UVBGgrids.J21, "=f4", 2, dims, NULL);
@@ -513,8 +513,8 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
-        (char*) &P[0].Pos[0]  - (char*) P,
-        (char*) &P[0].Mass  - (char*) P,
+        (size_t) ((char*) &P[0].Pos[0]  - (char*) P),
+        (size_t) ((char*) &P[0].Mass  - (char*) P),
         /* Regions allocated inside _prepare*/
         NULL,
         /* By default all particles are active. For hybrid neutrinos set below.*/
@@ -522,15 +522,15 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
         PartManager->NumPart,
     };
     PetaPMReionPartStruct rstruct = {
-        (char*) &P[0].Type  - (char*) P,
-        (char*) &P[0].PI  - (char*) P,
+        (size_t) ((char*) &P[0].Type  - (char*) P),
+        (size_t) ((char*) &P[0].PI  - (char*) P),
         SphP,
         sizeof(SphP[0]),
-        (char*) &SphP[0].Sfr  - (char*) SphP,
-        (char*) &SphP[0].EscapeFraction  - (char*) SphP,
+        (size_t) ((char*) &SphP[0].Sfr  - (char*) SphP),
+        (size_t) ((char*) &SphP[0].EscapeFraction  - (char*) SphP),
         StarP,
         sizeof(StarP[0]),
-        (char*) &StarP[0].EscapeFraction - (char*) StarP,
+        (size_t) ((char*) &StarP[0].EscapeFraction - (char*) StarP),
     };
 
     uvbg_params.Time = Time;
