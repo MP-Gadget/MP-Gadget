@@ -189,7 +189,7 @@ void calculate_lensing_potential(double *density_projected, int plane_resolution
     myfree(l_squared);
 }
 
-int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential) {
+int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential) {
     // Get the rank of the current process
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
