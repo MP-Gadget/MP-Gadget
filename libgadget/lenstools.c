@@ -159,6 +159,10 @@ void calculate_lensing_potential(double *density_projected, int plane_resolution
     // Perform the forward FFT
     fftw_execute(forward_plan);
 
+    // Match lenstools: drop the uniform density mode before solving Poisson.
+    density_ft[0][0] = 0.0;
+    density_ft[0][1] = 0.0;
+
     // Solve the Poisson equation and apply Gaussian smoothing in the frequency domain
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution / 2 + 1; j++) {
