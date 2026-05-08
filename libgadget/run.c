@@ -724,7 +724,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
         /* Write the potential planes*/
         if(WritePlane) {
 #ifdef USE_CFITSIO
-            write_plane(planned_sync->plane_snapnum, atime, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s, units.UnitLength_in_cm);
+            write_plane(planned_sync->plane_snapnum, atime, header->TimeIC, &All.CP, All.OutputDir, units.UnitVelocity_in_cm_per_s, units.UnitLength_in_cm);
             walltime_measure("/Lensing");
 #else
             endrun(0, "Plane writing requested but FITSIO not enabled.\n");

@@ -15,6 +15,9 @@
 // Simulates cutting a plane with a Gaussian grid
 int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential);
 
+// Solves the 2D lensing Poisson equation for a projected density plane.
+void calculate_lensing_potential(double *density_projected, int plane_resolution, double bin_resolution_0, double bin_resolution_1, double chi,double smooth, double *lensing_potential);
+
 // Saves the potential plane data
 void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm);
 
