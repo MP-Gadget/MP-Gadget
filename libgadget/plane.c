@@ -166,6 +166,8 @@ void write_plane(int snapnum, const double atime, Cosmology * CP, const char * O
             double left_corner[3] = {0, 0, 0};
             int64_t num_particles_plane = 0, num_particles_plane_tot = 0;
 
+            memset(plane_result, 0, plane_resolution * plane_resolution * sizeof(double));
+
             /*computing lensing potential planes*/
             num_particles_plane = cutPlaneGaussianGrid(num_particles_tot,  comoving_distance, BoxSize, CP, atime, PlaneParams.Normals[j], PlaneParams.CutPoints[i], thickness, left_corner, plane_resolution, plane_result);
 
