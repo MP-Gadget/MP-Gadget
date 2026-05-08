@@ -42,10 +42,23 @@ typedef struct {
     int nx, ny, nz;
 } GridDimensions;
 
-// Function to determine the bin index for a given value
+// Function to determine the bin index for a given value with periodic boundaries.
 int find_bin(double value, double *bins, int resolution, const double L) { // L is the box size
+    const double width = bins[resolution] - bins[0];
+    if(width <= 0 || resolution <= 0) {
+        return -1;
+    }
+
+    double rel = value - bins[0];
+    while(rel < 0) rel += L;
+    while(rel >= L) rel -= L;
+
+    if(rel >= width) {
+        return -1;
+    }
+
     // float index
-    double iflt = (value - bins[0]) / (bins[resolution] - bins[0]) * resolution;
+    double iflt = rel / width * resolution;
 
     // round down to the nearest integer
     int index = (int)floor(iflt);
@@ -68,8 +81,8 @@ void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **
         // remove offset
         for(int d = 0; d < 3; d ++) {
             position[d] = Parts[p].Pos[d] - PartManager->CurrentParticleOffset[d];
-            while(position[d] > PartManager->BoxSize) position[d] -= PartManager->BoxSize;
-            while(position[d] <= 0) position[d] += PartManager->BoxSize;
+            while(position[d] >= PartManager->BoxSize) position[d] -= PartManager->BoxSize;
+            while(position[d] < 0) position[d] += PartManager->BoxSize;
         }
         int ix = find_bin(position[0], binning[0], dims.nx, PartManager->BoxSize);
         int iy = find_bin(position[1], binning[1], dims.ny, PartManager->BoxSize);
