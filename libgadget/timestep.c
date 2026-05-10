@@ -337,8 +337,9 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
 
     /* Find the largest timebin active this timestep.*/
     const int nthread = omp_get_max_threads();
-    int64_t * timebincounts = ta_malloc("timebincounts", int64_t, TIMEBINS * nthread);
-    memset(timebincounts, 0, TIMEBINS * nthread * sizeof(int64_t));
+    /* TIMEBINS+1 because largest_active may be TIMEBINS*/
+    int64_t * timebincounts = ta_malloc("timebincounts", int64_t, (TIMEBINS+1) * nthread);
+    memset(timebincounts, 0, (TIMEBINS+1) * nthread * sizeof(int64_t));
     /* Find the timesteps for all active particles.*/
     int i;
     #pragma omp parallel for
@@ -364,16 +365,16 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
         if(bin > largest_active)
             bin = largest_active;
         int tid = omp_get_thread_num();
-        timebincounts[tid * TIMEBINS + bin] ++;
+        timebincounts[tid * (TIMEBINS+1) + bin] ++;
         P[pa].TimeBinGravity = bin;
     }
     /* Count particles in timebins and find largest timestep with particles.*/
     for(ti = largest_active; ti >= 1; ti--) {
         for(i = 1; i < nthread; i++)
-            timebincounts[ti] += timebincounts [i * TIMEBINS + ti];
+            timebincounts[ti] += timebincounts [i * (TIMEBINS+1) + ti];
     }
-    int64_t alltimebincounts[TIMEBINS];
-    MPI_Allreduce(timebincounts, alltimebincounts, TIMEBINS, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    int64_t alltimebincounts[TIMEBINS+1];
+    MPI_Allreduce(timebincounts, alltimebincounts, TIMEBINS+1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     myfree(timebincounts);
     /* Find largest bin with particles in.*/
     for(ti = largest_active; ti >= 1; ti--)
