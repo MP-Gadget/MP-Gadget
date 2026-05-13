@@ -48,7 +48,7 @@ struct Layout {
 typedef struct PetaPMPriv {
     /* These varibles are initialized by petapm_init*/
 
-    int fftsize;
+    size_t fftsize;
     pfft_plan plan_forw;
     pfft_plan plan_back;
     MPI_Comm comm_cart_2d;
