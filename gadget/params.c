@@ -72,6 +72,7 @@ create_gadget_parameter_set()
     /*Potential plane parameters*/
     param_declare_string(ps, "PlaneOutputList", OPTIONAL, NULL, "List of potential plane output scale factors.");
     param_declare_int(ps, "PlaneResolution", OPTIONAL, 256, "Number of pixels per dimension in the potential plane (should be an even number).");
+    param_declare_double(ps, "PlaneFoV", OPTIONAL, 0, "Field of view of saved potential planes in degrees. A value of 0 saves the full plane.");
     param_declare_double(ps, "PlaneThickness", OPTIONAL, -1, "Thickness of the potential plane in the normal direction in internal gadget units (kpc/h by default).");
     param_declare_string(ps, "PlaneCutPoints", OPTIONAL, NULL, "List of potential plane cut points in the normal direction in internal gadget units (kpc/h by default).");
     param_declare_string(ps, "PlaneNormals", OPTIONAL, "\"0, 1, 2\"", "List of potential plane normal directions (0=x, 1=y, 2=z).");

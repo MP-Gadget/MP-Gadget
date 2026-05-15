@@ -319,7 +319,7 @@ int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double side_length, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
@@ -337,7 +337,7 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
         return;
     }
     double H0 = CP->HubbleParam * 100;
-    double Lbox_Mpc = Lbox * UnitLength_in_cm / CM_PER_MPC;  // Box size in Mpc/h
+    double side_length_Mpc = side_length * UnitLength_in_cm / CM_PER_MPC;  // Plane side length in Mpc/h
     double comoving_distance_Mpc = comoving_distance * UnitLength_in_cm / CM_PER_MPC;
     double Ode0 = CP->OmegaLambda > 0 ? CP->OmegaLambda : CP->Omega_fld;
     // Insert a blank line as a separator
@@ -353,7 +353,7 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
 
     fits_update_key(fptr, TDOUBLE, "Z", &redshift, "Redshift of the lens plane", &status);
     fits_update_key(fptr, TDOUBLE, "CHI", (&comoving_distance_Mpc), "Comoving distance in Mpc/h", &status);
-    fits_update_key(fptr, TDOUBLE, "SIDE", &(Lbox_Mpc), "Side length in Mpc/h", &status);
+    fits_update_key(fptr, TDOUBLE, "SIDE", &(side_length_Mpc), "Side length in Mpc/h", &status);
     fits_update_key(fptr, TLONGLONG, "NPART", &num_particles, "Number of particles on the plane", &status);
     char unit[] = "rad2    ";
     fits_update_key(fptr, TSTRING, "UNIT", unit, "Pixel value unit", &status);
