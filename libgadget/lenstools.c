@@ -319,7 +319,7 @@ int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double side_length, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double side_length, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm, const int plane_double) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
@@ -331,8 +331,8 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
         return;
     }
 
-    // Create the primary image (double precision)
-    if (fits_create_img(fptr, DOUBLE_IMG, 2, naxes, &status)) {
+    const int image_type = plane_double ? DOUBLE_IMG : FLOAT_IMG;
+    if (fits_create_img(fptr, image_type, 2, naxes, &status)) {
         fits_report_error(stderr, status);
         return;
     }
@@ -358,7 +358,23 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
     char unit[] = "rad2    ";
     fits_update_key(fptr, TSTRING, "UNIT", unit, "Pixel value unit", &status);
 
-    // Write the 2D array of doubles to the image
+    if(!plane_double) {
+        double max_abs_change = 0;
+        double max_rel_change = 0;
+        for(int64_t i = 0; i < (int64_t) rows * cols; i++) {
+            const float converted = (float) data[i];
+            const double abs_change = fabs(data[i] - (double) converted);
+            const double denom = fabs(data[i]);
+            const double rel_change = denom > 0 ? abs_change / denom : 0;
+            if(abs_change > max_abs_change)
+                max_abs_change = abs_change;
+            if(rel_change > max_rel_change)
+                max_rel_change = rel_change;
+        }
+        message(0, "Potential plane float32 output max conversion change: abs=%g rel=%g\n", max_abs_change, max_rel_change);
+    }
+
+    // The buffer is always double; CFITSIO converts to the image datatype on write.
     long fpixel[2] = {1, 1};  // first pixel to write (1-based indexing)
     if (fits_write_pix(fptr, TDOUBLE, fpixel, rows * cols, data, &status)) {
         fits_report_error(stderr, status);

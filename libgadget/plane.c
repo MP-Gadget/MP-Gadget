@@ -34,6 +34,7 @@ static struct plane_params
     double FoV; // in degrees; 0 means save the full plane
     double Thickness; // in kpc/h
     int MassiveNuCorrection;
+    int DoubleOut;
 } PlaneParams;
 
 typedef struct {
@@ -601,6 +602,10 @@ set_plane_params(ParameterSet * ps)
         if(PlaneParams.MassiveNuCorrection != 0 && PlaneParams.MassiveNuCorrection != 1)
             endrun(1, "PlaneMassiveNuCorrection must be 0 or 1, got %d\n", PlaneParams.MassiveNuCorrection);
 
+        PlaneParams.DoubleOut = param_get_int(ps, "PlaneDoubleOut");
+        if(PlaneParams.DoubleOut != 0 && PlaneParams.DoubleOut != 1)
+            endrun(1, "PlaneDoubleOut must be 0 or 1, got %d\n", PlaneParams.DoubleOut);
+
         // Plane normals
         set_plane_normals(ps);
 
@@ -715,7 +720,7 @@ void write_plane(int snapnum, const double atime, const double TimeIC, Cosmology
                 double * saved_plane_result = summed_plane_result;
                 if(saved_resolution < plane_resolution)
                     saved_plane_result = plane_center_crop(summed_plane_result, plane_resolution, saved_resolution);
-                savePotentialPlane(saved_plane_result, saved_resolution, saved_resolution, file_path, saved_side_length, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm);
+                savePotentialPlane(saved_plane_result, saved_resolution, saved_resolution, file_path, saved_side_length, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm, PlaneParams.DoubleOut);
                 if(saved_plane_result != summed_plane_result)
                     myfree(saved_plane_result);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path + 1); // skip the '!' in the filename
