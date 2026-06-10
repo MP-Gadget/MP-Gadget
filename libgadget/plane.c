@@ -31,7 +31,6 @@ static struct plane_params
     double CutPoints[1024];
 
     int Resolution;
-    double FoV; // in degrees; 0 means save the full plane
     double Thickness; // in kpc/h
     int MassiveNuCorrection;
     int DoubleOut;
@@ -61,44 +60,6 @@ plane_wrap_position(double x, const double L)
     while(x < 0) x += L;
     while(x >= L) x -= L;
     return x;
-}
-
-static int
-plane_get_saved_resolution(const int full_resolution, const double full_side_length,
-        const double comoving_distance, double * saved_side_length)
-{
-    if(PlaneParams.FoV == 0) {
-        *saved_side_length = full_side_length;
-        return full_resolution;
-    }
-
-    const double fov_rad = PlaneParams.FoV * M_PI / 180.;
-    const double requested_side_length = 2 * comoving_distance * tan(0.5 * fov_rad);
-    if(requested_side_length >= full_side_length) {
-        *saved_side_length = full_side_length;
-        return full_resolution;
-    }
-
-    const double pixel_side_length = full_side_length / full_resolution;
-    const int saved_resolution = (int) floor(requested_side_length / pixel_side_length);
-    if(saved_resolution < 1)
-        endrun(1, "PlaneFoV = %g deg gives a side length %g smaller than one plane pixel %g.\n",
-                PlaneParams.FoV, requested_side_length, pixel_side_length);
-
-    *saved_side_length = saved_resolution * pixel_side_length;
-    return saved_resolution;
-}
-
-static double *
-plane_center_crop(const double * data, const int full_resolution, const int saved_resolution)
-{
-    double * cropped = allocate_2d_array_as_1d(saved_resolution, saved_resolution);
-    const int offset = (full_resolution - saved_resolution) / 2;
-    for(int i = 0; i < saved_resolution; i++)
-        memcpy(&ACCESS_2D(cropped, i, 0, saved_resolution),
-                &ACCESS_2D(data, i + offset, offset, full_resolution),
-                saved_resolution * sizeof(double));
-    return cropped;
 }
 
 static int
@@ -591,10 +552,6 @@ set_plane_params(ParameterSet * ps)
         // plane resolution
         PlaneParams.Resolution = param_get_int(ps, "PlaneResolution");
 
-        PlaneParams.FoV = param_get_double(ps, "PlaneFoV");
-        if(PlaneParams.FoV < 0 || PlaneParams.FoV >= 180)
-            endrun(1, "PlaneFoV must be 0, or a positive field of view smaller than 180 degrees, got %g\n", PlaneParams.FoV);
-
         // plane thickness
         PlaneParams.Thickness = param_get_double(ps, "PlaneThickness");
 
@@ -662,13 +619,6 @@ void write_plane(int snapnum, const double atime, const double TimeIC, Cosmology
 
     // print comoving distance
     message(0, "Comoving distance: %g\n", comoving_distance);
-    double saved_side_length = BoxSize;
-    int saved_resolution = plane_get_saved_resolution(plane_resolution, BoxSize, comoving_distance, &saved_side_length);
-    if(saved_resolution < plane_resolution) {
-        double saved_fov = 2 * atan(0.5 * saved_side_length / comoving_distance) * 180. / M_PI;
-        message(0, "PlaneFoV = %g deg: saving central %d x %d pixels with side length %g (FoV %g deg) from full %d x %d plane.\n",
-                PlaneParams.FoV, saved_resolution, saved_resolution, saved_side_length, saved_fov, plane_resolution, plane_resolution);
-    }
 
     PlanePMGrid plane_pm_grid;
     memset(&plane_pm_grid, 0, sizeof(plane_pm_grid));
@@ -717,12 +667,7 @@ void write_plane(int snapnum, const double atime, const double TimeIC, Cosmology
             if (ThisTask == 0) {
 #ifdef USE_CFITSIO
                 char * file_path = plane_get_output_fname(snapnum, OutputDir, i, PlaneParams.Normals[j]);
-                double * saved_plane_result = summed_plane_result;
-                if(saved_resolution < plane_resolution)
-                    saved_plane_result = plane_center_crop(summed_plane_result, plane_resolution, saved_resolution);
-                savePotentialPlane(saved_plane_result, saved_resolution, saved_resolution, file_path, saved_side_length, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm, PlaneParams.DoubleOut);
-                if(saved_plane_result != summed_plane_result)
-                    myfree(saved_plane_result);
+                savePotentialPlane(summed_plane_result, plane_resolution, plane_resolution, file_path, BoxSize, CP, redshift, comoving_distance, num_particles_plane_tot, UnitLength_in_cm, PlaneParams.DoubleOut);
                 message(0, "Plane saved for cut %d and normal %d to %s\n", i, PlaneParams.Normals[j], file_path + 1); // skip the '!' in the filename
                 myfree(file_path);
 #endif
