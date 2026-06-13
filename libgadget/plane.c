@@ -62,16 +62,6 @@ plane_wrap_position(double x, const double L)
     return x;
 }
 
-static int
-plane_particle_is_active(const Cosmology * CP, const double atime, const int64_t i)
-{
-    if(P[i].Swallowed)
-        return 0;
-    if(hybrid_nu_tracer(CP, atime) && P[i].Type == 2)
-        return 0;
-    return 1;
-}
-
 static double
 plane_particle_omega_source(const Cosmology * CP, const double atime)
 {
@@ -88,8 +78,9 @@ plane_count_active_particles(const Cosmology * CP, const double atime)
 {
     int64_t local_count = 0;
     int64_t total_count = 0;
+#pragma omp parallel for reduction(+:local_count)
     for(int64_t p = 0; p < PartManager->NumPart; p++)
-        if(plane_particle_is_active(CP, atime, p))
+        if(lenstools_particle_is_active(CP, atime, p))
             local_count++;
     MPI_Allreduce(&local_count, &total_count, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     return total_count;
@@ -139,7 +130,7 @@ plane_pm_deposit_particles(PetaPM * pm, const Cosmology * CP, const double atime
     double local_mass = 0;
 
     for(int64_t p = 0; p < PartManager->NumPart; p++) {
-        if(!plane_particle_is_active(CP, atime, p))
+        if(!lenstools_particle_is_active(CP, atime, p))
             continue;
         local_mass += P[p].Mass;
 
@@ -186,7 +177,7 @@ plane_pm_deposit_particles(PetaPM * pm, const Cosmology * CP, const double atime
     PlaneCellContribution *recvbuf = (PlaneCellContribution *) mymalloc("PlaneRecvCells", total_recv * sizeof(PlaneCellContribution));
 
     for(int64_t p = 0; p < PartManager->NumPart; p++) {
-        if(!plane_particle_is_active(CP, atime, p))
+        if(!lenstools_particle_is_active(CP, atime, p))
             continue;
 
         int base[3];
@@ -519,7 +510,7 @@ int set_plane_normals(ParameterSet* ps)
     size_t maxcount = sizeof(PlaneParams.Normals) / sizeof(PlaneParams.Normals[0]);
 
     if((size_t) PlaneParams.NormalsLength > maxcount) {
-        message(1, "Too many entries (%lld) in the Normals, can take no more than %lu.\n", (long long) PlaneParams.NormalsLength, maxcount);
+        message(1, "Too many entries (%ld) in the Normals, can take no more than %lu.\n", PlaneParams.NormalsLength, maxcount);
         return 1;
     }
     /*Now read in the values*/

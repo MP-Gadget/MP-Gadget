@@ -15,7 +15,7 @@
 #include "utils/endrun.h"
 #include "utils/mymalloc.h"
 
-static int
+int
 lenstools_particle_is_active(const Cosmology * CP, const double atime, const int64_t i)
 {
     if(P[i].Swallowed)
@@ -105,8 +105,8 @@ void grid3d_ngb(const struct particle_data * Parts, int64_t num_particles, doubl
         // remove offset
         for(int d = 0; d < 3; d ++) {
             position[d] = Parts[p].Pos[d] - PartManager->CurrentParticleOffset[d];
-            while(position[d] >= PartManager->BoxSize) position[d] -= PartManager->BoxSize;
-            while(position[d] < 0) position[d] += PartManager->BoxSize;
+            while(position[d] > PartManager->BoxSize) position[d] -= PartManager->BoxSize;
+            while(position[d] <= 0) position[d] += PartManager->BoxSize;
         }
         int ix = find_bin(position[0], binning[0], dims.nx, PartManager->BoxSize);
         int iy = find_bin(position[1], binning[1], dims.ny, PartManager->BoxSize);

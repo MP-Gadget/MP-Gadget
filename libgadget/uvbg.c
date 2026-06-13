@@ -513,8 +513,8 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
-        (size_t) ((char*) &P[0].Pos[0]  - (char*) P),
-        (size_t) ((char*) &P[0].Mass  - (char*) P),
+        (char*) &P[0].Pos[0]  - (char*) P,
+        (char*) &P[0].Mass  - (char*) P,
         /* Regions allocated inside _prepare*/
         NULL,
         /* By default all particles are active. For hybrid neutrinos set below.*/
@@ -530,7 +530,7 @@ void calculate_uvbg(PetaPM * pm_mass, PetaPM * pm_star, PetaPM * pm_sfr, int Wri
         (size_t) ((char*) &SphP[0].EscapeFraction  - (char*) SphP),
         StarP,
         sizeof(StarP[0]),
-        (size_t) ((char*) &StarP[0].EscapeFraction - (char*) StarP),
+        (char*) &StarP[0].EscapeFraction - (char*) StarP,
     };
 
     uvbg_params.Time = Time;

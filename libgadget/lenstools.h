@@ -12,6 +12,9 @@
 
 // Function prototypes
 
+// Checks whether a particle contributes to lensing and potential planes.
+int lenstools_particle_is_active(const Cosmology * CP, const double atime, const int64_t i);
+
 // Simulates cutting a plane with a Gaussian grid
 int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential);
 
