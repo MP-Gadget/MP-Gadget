@@ -292,6 +292,7 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
     conv.hubble = hubble_function(CP, header->TimeSnapshot);
 
     struct IOTable IOTable[1] = {0};
+    int missing_mass_from_header[6] = {0};
     /* Always try to read the metal tables.
      * This lets us turn it off for a short period and then re-enable it.
      * Note the metal fields are non-fatal so this does not break resuming without metals.*/
@@ -329,8 +330,14 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
         }
         sprintf(blockname, "%d/%s", ptype, IOTable->ent[i].name);
         petaio_alloc_buffer(&array, &IOTable->ent[i], header->NLocal[ptype]);
-        if(0 == petaio_read_block(&bf, blockname, &array, IOTable->ent[i].required))
+        int required = IOTable->ent[i].required;
+        if(0 == strcmp(IOTable->ent[i].name, "Mass") && header->MassTable[ptype] > 0)
+            required = 0;
+        int read_status = petaio_read_block(&bf, blockname, &array, required);
+        if(0 == read_status)
             petaio_readout_buffer(&array, &IOTable->ent[i], &conv, PartManager, SlotsManager);
+        else if(0 == strcmp(IOTable->ent[i].name, "Mass") && header->MassTable[ptype] > 0)
+            missing_mass_from_header[ptype] = 1;
         petaio_destroy_buffer(&array);
     }
     destroy_io_blocks(IOTable);
@@ -342,6 +349,24 @@ petaio_read_snapshot(int num, const char * OutputDir, Cosmology * CP, struct hea
     /* now we have IDs, set up the ID consistency between slots. */
     slots_setup_id(PartManager, SlotsManager);
     myfree(fname);
+
+    if(!ic) {
+        struct particle_data * parts = PartManager->Base;
+        int ptype;
+        int any_missing_mass = 0;
+        for(ptype = 0; ptype < 6; ptype++)
+            any_missing_mass |= missing_mass_from_header[ptype];
+        if(any_missing_mass) {
+            message(0, "Recovering missing Mass blocks from Header/MassTable.\n");
+            #pragma omp parallel for
+            for(i = 0; i < PartManager->NumPart; i++)
+            {
+                int ptype = parts[i].Type;
+                if(missing_mass_from_header[ptype])
+                    parts[i].Mass = header->MassTable[ptype] * (1. - (double)parts[i].Generation/get_generations());
+            }
+        }
+    }
 
     if(ic) {
         /*

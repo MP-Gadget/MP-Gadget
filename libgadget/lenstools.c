@@ -2,6 +2,7 @@
 #include <math.h>
 #include <fftw3.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifdef USE_CFITSIO
 #include "fitsio.h"
@@ -13,6 +14,27 @@
 #include "physconst.h"
 #include "utils/endrun.h"
 #include "utils/mymalloc.h"
+
+int
+lenstools_particle_is_active(const Cosmology * CP, const double atime, const int64_t i)
+{
+    if(P[i].Swallowed)
+        return 0;
+    if(hybrid_nu_tracer(CP, atime) && P[i].Type == 2)
+        return 0;
+    return 1;
+}
+
+static double
+lenstools_particle_omega_source(const Cosmology * CP, const double atime)
+{
+    double omega_source = CP->Omega0;
+    if(CP->MassiveNuLinRespOn)
+        omega_source -= pow(atime, 3) * get_omega_nu_nopart(&CP->ONu, atime);
+    if(omega_source <= 0)
+        endrun(1, "Non-positive particle matter density for potential plane: OmegaSource = %g\n", omega_source);
+    return omega_source;
+}
 
 void linspace(double start, double stop, int num, double *result) {
     double step = (stop - start) / (num - 1);
@@ -42,10 +64,23 @@ typedef struct {
     int nx, ny, nz;
 } GridDimensions;
 
-// Function to determine the bin index for a given value
+// Function to determine the bin index for a given value with periodic boundaries.
 int find_bin(double value, double *bins, int resolution, const double L) { // L is the box size
+    const double width = bins[resolution] - bins[0];
+    if(width <= 0 || resolution <= 0) {
+        return -1;
+    }
+
+    double rel = value - bins[0];
+    while(rel < 0) rel += L;
+    while(rel >= L) rel -= L;
+
+    if(rel >= width) {
+        return -1;
+    }
+
     // float index
-    double iflt = (value - bins[0]) / (bins[resolution] - bins[0]) * resolution;
+    double iflt = rel / width * resolution;
 
     // round down to the nearest integer
     int index = (int)floor(iflt);
@@ -59,11 +94,13 @@ int find_bin(double value, double *bins, int resolution, const double L) { // L 
     }
 }
 
-void grid3d_ngb(const struct particle_data * Parts, int num_particles, double **binning, GridDimensions dims, double *density) { // adpated from grid3d_nfw in lenstools
+void grid3d_ngb(const struct particle_data * Parts, int64_t num_particles, double **binning, GridDimensions dims, const Cosmology * CP, const double atime, double *density) { // adpated from grid3d_nfw in lenstools
 
     #pragma omp parallel for
     // Process each particle
-    for (int p = 0; p < num_particles; p++) {
+    for (int64_t p = 0; p < num_particles; p++) {
+        if(!lenstools_particle_is_active(CP, atime, p))
+            continue;
         double position[3];
         // remove offset
         for(int d = 0; d < 3; d ++) {
@@ -159,6 +196,10 @@ void calculate_lensing_potential(double *density_projected, int plane_resolution
     // Perform the forward FFT
     fftw_execute(forward_plan);
 
+    // Match lenstools: drop the uniform density mode before solving Poisson.
+    density_ft[0][0] = 0.0;
+    density_ft[0][1] = 0.0;
+
     // Solve the Poisson equation and apply Gaussian smoothing in the frequency domain
     for (int i = 0; i < plane_resolution; i++) {
         for (int j = 0; j < plane_resolution / 2 + 1; j++) {
@@ -189,7 +230,7 @@ void calculate_lensing_potential(double *density_projected, int plane_resolution
     myfree(l_squared);
 }
 
-int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential) {
+int64_t cutPlaneGaussianGrid(int64_t num_particles_tot, double comoving_distance, double Lbox, const Cosmology * CP, const double atime, const int normal, const double center, const double thickness, const double *left_corner, const int plane_resolution, double *lensing_potential) {
     // Get the rank of the current process
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -205,7 +246,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     // cosmological normalization factor
     double H0 = 100 * CP->HubbleParam * 3.2407793e-20;  // Hubble constant in cgs units
-    double cosmo_normalization = 1.5 * pow(H0, 2) * CP->Omega0 / pow(LIGHTCGS, 2);
+    double cosmo_normalization = 1.5 * pow(H0, 2) * lenstools_particle_omega_source(CP, atime) / pow(LIGHTCGS, 2);
 
     // Binning for directions perpendicular to 'normal'
     double *binning[3];
@@ -239,13 +280,15 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 
     double *density = allocate_3d_array_as_1d(dims.nx, dims.ny, dims.nz);
 
-    grid3d_ngb(P, num_particles_rank, binning, dims, density);
+    grid3d_ngb(P, num_particles_rank, binning, dims, CP, atime, density);
 
     projectDensity(density, dims, normal);
 
     //number of particles on the plane
     int64_t num_particles_plane = 0;
     // normalize the density to the density fluctuation
+    if(num_particles_tot <= 0)
+        endrun(1, "Cannot build a potential plane from zero active particle count.\n");
     double density_norm_factor = 1. / num_particles_tot * (pow(Lbox,3) / (bin_resolution[0] * bin_resolution[1] * bin_resolution[2]));
 
     for (int i = 0; i < plane_resolution; i++) {
@@ -276,7 +319,7 @@ int64_t cutPlaneGaussianGrid(int num_particles_tot, double comoving_distance, do
 }
 
 #ifdef USE_CFITSIO
-void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm) {
+void savePotentialPlane(double *data, int rows, int cols, const char * const filename, double Lbox, Cosmology * CP, double redshift, double comoving_distance, int64_t num_particles, const double UnitLength_in_cm, const int plane_double) {
     fitsfile *fptr;       // Pointer to the FITS file; defined in fitsio.h
     int status = 0;       // Status must be initialized to zero.
     long naxes[2] = {cols, rows};  // image dimensions
@@ -288,8 +331,8 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
         return;
     }
 
-    // Create the primary image (double precision)
-    if (fits_create_img(fptr, DOUBLE_IMG, 2, naxes, &status)) {
+    const int image_type = plane_double ? DOUBLE_IMG : FLOAT_IMG;
+    if (fits_create_img(fptr, image_type, 2, naxes, &status)) {
         fits_report_error(stderr, status);
         return;
     }
@@ -312,9 +355,26 @@ void savePotentialPlane(double *data, int rows, int cols, const char * const fil
     fits_update_key(fptr, TDOUBLE, "CHI", (&comoving_distance_Mpc), "Comoving distance in Mpc/h", &status);
     fits_update_key(fptr, TDOUBLE, "SIDE", &(Lbox_Mpc), "Side length in Mpc/h", &status);
     fits_update_key(fptr, TLONGLONG, "NPART", &num_particles, "Number of particles on the plane", &status);
-    fits_update_key(fptr, TSTRING, "UNIT", "rad2    ", "Pixel value unit", &status);
+    char unit[] = "rad2    ";
+    fits_update_key(fptr, TSTRING, "UNIT", unit, "Pixel value unit", &status);
 
-    // Write the 2D array of doubles to the image
+    if(!plane_double) {
+        double max_abs_change = 0;
+        double max_rel_change = 0;
+        for(int64_t i = 0; i < (int64_t) rows * cols; i++) {
+            const float converted = (float) data[i];
+            const double abs_change = fabs(data[i] - (double) converted);
+            const double denom = fabs(data[i]);
+            const double rel_change = denom > 0 ? abs_change / denom : 0;
+            if(abs_change > max_abs_change)
+                max_abs_change = abs_change;
+            if(rel_change > max_rel_change)
+                max_rel_change = rel_change;
+        }
+        message(0, "Potential plane float32 output max conversion change: abs=%g rel=%g\n", max_abs_change, max_rel_change);
+    }
+
+    // The buffer is always double; CFITSIO converts to the image datatype on write.
     long fpixel[2] = {1, 1};  // first pixel to write (1-based indexing)
     if (fits_write_pix(fptr, TDOUBLE, fpixel, rows * cols, data, &status)) {
         fits_report_error(stderr, status);

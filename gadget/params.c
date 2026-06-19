@@ -75,6 +75,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "PlaneThickness", OPTIONAL, -1, "Thickness of the potential plane in the normal direction in internal gadget units (kpc/h by default).");
     param_declare_string(ps, "PlaneCutPoints", OPTIONAL, NULL, "List of potential plane cut points in the normal direction in internal gadget units (kpc/h by default).");
     param_declare_string(ps, "PlaneNormals", OPTIONAL, "\"0, 1, 2\"", "List of potential plane normal directions (0=x, 1=y, 2=z).");
+    param_declare_int(ps, "PlaneMassiveNuCorrection", OPTIONAL, 1, "Add massive-neutrino linear-response corrections to potential planes when enabled by the cosmology.");
+    param_declare_int(ps, "PlaneDoubleOut", OPTIONAL, 0, "If 1, write potential planes as float64 FITS images. If 0, write them as float32.");
 
     /*Cosmology parameters*/
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density at z=0");
