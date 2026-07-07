@@ -137,6 +137,9 @@ hydro_ngbiter(
     LocalTreeWalk * lv
    );
 
+double
+SPH_DensityPred(MyFloat Density, MyFloat DivVel, double dtdrift);
+
 static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw);
 
@@ -170,6 +173,18 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
 
     if(!tree->hmax_computed_flag)
         endrun(5, "Hydro called before hmax computed\n");
+
+    init_kick_factor_data(&priv->kf, &times, CP);
+    memset(priv->drifts, 0, sizeof(priv->drifts[0])*(TIMEBINS+1));
+    #pragma omp parallel for
+    for(i = times.mintimebin; i <= TIMEBINS; i++)
+    {
+        /* For density: last active drift time is Ti_kick - 1/2 timestep as the kick time is half a timestep ahead.
+         * For active particles no density drift is needed.*/
+        if(!is_timebin_active(i, times.Ti_Current))
+            priv->drifts[i] = get_exact_drift_factor(CP, times.Ti_lastactivedrift[i], times.Ti_Current);
+    }
+
     /* Cache the pressure for speed*/
     HYDRA_GET_PRIV(tw)->EntVarPred = SPH_predicted->EntVarPred;
     HYDRA_GET_PRIV(tw)->PressurePred = NULL;
@@ -181,11 +196,15 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
         HYDRA_GET_PRIV(tw)->PressurePred = (double *) mymalloc("PressurePred", SlotsManager->info[0].size * sizeof(double));
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[0].size; i++) {
-            if(SPH_predicted->EntVarPred[i] == 0)
-                HYDRA_GET_PRIV(tw)->PressurePred[i] = 0;
-            else
-                HYDRA_GET_PRIV(tw)->PressurePred[i] = PressurePred(SPH_EOMDensity(&SphP[i]), SPH_predicted->EntVarPred[i]);
+        for(i = 0; i < PartManager->NumPart; i++) {
+            int pi = P[i].PI;
+            if(SPH_predicted->EntVarPred[pi] == 0)
+                HYDRA_GET_PRIV(tw)->PressurePred[pi] = 0;
+            else {
+                int bin = P[i].TimeBinHydro;
+                const double eomdensity = SPH_DensityPred(SPH_EOMDensity(&SphP[pi]), SphP[pi].DivVel, priv->drifts[bin]);
+                HYDRA_GET_PRIV(tw)->PressurePred[pi] = PressurePred(eomdensity, SPH_predicted->EntVarPred[pi]);
+            }
         }
     }
 
@@ -198,16 +217,6 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
     HYDRA_GET_PRIV(tw)->atime = atime;
     HYDRA_GET_PRIV(tw)->hubble_a2 = hubble * atime * atime;
     priv->times = &times;
-    init_kick_factor_data(&priv->kf, &times, CP);
-    memset(priv->drifts, 0, sizeof(priv->drifts[0])*(TIMEBINS+1));
-    #pragma omp parallel for
-    for(i = times.mintimebin; i <= TIMEBINS; i++)
-    {
-        /* For density: last active drift time is Ti_kick - 1/2 timestep as the kick time is half a timestep ahead.
-         * For active particles no density drift is needed.*/
-        if(!is_timebin_active(i, times.Ti_Current))
-            priv->drifts[i] = get_exact_drift_factor(CP, times.Ti_lastactivedrift[i], times.Ti_Current);
-    }
 
     treewalk_run(tw, act->ActiveParticle, act->NumActiveParticle);
 
