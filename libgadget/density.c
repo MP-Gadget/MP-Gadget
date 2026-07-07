@@ -285,9 +285,14 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
 
     init_kick_factor_data(&priv->kf, &times, CP);
     priv->times = &times;
-
+   /* If enough particles are active, easiest to compute all the predicted velocities immediately.
+    * Make the decision collectively so that every rank uses the same pressure prediction
+    * convention in hydro: otherwise the two halves of a symmetric interaction pair
+    * straddling a rank boundary may use different pressures. */
+   int64_t counts[2] = {act->NumActiveHydro, SlotsManager->info[0].size + SlotsManager->info[5].size};
+   MPI_Allreduce(MPI_IN_PLACE, counts, 2, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
     /* If all particles are active, easiest to compute all the predicted velocities immediately*/
-    if(!act->ActiveParticle || act->NumActiveHydro > 0.1 * (SlotsManager->info[0].size + SlotsManager->info[5].size)) {
+    if(!act->ActiveParticle || counts[0] > 0.1 * counts[1]) {
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++)
@@ -297,7 +302,7 @@ density(const ActiveParticles * act, int update_hsml, int DoEgyDensity, int Blac
     /* But if only some particles are active, the pow function in EntVarPred is slow and we have a lot of overhead, because we are doing 5500^3 exps for 5 particles.
      * So instead we compute it for active particles and use an atomic to guard the changes inside the loop.
      * For sufficiently small particle numbers the memset dominates and it is fastest to just compute each predicted entropy as we need it.*/
-    else if(act->NumActiveHydro > 0.0001 * (SlotsManager->info[0].size + SlotsManager->info[5].size)){
+    else if(counts[0] > 0.0001 * counts[1]){
         priv->SPH_predicted->EntVarPred = (MyFloat *) mymalloc2("EntVarPred", sizeof(MyFloat) * SlotsManager->info[0].size);
         memset(priv->SPH_predicted->EntVarPred, 0, sizeof(priv->SPH_predicted->EntVarPred[0]) * SlotsManager->info[0].size);
         #pragma omp parallel for
