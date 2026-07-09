@@ -197,6 +197,11 @@ hydro_force(const ActiveParticles * act, const double atime, struct sph_pred_dat
         /* Do it in slot order for memory locality*/
         #pragma omp parallel for
         for(i = 0; i < PartManager->NumPart; i++) {
+            /* PI is only a valid gas slot for live gas particles: for other types
+             * it indexes another slot table or is stale, so EntVarPred[PI] is
+             * out of bounds. Match the guard of the EntVarPred fill loop in density(). */
+            if(P[i].Type != 0 || P[i].IsGarbage)
+                continue;
             int pi = P[i].PI;
             if(SPH_predicted->EntVarPred[pi] == 0)
                 HYDRA_GET_PRIV(tw)->PressurePred[pi] = 0;
