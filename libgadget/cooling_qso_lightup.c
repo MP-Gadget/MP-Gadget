@@ -622,7 +622,7 @@ turn_on_quasars(double atime, FOFGroups * fof, ForceTree * gasTree, Cosmology * 
 
         /* Remove this candidate from the list by moving the list down.*/
         if( new_qso >= 0) {
-            memmove(qso_cand+new_qso, qso_cand+new_qso+1, ncand - new_qso+1);
+            memmove(qso_cand+new_qso, qso_cand+new_qso+1, (ncand - new_qso)*sizeof(int));
             ncand--;
         }
     }
