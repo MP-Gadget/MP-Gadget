@@ -101,8 +101,55 @@ test_fof(void **state)
     return;
 }
 
+/* Runs fof_update_root_for_test(i, r) on a copy of Head and compares with expect. */
+static void
+check_update_root(const int * Head, const int * expect, int n, int i, int r)
+{
+    int h[8];
+    int k;
+    assert_true(n <= 8);
+    memcpy(h, Head, sizeof(int) * n);
+    fof_update_root_for_test(i, r, h);
+    for(k = 0; k < n; k++) {
+        if(h[k] != expect[k])
+            message(1, "update_root(%d, %d): Head[%d] = %d, expected %d\n", i, r, k, h[k], expect[k]);
+        assert_int_equal(h[k], expect[k]);
+    }
+}
+
+/* update_root, the path compression after fofp_merge links two roots. */
+static void
+test_fof_update_root(void **state)
+{
+    /* (a) stale root: h1 = 1 was since linked below 0; the old code wrote {0, 1, 1} */
+    {
+        const int Head[3] = {0, 0, 1};
+        check_update_root(Head, Head, 3, 1, 1);
+    }
+    /* (b) i == r, the root of its own tree: unchanged */
+    {
+        const int Head[4] = {0, 1, 1, 2};
+        check_update_root(Head, Head, 4, 1, 1);
+        const int One[1] = {0};
+        check_update_root(One, One, 1, 0, 0);
+    }
+    /* (c) chain compression: the whole path points to 0, Head[0] untouched */
+    {
+        const int Head[5] = {0, 0, 1, 2, 3};
+        const int expect[5] = {0, 0, 0, 0, 0};
+        check_update_root(Head, expect, 5, 4, 0);
+    }
+    /* (d) node 3's parent 1 is already below r = 2: the writes stop after node 3 */
+    {
+        const int Head[5] = {0, 0, 1, 1, 3};
+        const int expect[5] = {0, 0, 1, 2, 2};
+        check_update_root(Head, expect, 5, 4, 2);
+    }
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_fof_update_root),
         cmocka_unit_test(test_fof),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
