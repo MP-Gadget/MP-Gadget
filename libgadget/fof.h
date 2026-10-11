@@ -11,6 +11,8 @@ void set_fof_params(ParameterSet * ps);
 void fof_init(double DMMeanSeparation);
 /* For the tests*/
 void set_fof_testpar(int FOFSaveParticles, double FOFHaloLinkingLength, int FOFHaloMinLength);
+/* For tests/test_fof.c only: calls the static update_root(i, r, Head). */
+void fof_update_root_for_test(int i, int r, int * Head);
 
 struct BaseGroup {
     int OriginalTask;
