@@ -85,7 +85,7 @@ init_thermalvel(struct thermalvel* thermals, const double v_amp, double max_fd,c
 
 /*Generate a table of random seeds, one for each pencil.*/
 unsigned int *
-init_rng(int Seed, int Nmesh)
+init_rng(int64_t Seed, int Nmesh)
 {
     unsigned int * seedtable = (unsigned int *) mymalloc("randseeds", Nmesh*Nmesh*sizeof(unsigned int));
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);

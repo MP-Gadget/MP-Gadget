@@ -19,7 +19,7 @@ struct genic_config {
     int Nmesh;
     double BoxSize;
     int ProduceGas;
-    int Seed;
+    int64_t Seed;
     int UnitaryAmplitude;
     int InvertPhase;
     int PrePosGridCenter;

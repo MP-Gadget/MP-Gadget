@@ -36,7 +36,7 @@ double
 WDM_V0(const double Time, const double WDM_therm_mass, const double Omega_CDM, const double HubbleParam, const double UnitVelocity_in_cm_per_s);
 
 unsigned int *
-init_rng(int Seed, int Nmesh);
+init_rng(int64_t Seed, int Nmesh);
 
 
 #endif

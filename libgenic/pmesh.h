@@ -62,7 +62,7 @@ SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 }
 
 static void
-pmic_fill_gaussian_gadget(PMDesc * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
+pmic_fill_gaussian_gadget(PMDesc * pm, double * delta_k, int64_t seed, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* Fill delta_k with gadget scheme */
     int d;
