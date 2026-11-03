@@ -129,8 +129,7 @@ build-tests: $(TESTBIN)
 test : build-tests
 	trap 'err=1' ERR; for tt in $(SUITE) ; do \
 		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
-            OMPI_MCA_rmaps_base_oversubscribe=1 \
-			mpirun -np 4 .objs/$$tt ;  \
+			mpirun --oversubscribe -np 4 .objs/$$tt ;  \
 		else \
 			.objs/$$tt ; \
 		fi ;  \
