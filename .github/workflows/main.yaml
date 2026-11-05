@@ -47,7 +47,7 @@ jobs:
         make test
     - name: Install python packages for make_class_power
       run: |
-        sudo pip install classy==3.3.1 bigfile
+        sudo pip install classy bigfile
     - name: examples/travis
       run: |
         cd examples/travis
@@ -78,11 +78,7 @@ jobs:
         # versions in-place (no RECORD file), so installing into the system
         # environment fails. The venv shadows them instead of uninstalling.
         python3 -m venv --system-site-packages "$HOME/nbodykit-venv"
-        # Pin numpy<2 so we keep the system numpy 1.26. The apt-installed
-        # pandas/numexpr are C extensions built against numpy 1.x and crash
-        # under numpy 2 (ABI change). Keeping numpy<2 also holds scipy at the
-        # system version, avoiding the upgrade cascade entirely.
-        "$HOME/nbodykit-venv/bin/pip" install nbodykit "numpy < 2"
+        "$HOME/nbodykit-venv/bin/pip" install nbodykit
     - name : Check travis results
       run: |
         cd examples/travis
