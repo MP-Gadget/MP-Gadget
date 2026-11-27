@@ -528,7 +528,7 @@ int hierarchical_gravity_accelerations(const ActiveParticles * act, PetaPM * pm,
     walltime_measure("/Timeline/HierGrav/Init2");
     /* Tree with moments but only particle timesteps below this value.
      * Done for all currently active gravitational particles.
-     * Stores acceleration in P[i].GravAccel.*/
+     * Stores acceleration in GravAccel.*/
     grav_short_tree_build_tree(lastact, pm, ddecomp, StoredGravAccel.GravAccel, times->Ti_Current, rho0, HybridNuGrav, EmergencyOutputDir);
 
     /* We need to do the kick here based on the acceleration at the current level,
