@@ -95,7 +95,7 @@ struct grav_accel_store
 /* Assigns new short-range timesteps, computes short-range gravitational forces
  * and does the gravitational half-step kicks.
  * Note this does not compute the initial accelerations: hierarchical_gravity_accelerations should be run FIRST.
- * Re-uses the gravity memory from StoredGravAccel.*/
+ * The longest bin uses FullTreeGravAccel on a PM step and StoredGravAccel otherwise; frees StoredGravAccel.*/
 int hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir);
 
 /* Computes short-range gravitational forces and

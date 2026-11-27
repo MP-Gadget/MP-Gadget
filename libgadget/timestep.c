@@ -291,8 +291,8 @@ grav_short_tree_build_tree(const ActiveParticles * subact, PetaPM * pm, DomainDe
 
 
 /* Assigns new short-range timesteps, computes short-range gravitational forces
- * and does the gravitational half-step kicks. Uses the accelerations in StoredGravAccel
- * for the longest timestep if available, otherwise uses FullTreeGravAccel, */
+ * and does the gravitational half-step kicks. The longest bin takes its acceleration from
+ * FullTreeGravAccel on a PM step and from StoredGravAccel otherwise, then frees StoredGravAccel.*/
 int
 hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, DomainDecomp * ddecomp, struct grav_accel_store StoredGravAccel, DriftKickTimes * times, const double atime, int HybridNuGrav, int FastParticleType, Cosmology * CP, const char * EmergencyOutputDir)
 {
@@ -327,7 +327,10 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     else
         subact[0] = build_active_sublist(act, largest_active, times->Ti_Current);
     const double rho0 = CP->Omega0 * 3 * CP->Hubble * CP->Hubble / (8 * M_PI * CP->GravInternal);
-    /* The acceleration stored in StoredGravAccel is from the longest timestep for the previous half-step.
+    /* On a PM step every particle is active and its record holds the longest bin's acceleration; the record
+     * moves with the particle when an output reorders the particles, while StoredGravAccel keeps the force order.*/
+    MyFloat (* LongestAccel)[3] = isPM ? NULL : StoredGravAccel.GravAccel;
+    /* The longest bin's acceleration is from the force computation of the previous half-step.
      * We can re-use that as nothing has been drifted since then, so we don't need to recompute here.
      * Use this to compute the largest timesteps. It is possible to avoid recomputing all the sub-step
      * accelerations as well, but the memory cost was too much, because we need to allocate enough for
@@ -349,8 +352,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
             continue;
         double dloga_gravity;
         double * GravAccel;
-        if(StoredGravAccel.GravAccel)
-            GravAccel = StoredGravAccel.GravAccel[pa];
+        if(LongestAccel)
+            GravAccel = LongestAccel[pa];
         else
             GravAccel = P[pa].FullTreeGravAccel;
         dloga_gravity = get_timestep_gravity_dloga(pa, GravAccel, atime, hubble);
@@ -412,8 +415,8 @@ hierarchical_gravity_and_timesteps(const ActiveParticles * act, PetaPM * pm, Dom
     /* Set maximum timebin for second-half of the step*/
     times->maxtimebin = largest_active;
     walltime_measure("/Timeline/HierGrav/Init");
-    /* Do the kick for the topmost bin using GravAccel in the particle struct.*/
-    apply_hierarchical_grav_kick(subact, CP, times, StoredGravAccel.GravAccel, largest_active, largest_active);
+    /* Do the kick for the topmost bin with the same acceleration that set its timesteps.*/
+    apply_hierarchical_grav_kick(subact, CP, times, LongestAccel, largest_active, largest_active);
     if(StoredGravAccel.GravAccel)
         myfree(StoredGravAccel.GravAccel);
 
