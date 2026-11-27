@@ -694,7 +694,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
              * If we do collect, reset active list size.*/
             int compact[6] = {0};
             if(slots_gc(compact, PartManager, SlotsManager))
-                Act.NumActiveParticle = PartManager->NumPart;
+                Act.NumActiveGravity = Act.NumActiveParticle = PartManager->NumPart;
         }
         FOFGroups fof = {0};
         if(WriteFOF) {
@@ -722,6 +722,7 @@ run(const int RestartSnapNum, const inttime_t ti_init, const struct header_data 
                 /* Not strictly necessary, but a good idea for performance*/
                 slots_gc_sorted(PartManager, SlotsManager);
             }
+            Act.NumActiveGravity = Act.NumActiveParticle = PartManager->NumPart;
         }
 
         /* Write the potential planes*/
